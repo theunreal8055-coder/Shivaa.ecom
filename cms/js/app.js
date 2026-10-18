@@ -2971,7 +2971,8 @@ document.addEventListener('visibilitychange', () => {
   if (Date.now() - _lastRatesAt > maxAge) { loadRates(); scheduleRatesPoll(); }
   else if (!_ratesTimer) scheduleRatesPoll();
 }, { passive: true });
-// v2026-09-14 — bullion millisecond smooth: 60fps interpolation so the ticker *looks* like it moves every millisecond
+// v2026-09-14 — bullion millisecond smooth: interpolation so the ticker *looks* like it moves every millisecond
+// (v232: it lerps only while a number is still moving — see below).
 // Real MCX tick is still 1/sec (exchange limit), but the display lerps between ticks so customers see smooth motion.
 /* v232 — …but it only interpolates now while there is something to interpolate.
    Measured before this change: _msTick() asked for 60 frames a second from the
@@ -12295,21 +12296,67 @@ $$('.nav-drop > a').forEach(a => {
 const setHeaderH = () => { const h = document.getElementById('header'); if (h) document.documentElement.style.setProperty('--headerH', Math.round(h.getBoundingClientRect().bottom) + 'px'); };
 addEventListener('resize', setHeaderH, { passive: true });
 // magnetic buttons + glare-follow on extra cards (5D layer)
+/* v232 — the same disease the tilt had, in the two pointer effects that were
+   left. `bindMagnetic` hung a `mousemove` on EVERY primary/gold/outline button
+   and on every .catlog/.testi/.acct-tile/.addr-card, and each event ran
+   `getBoundingClientRect()` before writing: a forced layout per pointer event,
+   with a page full of buttons (the header alone has several) and no frame
+   coalescing. One delegated listener now serves both effects, the rect is
+   cached for as long as the pointer stays on the element, and the write
+   happens once per frame. The maths is byte-identical: 7 px across and 5 px
+   down for a magnetic button, and the glare's two percentages.
+   One honest difference: where a button sits INSIDE a glare card, the old code
+   ran both effects (two listeners); a delegated listener can only see the
+   nearest match, so the button wins. A card effect behind a button is invisible
+   anyway. */
+const MAG_SEL = '.btn-primary, .btn-gold, .btn-outline';
+const GLARE_SEL = '.catlog, .testi, .acct-tile, .addr-card';
+let _mgArmed = false, _mgRaf = 0, _mgPt = null, _mgEl = null, _mgRect = null, _mgKind = 0;
+function _mgRest() {
+  if (_mgEl && _mgKind === 1) _mgEl.style.transform = '';
+  _mgEl = null; _mgRect = null; _mgPt = null; _mgKind = 0;
+}
+function _mgFrame() {
+  _mgRaf = 0;
+  const el = _mgEl, pt = _mgPt;
+  if (!el || !pt || document.hidden) return;
+  if (!el.isConnected) { _mgRest(); return; }
+  if (!_mgRect) _mgRect = el.getBoundingClientRect();
+  const r = _mgRect;
+  if (!r.width || !r.height) return;
+  if (_mgKind === 1) {
+    const dx = (pt.x - r.left - r.width / 2) / r.width, dy = (pt.y - r.top - r.height / 2) / r.height;
+    el.style.transform = `translate(${dx * 7}px, ${dy * 5}px)`;
+  } else {
+    el.style.setProperty('--gx', ((pt.x - r.left) / r.width * 100) + '%');
+    el.style.setProperty('--gy', ((pt.y - r.top) / r.height * 100) + '%');
+  }
+}
 function bindMagnetic(scope = document) {
   // v42: disabled entirely on mobile/touch — major source of scroll-jank & flicker
   const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
   if (_mob) return;
   // binds everywhere; motion only matters on fine pointers
-  $$('.btn-primary,.btn-gold,.btn-outline', scope).forEach(b => {
-    if (b._mag) return; b._mag = true; b.classList.add('magnetic');
-    b.addEventListener('mousemove', e => { const r = b.getBoundingClientRect(); const dx = (e.clientX - r.left - r.width / 2) / r.width, dy = (e.clientY - r.top - r.height / 2) / r.height; b.style.transform = `translate(${dx * 7}px, ${dy * 5}px)`; });
-    b.addEventListener('mouseleave', () => { b.style.transform = ''; });
-  });
-  $$('.catlog,.testi,.acct-tile,.addr-card', scope).forEach(c => {
-    if (c._glare) return; c._glare = true;
-    c.addEventListener('mousemove', e => { const r = c.getBoundingClientRect(); c.style.setProperty('--gx', ((e.clientX - r.left) / r.width * 100) + '%'); c.style.setProperty('--gy', ((e.clientY - r.top) / r.height * 100) + '%'); });
-  });
+  $$(MAG_SEL, scope).forEach(b => b.classList.add('magnetic'));
+  if (_mgArmed) return;
+  _mgArmed = true;
+  addEventListener('scroll', () => { _mgRect = null; }, { passive: true });
+  addEventListener('resize', () => { _mgRect = null; }, { passive: true });
+  document.addEventListener('mousemove', e => {
+    const t = e.target;
+    const el = (t && t.closest) ? t.closest(MAG_SEL + ',' + GLARE_SEL) : null;
+    if (!el) { _mgRest(); return; }
+    if (el !== _mgEl) {
+      if (_mgEl && _mgKind === 1) _mgEl.style.transform = '';
+      _mgEl = el; _mgRect = null;
+      _mgKind = el.matches(MAG_SEL) ? 1 : 2;
+    }
+    _mgPt = { x: e.clientX, y: e.clientY };
+    if (!_mgRaf) _mgRaf = requestAnimationFrame(_mgFrame);
+  }, { passive: true });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) _mgRest(); }, { passive: true });
 }
+window.__shvMagnetic = { get el() { return _mgEl; }, get kind() { return _mgKind; } };
 // Pause heavy banner motion whenever the banner is off screen.
 // Keeps long pages at 60fps without giving up the motion-poster feel.
 window._kenIO = null;

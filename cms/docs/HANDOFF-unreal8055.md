@@ -1,6 +1,139 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
 ---
+**v232 — THE IDLE RELEASE** (2026-10-18). The owner's report was one line:
+*"App is not feeling smooth, it should feel like buttery smooth and ultra smooth,
+without decreasing the quality."* So this release measured the app before
+touching it, and then removed work. **Deploy v232** — it contains v229, v230 and
+v231.
+
+**What the measurement found.** A silent home page — no input, no scrolling,
+nothing on screen moving — asked `requestAnimationFrame` for **1264 frames in
+twelve seconds**, and **1148 of them came from two loops that never stop**:
+
+| loop | where | what it did | frames in 12 s |
+|---|---|---|---|
+| `_msTick` | `app.js` (bullion interpolator) | lerped the gold/silver ticker at 60 fps forever, with **two `document.querySelector` calls inside every frame**, whether or not a number was still moving, whether or not the tab was open | 574 |
+| `glow` | `app.js` (cursor glow) | wrote **`style.left` / `style.top`** at 60 fps forever — a forced layout of a 340 px `mix-blend-mode:screen` layer per frame — with the mouse parked, and on a page where the element is `display:none` | 574 |
+
+That is an **idle rate of 123 frames a second**: the main thread never once went
+quiet between app.js parsing and the tab closing, so every scroll, every tap and
+every image decode had to queue behind it. After the change the same window
+measures **0 frames a second**.
+
+1. **Both loops now run only while there is something to move.** The
+   interpolator keeps its two nodes (re-finding them only when a route has
+   rebuilt the strip), wakes on a `rates` event, **arrives exactly on the last
+   frame** instead of stopping 0.01 short, and stands down while the tab is
+   hidden. Same `0.14` easing, same rounding, same text. The glow sits at a
+   `0,0` origin (`css/v232.css` §4) and moves on a `translate3d`, wakes on a
+   real `mousemove`, and ends the moment it catches up with a parked pointer;
+   its growth on a hot target uses the `scale` property (`460/340 = 1.3529`)
+   instead of animating `width`/`height`, inside `@supports (scale:1)` so the
+   old rule stays as the fallback. The rates poll also stops in a hidden tab —
+   it was asking the server for gold **once a second** with nobody watching —
+   and restarts on the way back, which the existing visibility handler already
+   anticipated.
+2. **One tilt engine instead of a listener per card.** `bindTilt()` hung a
+   `mousemove` on **every** `.p-card`/`.cat-card`/`.poster`/`.testi` it was
+   handed (a hundred-piece grid = a hundred listeners) and each event ran
+   `getBoundingClientRect()` and then wrote a transform: a forced layout and a
+   paint per pointer event, with no frame coalescing, so a mouse reporting at
+   120 Hz bought 120 layouts a second. `init3DCardTilts()` did the same for four
+   more families **and hung a `touchmove` on them** — a layout read per touch
+   event *while the page is scrolling*, the most expensive thing a phone can be
+   asked to do under a moving thumb. There is now one delegated `mousemove` and
+   one `touchmove` for the whole document: the rect is taken **once per card
+   visit** (a touch gesture takes it at `touchstart` and reuses it), the write
+   is coalesced into one frame, and a gesture that turns out to be a scroll
+   stands the tilt down instead of wobbling a card the reader is trying to read
+   past. Measured in jsdom: ten pointer moves over one card = **one** layout
+   read, twenty more on a settled card = **zero**. Selectors, degrees,
+   perspective and resting transforms are unchanged. The same treatment went to
+   the two pointer effects next door: `bindMagnetic()` hung a `mousemove` on
+   every primary/gold/outline button and on every
+   `.catlog`/`.testi`/`.acct-tile`/`.addr-card`, each reading a rect per event;
+   both now share one delegated listener, one cached rect and one write per
+   frame, with identical maths (7 px across, 5 px down, the glare's two
+   percentages).
+3. **A press answer that has been dead on every phone since v226 shipped.**
+   v226 wrote `.p-card:active, .cat-card:active { transform: translateY(1px)
+   scale(.985) }`, and `styles.css:4637` has said
+   `.p-card,.cat-card,.poster,.testi { transform:none !important }` under
+   `@media (max-width:820px)` since v42 — an important declaration beats a
+   normal one whatever the order, so **the product card, the category card and
+   the offer banner (`v219.css:129` neutralises that one on coarse pointers)
+   have never answered a finger.** `css/v232.css` §1 restores all three with
+   v226's own values, marked important for the same reason v226 marked its
+   anchor list, in both phone guards separately (a nested media list inside an
+   `and` is Media Queries 4 and a rule that silently fails to parse is how the
+   press went missing), and inside `prefers-reduced-motion: no-preference` with
+   a §6 block that turns it back off.
+4. **A layer per card, a blur per card, a decode on the frame.** Nine card
+   families carry a permanent `will-change:transform` (`styles.css:1532`) — a
+   GPU layer reserved per element for a hover a finger cannot trigger; v121,
+   v139 and v225 reset `.p-card` alone, so the other eight were still reserving
+   one each, forever. §2 releases all nine, promotes only while a pointer is
+   actually over the card (Chrome re-promotes by itself for the length of any
+   transform transition, so nothing is lost), and flattens on touch — the same
+   treatment `styles.css:4640` has given the four tilt families since v42. On a
+   phone **every product card's quick-view pill is permanently visible**
+   (`@media (hover:none){.pc-quick{opacity:1}}`) **and carries
+   `backdrop-filter:blur(6px)` behind a fill that is already
+   `rgba(255,252,244,.96)`**: fourteen backdrop filters in this bundle sit
+   behind a fill of 0.94 or more, where the backdrop contributes at most 6 % of
+   a pixel. §3 takes the blur off the one that multiplies with the catalogue and
+   closes its fill to `.98` — the pill reads *more* solid, and its own text
+   contrast is unchanged. The fixed bars were measured and **keep their glass**:
+   two of them on screen at once is not a hundred. `app.js` also sweeps and
+   watches for `decoding="async"` now, because **56 of the 68 `<img>` literals
+   it renders had no `decoding` attribute** and an image whose bytes land while
+   a thumb is moving can be decoded on the main thread inside that frame; the
+   images that *are* the largest contentful paint (`#preloader`, `.hero`,
+   `.page-hero`, `.poster`, `.c-slide`, `.gal-track`, `[data-lcp]`) and anything
+   the markup marked `loading="eager"` or `fetchpriority="high"` are skipped, so
+   this release does not buy one kind of smooth with another.
+
+**`content-visibility` is deliberately untouched.** v117/v121/v122/v214/v215
+tried it and v217 sealed it off: with a fixed height guess the page height
+changed as the shopper scrolled, the browser lost its place, and the page jumped
+toward the top — the owner's "it refreshes while scrolling". Off-screen skipping
+is not worth that, and `#view *` is forced `visible !important` to this day.
+
+New suite `qa/browser/t-v232-idle.mjs` (**87 assertions**): it counts frames in
+a silent three-second window (**at most one**, where the same window asked for
+~370 before) and then proves the counter is not a dead instrument by counting
+the frames a real `mousemove` wakes; it instruments `getBoundingClientRect` and
+proves one read per card visit, one more when the pointer moves to the next
+card, one more after a scroll, and zero for twenty moves on a settled card; it
+proves the v42 gate still holds on a phone; it proves the decode governor swept
+76 images, governs one inserted after boot, and leaves an eager image and a hero
+image alone; it hides the tab and proves the server is not asked for anything,
+then shows it and proves the poll comes back. The cascade facts (which jsdom
+cannot resolve, because it applies no media queries) are asserted against the
+shipped bundle: both press declarations, why v232's wins, the nine released
+families, the three places the blur is switched off and the desktop rule that
+keeps it. New gate **`bash qa/v232-gate.sh`** → **23 checks, 0 red**, with v231
+(53/0), v230 (61/0) and v229 (bills 102/0, black 88/0, routes 61/0) still green.
+**This release adds no new request** — the governors live in `app.js`, next to
+the loops they govern, and `css/v232.css` is the 66th cascade position
+(910,723 B raw / 179,425 B gzipped).
+
+**Eight red lines on the first run of the new suite, and not one of them was the
+release.** Six were assertion faults of the families this repo keeps
+re-meeting: an anchor written against a **comment** in a string whose comments
+had been stripped (`indexOf` of the prose, not the code); a count taken against
+**raw** text in one half of an `&&` and **whitespace-normalised** text in the
+other, so the two halves disagreed about what a rule looks like; a passive-
+listener check written as a double negative over the whole file instead of over
+the one function; `indexOf` where the assignment appears **twice** in the
+function, so the check compared the wrong one (use `lastIndexOf` and say why).
+The other two were the suite measuring the page before it had finished mounting
+late blocks, so unrelated reads landed in the tilt tally — **a frame-cost
+assertion needs a settle, and the settle has to be longer than the last late
+mount.** Both are now in the suite as comments, because the next person to write
+a timing assertion will not read this paragraph.
+
 **v231 — THE ENGRAVED LAYER** (2026-10-18). The owner's two reports were already
 fixed in v230; he asked for the graphics to go further and the app to be smoother,
 so this release does the three things v230 left open. **Deploy v231** — it contains
@@ -258,15 +391,21 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 231 pending owner review — nothing deployed without the
+**COUNTDOWN: release 232 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today: **v228** (the owner uploaded it on 17 Oct
 2026 and reported it "working fine and good"; v206–v227 went live with it).
-Built and shipped to this repository, **not live**: **v229, v230, v231**.
-**Deploy v231** — it contains v229 and v230; v229 on its own quotes 25% to
-members, which the owner has called a false claim, and v230 on its own leaves the
-legibility fix one class-list edit away from dead.
+Built and shipped to this repository, **not live**: **v229, v230, v231, v232**.
+**Deploy v232** — it contains all three; v229 on its own quotes 25% to members,
+which the owner has called a false claim, v230 on its own leaves the legibility
+fix one class-list edit away from dead, and v231 on its own still has two loops
+asking for 123 frames a second on a page nobody is touching.
 
-Last updated: 2026-10-18 (v231 "The Engraved Layer" — the certificate name fix is
+Last updated: 2026-10-18 (v232 "The Idle Release" — the two loops that never slept
+now sleep, one delegated tilt engine replaces a listener and a layout read per card,
+the press answer v226 wrote for a phone comes back, nine card families stop reserving
+a GPU layer each, the quick-view pill every phone shows on every card stops blurring a
+backdrop it cannot see, and images decode off the frame. Earlier the same day: v231
+"The Engraved Layer" — the certificate name fix is
 now stated on the bare selector so no class-list edit can lose it, the sheet gains a
 microtext security band rendered from an attribute, the guilloche paints two 58px
 bands instead of a full sheet, corners are engraved with diamonds, and the member rate
@@ -377,9 +516,10 @@ modified.
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is **v228**;
-   **v229, v230 and v231 are built and pending the owner's yes** (deploy **v231** —
-   it contains both, corrects v229's 25% claim and makes the certificate-name fix
-   structural); **the next release is v232**.
+   **v229, v230, v231 and v232 are built and pending the owner's yes** (deploy
+   **v232** — it contains all three, corrects v229's 25% claim, makes the
+   certificate-name fix structural and takes the idle frame rate to zero); **the
+   next release is v233**.
    Never deploy an older tree over a newer live one. No reverts, no force-pushes,
    no resurrecting old zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -447,7 +587,8 @@ modified.
 | v225 | The App-Feel Release: the frame the phone paints while a thumb is moving. (1) **one scroll frame** — `app.js` and `aurum.js` each ran their own scroll listener on their own rAF and each read `documentElement.scrollHeight` + `clientHeight` on **every frame**; `js/v225.js` now owns the chrome from one passive listener and one rAF, measuring the geometry only when it can change (resize, route, a `ResizeObserver` on the body, three late passes) and quantising the writes (bar 0.1%, ring 1/120 of a turn). A six-event scroll burst reads the document **zero** times; `hub.measures` does not move, and a resize does re-measure. Both old handlers feature-detect `window.__shvHub` and stand down, so a warm cache can never leave the bar with two writers or none. (2) **parallax on the phone** — feature 12 was gated to `(hover:hover) and (pointer:fine)` over 1023px; a coarse pointer now runs it at **11px instead of 26**, still off for reduced-motion and `au-lite`, still tagged only within 80px of the viewport, and each element's document offset is **cached** (re-taken when the hub reports the document changed shape) so a scroll frame performs **no `getBoundingClientRect()`** on any device; a detached element is dropped instead of being written to for ever from a 0×0 box. (3) **two infinite repaint loops become composited sweeps** — `@keyframes mSkeleton` (the PDP skeleton ×7, plus `.pc-imgwrap` / `.tv-ph` while a photo loads, which is **every** product card) and `@keyframes auProg` (the 3px progress bar, which never idled for a second of any visit) animated `background-position`, which no browser can composite. Both now move a pseudo-element with `translate` — same colour, speed and angle; `.pc-imgwrap::after` is already the gold hairline, so the placeholder sweep is a `::before` at z-index 0 with the photos lifted while the placeholder is live. (4) **a card is no longer a GPU layer on a phone** — `.p-card` reserved `will-change: transform` for a hover state a finger cannot trigger (20–60 layers held in video memory on a shop page); `html.au-touch .p-card { will-change: auto }`, desktop untouched. (5) **rails** — eight `overflow-x:auto` rails (`.cat-chips`, `.adr-sw`, `.stages`, `.sz-strip-wrap`, `.tabs`, `.acct-nav`, `.adm-nav`) plus the scheme stepper gain `scroll-snap-type: x proximity`, snap points on their children and `overscroll-behavior-x: contain`, so a flick parks on a label and a swipe at the end cannot become the browser's back gesture. (6) **tablets** — the v224 16px focus-zoom floor extended to the 681–900px band (an iPad in portrait is 768px), same field list, still no `!important`, so nothing large can shrink. (7) **depth and digits** — twelve more live numeral strips go tabular, `.p-card` gets the house gold hairline (`rgba(212,175,90,.14)`, `.42` + a wine-tinted shadow on hover) and the Android grey tap flash is suppressed on the eight card/chip/tile selectors that already answer with their own press transform. New suite `qa/browser/t-v225-appfeel.mjs` (80 assertions). | built, delivered to owner |
 | v226 | The Butter Release: every click answers. (1) **press physics** — the measurement above; each dead family now has a transform press, and on a finger the rules carry `!important` because `mobile.css`'s `*:hover{transform:none!important}` would otherwise erase them. (2) **ripple + haptic** — `js/v226.js` reuses the v89 `.rip` span: small controls ripple at touch-down, big surfaces (a product card, a list row) ripple only on a real tap so starting a scroll never lights them up, rail items ripple on release so a flick cannot fire a ripple on every chip it passes, and the host is clipped only for the 700 ms the ripple is alive. One 5 ms vibration on a real tap, gated like the house gates haptics (coarse AND not reduced-motion). (3) **rail centring** — tapping a chip, tab or step in a snapped rail glides that item to the middle of the rail. (4) **badges** — the wish and compare counters pop with the same `mBump` keyframe the cart badge has used since v89. (5) **route jump** — `html.route-jump` makes the router's scroll-to-top instant for that one navigation instead of animating a long slide of the page being left. (6) **pace bar** — a 2px gold hairline sweeps the top of the screen only when the next page takes longer than 180 ms; on a fast tap nothing is created. (7) **view transitions** — where `startViewTransition` exists the content cross-fades (6-10px, transform/opacity) while the chrome stays still and the entrance stands down for that navigation; skipped for reduced motion, for `au-lite` devices and for a link marked `data-no-vt`. New suite `qa/browser/t-v226-butter.mjs` (61 assertions). | built, delivered to owner |
 | v227 | The Reading Layer: (1) **the black-card claim works from every product page** — the reader demanded `[data-black-claim] [data-bc-intake]`, which only exists on `#/black-card`, so a PDP tap returned "Enter your name", stopped there, and the status writer had nowhere to write either; the reader is form-aware, the invite card carries its own status line, the claim falls back to the account name and sends a nameless account to the page that asks, and the post-login auto-claim prefills its form first. (2) **forgot-password is mobile-first** — 4-digit code to the registered mobile, then new password + repeat, real 30 s resend; `api.php` takes `{phone}` or `{email}` and always texts the registered mobile. (3) **home page** — the rate ribbon printed `₹₹` on every figure, the legacy hero hint was a bare `<div>` that ate taps, the home hero's "discover" measured 44 % white in 60 % opacity, and the news logo + mega feature art loaded eagerly with no intrinsic size. (4) **the reading layer** — footer bleed follows the nav's measured height, late mounts are still deferred, the rail centres its active chip without moving the page and stops animating under reduced motion, and the deepest footer gold is readable. Suites: blackcard 28, reset 31, design 41. Packaged as `shivaa-update-v227.zip`. |
-| v230→v231 note | v231 supersedes v230 and v229; deploy **v231** only. | — |
+| v231→v232 note | v232 supersedes v231, v230 and v229; deploy **v232** only. | — |
+| v232 | **The Idle Release**: the owner said the app does not feel smooth. Measured first: a silent home page asked for **1264 animation frames in twelve seconds**, **1148 of them from two loops that never stop** — `_msTick` (the bullion interpolator, two `document.querySelector` calls per frame, forever, hidden tabs included) and the cursor glow (which wrote **`style.left`/`style.top`** at 60 fps, a forced layout of a 340 px `mix-blend-mode:screen` layer per frame, with the mouse parked). Idle rate **123 frames/s → 0**. `bindTilt()` hung a mousemove **per card** and read a rect **per event**; `init3DCardTilts()` hung a touchmove on four families, i.e. a layout read per touch event *while scrolling* — one delegated engine now takes **one rect per card visit** and **one write per frame**, and a scroll gesture stands the tilt down. **A press answer dead on every phone since v226**: `styles.css:4637` (`transform:none !important` at ≤820px) and `v219.css:129` beat v226's `.p-card:active`/`.cat-card:active`/offer-card rules, so the three things a shopper taps most never answered a finger — restored with v226's own values, important, gated on `no-preference`. Nine card families stop reserving a permanent GPU layer each (promoted only while a pointer is over them, flat on touch); the quick-view pill every phone shows on every card stops carrying `backdrop-filter:blur(6px)` behind a fill that is already 96 % opaque (and closes to .98, so it reads *more* solid); 56 of 68 `<img>` literals get `decoding="async"` except the LCP set; a hidden tab stops polling the gold rate every second. `content-visibility` deliberately untouched — v217 sealed it after the page-jump bug. New `qa/browser/t-v232-idle.mjs` (**87** — counts frames in a silent window, counts layout reads per pointer move, proves the counter is live, hides the tab); gate `bash qa/v232-gate.sh` → **23 checks, 0 red** with v231 53/0, v230 61/0, v229 bills 102/0, black 88/0, routes 61/0. **361 files** (adds `css/v232.css`; **no new request** — the governors live in `app.js`). | built, awaiting the owner's yes — **deploy this** |
 | v231 | **The Engraved Layer**: the owner asked for the graphics to go further and the app to be smoother, after v230 fixed his two reports. (1) **The ink fix became structural** — v230 keyed its reset on `.bc-certificate.v230 .bc-cert-name`, which is one class-list edit away from dead, so v231 states the same four-mechanism reset on the **bare** `.bc-cert-name` with `!important` and gives every other line of the document `-webkit-text-fill-color: currentColor` + `background-clip: border-box`; that guard restates **no colours**, so a future layer can still restyle the sheet. (2) **Microtext**: one 9px band of 5.5px letterspaced text under the top border, rendered from `data-microtext` via `content: attr()` (no text node, nothing duplicated), reading `SHIVAA FAMILY · PRESTIGIOUS MEMBER · SHIVAA JEWELS JAIPUR · NOT A FINANCIAL INSTRUMENT` — the banknote cue the HTML sheet never had. One band only: a pseudo-element of a 9px parent cannot reach the foot of a 600px sheet. (3) **Paint**: the guilloche was a full-sheet element whose gradients were merely *positioned* as bands, so the browser rasterised ~900×600; it is now two **58px** elements (44px on a phone) with a `.bc-guilloche-foot` modifier — same artwork, about a fifth of the area, and the suite asserts the height because "less paint" is a claim about a number. Plus engraved corner diamonds (still exactly four), a pressed rather than glowed title, and crisp ink on the card's benefit plate. Still **no keyframes / transitions / will-change / filter**; `contain:paint` from v230 still isolates the sheet. New `qa/browser/t-v231-ink.mjs` (**53** — recomputes both WCAG ratios, checks the bare-selector reset lands **after** the foil rule in the shipped bundle, counts the guilloche nodes, and proves 20 is a default by moving the setting to 21); gate `bash qa/v231-gate.sh` → **22 checks, 0 red** with v230 61/0, v229 bills 102/0, black 88/0, routes 61/0. **360 files** (adds `css/v231.css`). | built, awaiting the owner's yes — **deploy this** |
 | v230 | **The Legibility Release**: the owner reported that the member's name on the certificate was the same colour as the background. It was — `v201`/`v205` clipped a gold foil into `.bc-cert-name` (`background-clip:text` + `color:transparent` + a dark `drop-shadow`) for the **dark** stage those releases shipped, and the paper certificate is cream, so it measured ~**1.4:1**. v229 had set a colour, which won the cascade but left the treatment in place; `css/v230.css` removes all four mechanisms (`background`, `background-clip`, `-webkit-text-fill-color`, `filter`) with `!important` scoped to ink/foil/print only, and puts ink `#2b1a05` on paper at **15.4:1 / 9.6:1** (AAA), with the same ink in the A4 download and pure black in print. Second report: **25% is a false claim — prestigious members are 20% off making charges**; since v229 the rate is ONE setting, so the *default* moved in `api.php`, `app.js`, the Admin field and the dev mirror, the clamp (0-40) and the owner's control did not, and the fixture now stores 25 so the override is still proven. Graphics taken further (seal with a conic tick band and two rings, engraved double-rule border, denser guilloche, record boxes with an accent edge, the promise line in a cartouche, a signature rule, a hairlined verify strip, a flourish under the name), and smoothness as subtraction: a per-glyph filter and a glyph-clipped gradient removed from the most painted element on the member page, `contain:paint` added, **no keyframes, no transitions, no will-change**. New `qa/browser/t-v230-cert.mjs` (61 assertions — it computes WCAG contrast for both the failing foil and the fixed ink, and proves 20 is a default by moving the setting to 22); new gate `bash qa/v230-gate.sh` → **21 checks, 0 red** with v229 still green (bills 102/0, black 88/0, routes 61/0). **358 files** (adds `css/v230.css`). | built, awaiting the owner's yes — **deploy this, not v229** |
 | v229 | **The Paperwork Release**: (1) `Admin → Shivaa Black` — members were only ever rows in `users[]`, so there was nowhere to see who holds a card, when it runs out, or which free plastic cards still have to be printed and posted; the tab adds the list, a summary strip, filters, per-member **↻ Renew** (1-36 months, a live card **extends from its own expiry**), **🖶 Printed → ✔ Shipped**, CSV, a printable posting list of address labels and a sidebar badge fed by `GET /api/admin/black-card/queue`. (2) **Renewal exists**: `POST /api/black-card/renew`, open only in the last 30 days of validity or after expiry (else **409** naming the days left), rate-blocked 6/h, keeping `memberId`/`cardNumber`/`certificateNo` and adding six **calendar** months. (3) **The offer gap closed**: the member percentage was a literal 20 in nine places — exactly what public `MAKING20` gives a guest — and is now ONE setting, `settings.blackDiscountPct` (default **25**, 0-40, 0 = off without deleting cards), resolved once per request; no coupon row per member, so one number moves everybody and no card number changes, while `blackOrderPct(o)` keeps historical receipts on the rate they actually paid. (4) **In-store bills**: owner-side upload only, `.shivaa-private-bills` **beside** the docroot (env override, 0700/0600, no symlinks, magic bytes in *and* out), streamed **by index** with `no-store`/`nosniff`/`SAMEORIGIN`; the customer page `#/my-bills` has **exactly two verbs, View and Download**, and `bill_public($b,$admin)` never sends the owner's note or a stored `ref` to a customer; unavailable storage is a **503 that says nothing was saved** plus an amber box, and erasure anonymizes bills at **both** routes because a bill is a GST record. (5) **The certificate is a document**: four record boxes (certificate no and member ID are different identifiers and shared one box), valid-through, a promise line with the percentage, both dates and the scope, a signatory **with a title**, a verify line naming `shivaa.in` and the certificate number, `RENEWED n×`, one guilloche band, four corner ornaments (the old markup shipped `c4` twice), an archived pill that turns **gold** not grey, and an **A4 landscape 3508×2480 @300 dpi** download. Gate: `bash qa/v229-gate.sh` → **20 checks, 0 red**; new suites `t-v229-black` 88/0, `t-v229-bills` 102/0, `qa/v229-routes.py` 61/0. | built, awaiting the owner's yes |
@@ -484,12 +625,23 @@ modified.
   (`window.__blobStore`) so a suite can prove that opening a second file revokes
   the first. `getContext` still returns null by design — the canvas savers always
   take their toast-guard path, so assert the guard, never a blob.
-- **`bash qa/v231-gate.sh`** — the current release gate in one command: bundle
-  proof (65 layers / 65 blocks), `qa/phpbal.py cms/api.php`, `node --check` ×5, the
-  sixteen historic suites on the plain fixture, `qa/v229-routes.py`, then the four
-  stateful suites each on a **fresh staffed shim**, then `playstore/verify.mjs`.
-  **22 checks, 0 red** at v231. (`qa/v230-gate.sh` and `qa/v229-gate.sh` are the
-  previous gates, kept for the same reason the older suites are kept.)
+- **`bash qa/v232-gate.sh`** — the current release gate in one command: bundle
+  proof (66 layers / 66 blocks), `qa/phpbal.py cms/api.php`, `node --check` ×6, the
+  sixteen historic suites plus `t-v232-idle` on the plain fixture,
+  `qa/v229-routes.py`, then the four stateful suites each on a **fresh staffed
+  shim**, then `playstore/verify.mjs`. **23 checks, 0 red** at v232.
+  (`qa/v231-gate.sh`, `qa/v230-gate.sh` and `qa/v229-gate.sh` are the previous
+  gates, kept for the same reason the older suites are kept.)
+- `node qa/browser/t-v232-idle.mjs` — the idle release (**87 assertions**, ~45 s,
+  three boots: desktop home, desktop shop, phone shop). It counts
+  `requestAnimationFrame` calls in a silent window and then proves the counter
+  works by counting the ones a real `mousemove` wakes; it instruments
+  `getBoundingClientRect` to prove one read per card visit and zero for twenty
+  moves on a settled card; it hides the tab to prove the rates poll stops.
+  **A frame-cost assertion needs a settle longer than the last late mount** — the
+  first run tallied eight unrelated reads because the page was still mounting.
+  Re-runnable: no login, no mutation.
+- **`bash qa/v231-gate.sh`** — the v231 gate, kept as history (22 checks, 65/65).
 - `node qa/browser/t-v231-ink.mjs` — the engraved layer (53 assertions): both WCAG
   ratios recomputed, the bare-selector ink reset proven to be in the shipped bundle
   **after** the foil rule it replaces, the microtext band checked for `aria-hidden`

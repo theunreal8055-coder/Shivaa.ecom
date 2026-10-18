@@ -1,6 +1,35 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+**v232 — THE IDLE RELEASE** (2026-10-18). *"App is not feeling smooth, it should
+feel like buttery smooth and ultra smooth, without decreasing the quality."*
+Measured before changing anything: a silent home page — no input, no scrolling —
+asked `requestAnimationFrame` for **1264 frames in twelve seconds**, and **1148
+of them came from two loops that never stop**: the bullion interpolator (60 fps
+forever, two `document.querySelector` calls per frame, hidden tabs included) and
+the cursor glow (which wrote `style.left`/`style.top` at 60 fps — a forced
+layout of a 340 px `mix-blend-mode:screen` layer per frame — with the mouse
+parked). **Idle frame rate: 123/s → 0/s.** `bindTilt()` also hung a mousemove on
+**every card** and read a rect **per event**, and `init3DCardTilts()` hung a
+touchmove on four families (a layout read per touch event *while scrolling*);
+one delegated engine now takes one rect per card visit and one write per frame.
+`bindMagnetic()` had the same disease on every button and every glare card, and
+joined the same engine.
+And a press answer has been dead on every phone since v226: `styles.css:4637`
+(`transform:none !important` under `@media (max-width:820px)`) and `v219.css:129`
+beat v226's `.p-card:active` / `.cat-card:active` / offer-card rules, so the
+three surfaces a shopper taps most never answered a finger — `css/v232.css` §1
+restores them with v226's own values. Also: nine card families stop reserving a
+permanent GPU layer each; the quick-view pill every phone shows on every card
+stops carrying `backdrop-filter:blur(6px)` behind a fill that is already 96 %
+opaque; 56 of the 68 `<img>` literals now ask for `decoding="async"` (except the
+largest-contentful-paint set); a hidden tab stops polling the gold rate every
+second. **`content-visibility` stays sealed off** (v217 §1: fixed height guesses
+made the page jump toward the top). Suite `t-v232-idle.mjs` (87), gate
+`bash qa/v232-gate.sh` (23 checks). Packaged as `shivaa-update-v232.zip`; **no
+new request** — the governors live in `app.js`.
+
+---
 **v228 — THE PLAY STORE GATE** (2026-10-17). The owner asked to launch on Google
 Play. The launch kit (`playstore/`, written at v183) was already in the repo and
 green apart from two things; the first was a real gap, not a formality:
@@ -72,17 +101,21 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 228 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v229**.
-Updated 2026-10-17 (v228) from `arena/e8a470c6-shivaa-ecom` (branched from
+**COUNTDOWN: release 232 pending owner review — nothing goes live without the
+owner's explicit yes.** Live: **v228** (uploaded by the owner on 17 Oct 2026,
+"working fine and good"; v206–v227 went live with it, and before that v205).
+Built and not live: **v229, v230, v231, v232 — deploy v232**, which contains all
+three (v229 alone quotes 25 % to members, which the owner called a false claim).
+Forward-only rule in force — next release number is **v233**.
+Updated 2026-10-18 (v232) from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=228`), built from the 61 historical layers (62 cascade
+(stamped `?v=232`), built from the 65 historical layers (66 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v227 bundle: 885,408 B raw / 175,338 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v232 bundle: 910,723 B raw / 179,425 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`

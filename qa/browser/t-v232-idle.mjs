@@ -125,7 +125,7 @@ T('tilt: no card gets its own mousemove listener any more',
   !/card\.addEventListener\('touchmove'/.test(APP_J) &&
   !/card\.addEventListener\('mouseleave'/.test(APP_J));
 T('tilt: the engine is delegated to the document, once',
-  (APP_J.match(/document\.addEventListener\('mousemove'/g) || []).length === 1 &&
+  (APP_J.match(/document\.addEventListener\('mousemove'/g) || []).length === 2 &&   /* tilt + magnetic, one each */
   (APP_J.match(/document\.addEventListener\('touchmove'/g) || []).length === 1);
 const armBody = APP_J.slice(APP_J.indexOf('function _tlArm()'), APP_J.indexOf('window.__shvTilt'));
 T('tilt: every listener the engine adds is passive',
@@ -153,6 +153,18 @@ T('tilt: the v42 gate still keeps the classic families off a touch screen',
   /const _tlTouch = \(\) => \('ontouchstart' in window\) \|\| \(navigator\.maxTouchPoints > 0\) \|\| \(innerWidth <= 820\);/.test(APP_J));
 T('tilt: the hover chime still fires on the way into a 3D card',
   /if \(d3\) \{ try \{ ShivaaAudio\.playHover\(\); \} catch \(err\) \{\} \}/.test(APP_J));
+T('magnetic: no button and no glare card gets its own mousemove any more',
+  !/b\.addEventListener\('mousemove'/.test(APP_J) && !/c\.addEventListener\('mousemove'/.test(APP_J) &&
+  /const el = \(t && t\.closest\) \? t\.closest\(MAG_SEL \+ ',' \+ GLARE_SEL\) : null;/.test(APP_J));
+T('magnetic: the rect is cached for as long as the pointer stays on the element',
+  /if \(!_mgRect\) _mgRect = el\.getBoundingClientRect\(\);/.test(APP_J) &&
+  /addEventListener\('scroll', \(\) => \{ _mgRect = null; \}, \{ passive: true \}\)/.test(APP_J));
+T('magnetic: the maths is byte-identical — 7px across, 5px down, glare in percentages',
+  /el\.style\.transform = `translate\(\$\{dx \* 7\}px, \$\{dy \* 5\}px\)`;/.test(APP) &&
+  /setProperty\('--gx', \(\(pt\.x - r\.left\) \/ r\.width \* 100\) \+ '%'\)/.test(APP));
+T('magnetic: a touch screen still gets no magnetic class at all',
+  /const _mob = \('ontouchstart' in window\) \|\| \(navigator\.maxTouchPoints > 0\) \|\| \(innerWidth <= 820\);\n  if \(_mob\) return;/.test(APP) &&
+  /\$\$\(MAG_SEL, scope\)\.forEach\(b => b\.classList\.add\('magnetic'\)\)/.test(APP_J));
 T('tilt: bindTilt and init3DCardTilts keep their names for their five callers',
   /function bindTilt\(scope = document\) \{ _tlArm\(\); \}/.test(APP_J) &&
   /function init3DCardTilts\(\) \{[\s\S]{0,400}?_tlArm\(\);\s*\}/.test(APP_J) &&
@@ -397,6 +409,24 @@ if (cards) {
   move(B.doc.querySelector('.shop-bar') || B.doc.body, 400, 100);
   await wait(120);
   T('live: leaving the grid rests the card', cards[1].style.transform === '', cards[1].style.transform);
+  const btn = B.doc.querySelector('#filterToggle, .btn-outline, .btn-primary');
+  if (btn) {
+    const rb = PB.rect;
+    for (let i = 0; i < 8; i++) move(btn, 120 + i, 260 + i);
+    await wait(120);
+    T('live: eight moves over a magnetic button cost ONE layout read',
+      PB.rect - rb === 1 && /^translate\([-\d.]+px, [-\d.]+px\)$/.test(btn.style.transform || ''),
+      (PB.rect - rb) + ' reads, transform "' + btn.style.transform + '"');
+    const rb2 = PB.rect;
+    for (let i = 0; i < 8; i++) move(btn, 130 + i, 270 + i);
+    await wait(120);
+    T('live: and the next eight cost none', PB.rect - rb2 === 0, (PB.rect - rb2) + ' reads');
+    move(B.doc.body, 600, 60);
+    await wait(120);
+    T('live: leaving the button puts it back at rest', btn.style.transform === '', btn.style.transform);
+  } else {
+    T('live: a magnetic button exists on this page to measure', false, 'none found');
+  }
 }
 T('live: shop booted with no real page errors', faults().length === 0, faults().slice(0, 2).join(' | '));
 B.window.close();
