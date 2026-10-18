@@ -441,7 +441,32 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    `bot.js`/`v108.js`): still a cleanup candidate, still left in place because this was not
    a deletion release.
 12. **The twin branch `arena/09f3c79f-shivaa-ecom` is 6 commits behind.** Reconciling it is
-   the owner's decision; the agent must not force-push or rewrite either branch.
+    the owner's decision; the agent must not force-push or rewrite either branch.
+13. **Coupon / Shivaa Black codes — how they actually work (answered 18 Oct, no code changed):**
+    `docs/COUPON-CODES.md`. Every Black member gets a **unique** 16-digit code
+    (`black_unique_code`, `api.php:4243` — `2020` + 12 `random_int` digits, checked against
+    every existing coupon AND every member's card number); it is saved on the **user record**
+    (`users[i].blackCard` in `cms/data/db.json`, `api.php:5723`) and is **never** written to
+    `coupons[]`, so the 20%-off-making benefit is recomputed per request
+    (`black_coupon_for_user`, `api.php:4294`). Redemption is `coupon_resolve()` (`api.php:4340`)
+    used by BOTH `coupons/validate` and the order route: own live card → own premium code →
+    **any other card number returns null (fail closed, never falls through to a public coupon)** →
+    ordinary coupon list. Checkout pre-fills and auto-applies the member's own code
+    (`app.js:6836`, `app.js:6963`). Public offers `MAKING20`/`FREEDEL` are the SAME for everyone,
+    guests included, auto-seeded by `offers/banner` (`api.php:5585-5615`).
+    **Five gaps the owner has not decided on:** (1) no Admin screen lists Black members, their
+    codes or expiries (`pub_user` sends `blackCard` in `GET /api/admin/users`, but the Customers
+    table renders none of it — `admin.js:719-731`); (2) `delivery.status = 'to-ship'` is written
+    for the FREE physical card but **nothing reads it** — no print/post queue, no "shipped" mark;
+    (3) **no renewal path** — claim is idempotent, so a card that passes its six months can never
+    be re-issued from the site; (4) the Black discount is **not exclusive** — public `MAKING20`
+    gives every guest the same 20% off making, so Black's real value is the card/certificate, not
+    the discount (fix = `settings.bannerOfferOn=false`, or split the percentages); (5) the
+    `api.php:5629` comment still calls Premium "free home delivery for LIFE" while the code gives
+    20% off making for life (`api.php:4312-4320`, `app.js:12222`) — stale comment, correct
+    behaviour. A 19-case Node **transcription** of those functions passed (uniqueness incl. a
+    1000-member batch, ₹1,00,000/₹12,000 making → ₹2,400 off, every cross-user/expired/re-bound/
+    admin case null) and was deliberately NOT added to `qa/`: it tests the reading, not the PHP.
 
 ## 12 · Owner communication
 
