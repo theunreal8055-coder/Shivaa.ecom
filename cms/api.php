@@ -4221,14 +4221,48 @@ function black_card_bound_to_user(array $card, array $u): bool {
   $current = black_mobile($u['phone'] ?? '');
   return $bound !== '' && $current !== '' && hash_equals($bound, $current);
 }
+/* v229 — the member benefit is a setting, not a literal scattered through the
+   site. 0 switches the discount off WITHOUT deleting anybody's card: the
+   member number, the certificate and the account all stay exactly as they
+   are, which is why this is a clamp and never a delete.
+   Default 25 — the gap over the public MAKING20 offer the owner asked for. */
+function black_pct_setting(array $db): int {
+  $v = $db['settings']['blackDiscountPct'] ?? null;
+  if ($v === null || $v === '' || is_array($v) || !is_numeric($v)) return 25;
+  return max(0, min(40, (int)round((float)$v)));
+}
+function black_discount_pct(): int {
+  if (!isset($GLOBALS['shv_black_pct'])) $GLOBALS['shv_black_pct'] = 25;
+  return max(0, min(40, (int)$GLOBALS['shv_black_pct']));
+}
+/* v229 — add whole calendar months the way the six-month card already does:
+   a 31st lands on the last day of a shorter month and never rolls over into
+   the next one, so a renewal never quietly gifts or steals a day. */
+function black_add_months(string $from, int $months): string {
+  $start = new DateTimeImmutable($from);
+  $day = (int)$start->format('d');
+  $first = $start->modify('first day of this month')->modify('+' . max(1, $months) . ' months');
+  $clamped = min($day, (int)$first->format('t'));
+  return $first->setDate((int)$first->format('Y'), (int)$first->format('m'), $clamped)
+               ->setTime((int)$start->format('H'), (int)$start->format('i'), (int)$start->format('S'))
+               ->format('c');
+}
 function black_card_public(array $card): array {
   $out = $card;
   $out['program'] = 'Shivaa Black';
-  $out['discountPct'] = 20;
+  $out['discountPct'] = black_discount_pct();
   $out['discountBasis'] = 'making-charges';
   $out['certificateTitle'] = 'Shivaa Family Prestigious Member';
   $out['status'] = black_card_active($card) ? 'active' : 'expired';
   $out['benefitActive'] = $out['status'] === 'active';
+  /* v229 — the renewal facts travel with the card, so the page and the server
+     can never disagree about whether the button exists. renewable = expired,
+     or inside the last 30 days of validity. */
+  $until = strtotime((string)($card['expiresAt'] ?? ''));
+  $left = $until === false ? 0 : $until - time();
+  $out['daysLeft'] = $left > 0 ? (int)floor($left / 86400) : 0;
+  $out['renewals'] = (int)($card['renewals'] ?? 0);
+  $out['renewable'] = $until !== false && $left <= 30 * 86400;
   return $out;
 }
 function black_six_month_expiry(string $issuedAt): string {
@@ -4297,12 +4331,15 @@ function black_coupon_for_user(?array $u): ?array {
   if (!$card || !black_card_bound_to_user($card, $u) || !black_card_active($card)) return null;
   $code = (string)($card['cardNumber'] ?? '');
   if (black_code_key($code) === '') return null;
+  /* v229 — no coupon row is stored for a member, so moving the one setting
+     moves every member at once: nothing to reissue, no card number changes. */
+  $pct = black_discount_pct();
   return [
-    'id' => (string)($card['couponId'] ?? ''), 'code' => $code, 'type' => 'percent', 'value' => 20,
+    'id' => (string)($card['couponId'] ?? ''), 'code' => $code, 'type' => 'percent', 'value' => $pct,
     'scope' => 'making', 'freeShipping' => false, 'minOrder' => 0, 'active' => true,
     'oncePerUser' => false, 'forNewUsers' => false, 'kind' => 'shivaa-black',
-    'forUser' => (string)($u['id'] ?? ''), 'title' => 'Shivaa Black · 20% off making charges',
-    'note' => 'Shivaa Black member card · 20% off the making charges only · six months',
+    'forUser' => (string)($u['id'] ?? ''), 'title' => 'Shivaa Black · ' . $pct . '% off making charges',
+    'note' => 'Shivaa Black member card · ' . $pct . '% off the making charges only · six months',
     'expiresAt' => (string)($card['expiresAt'] ?? ''),
   ];
 }
@@ -4352,6 +4389,221 @@ function coupon_resolve(array $db, $entered, ?array $u): ?array {
   return null;
 }
 
+/* ═══ v229 — in-store purchase bills ═══════════════════════════════════════
+   Customers buy at the counter and the paper bill stays with the owner. This
+   is the owner-side vault for those papers. The customer side has exactly two
+   verbs — VIEW and DOWNLOAD — and never sees the owner's private note.
+   Nothing here is reachable by URL: files live outside the document root and
+   are streamed by index through an authenticated route. */
+function shv_bill_private_dir(): ?string {
+  $docRoot = realpath(__DIR__);
+  if ($docRoot === false) return null;
+  $configured = getenv('SHIVAA_PRIVATE_BILLS_DIR');
+  $dir = is_string($configured) && trim($configured) !== ''
+    ? trim($configured)
+    : dirname($docRoot) . DIRECTORY_SEPARATOR . '.shivaa-private-bills';
+  if ($dir === '' || $dir[0] !== DIRECTORY_SEPARATOR) return null;
+  if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) return null;
+  if (is_link($dir)) return null;
+  $real = realpath($dir);
+  if ($real === false || $real === $docRoot || str_starts_with($real, $docRoot . DIRECTORY_SEPARATOR)) return null;
+  if (!is_dir($real) || !is_writable($real)) return null;
+  @chmod($real, 0700);
+  $mode = @fileperms($real);
+  if ($mode === false || (($mode & 0077) !== 0)) return null;
+  return $real;
+}
+function shv_bill_detect_ext(string $head): ?string {
+  if (strncmp($head, "\xFF\xD8\xFF", 3) === 0) return 'jpg';
+  if (strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0) return 'png';
+  if (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP') return 'webp';
+  if (strncmp($head, '%PDF-', 5) === 0) return 'pdf';
+  return null;
+}
+function shv_bill_mime(string $ext): string {
+  return ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp',
+          'pdf' => 'application/pdf'][$ext] ?? 'application/octet-stream';
+}
+function shv_bill_store_upload(string $tmp): ?array {
+  if (!is_file($tmp)) return null;
+  $dir = shv_bill_private_dir();
+  if ($dir === null) return null;
+  $size = @filesize($tmp);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  $head = (string)@file_get_contents($tmp, false, null, 0, 12);
+  $kind = shv_bill_detect_ext($head);          // the content decides, never the filename
+  if ($kind === null) return null;
+  $name = 'bill_' . bin2hex(random_bytes(16)) . '.' . $kind;
+  $dest = $dir . DIRECTORY_SEPARATOR . $name;
+  if (!shv_store_upload($tmp, $dest) || !is_file($dest) || is_link($dest)) return null;
+  @chmod($dest, 0600);
+  $mode = @fileperms($dest);
+  $storedHead = (string)@file_get_contents($dest, false, null, 0, 12);
+  if ($mode === false || (($mode & 0077) !== 0) || shv_bill_detect_ext($storedHead) !== $kind) {
+    @unlink($dest);
+    return null;
+  }
+  return ['ref' => 'private-bills:' . $name, 'ext' => $kind, 'size' => (int)$size];
+}
+function shv_bill_resolve_ref(string $ref): ?array {
+  if (preg_match('#\Aprivate-bills:(bill_[a-f0-9]{32}\.(?:jpg|png|webp|pdf))\z#', $ref) !== 1) return null;
+  $dir = shv_bill_private_dir();
+  if ($dir === null) return null;
+  $name = substr($ref, strlen('private-bills:'));
+  $candidate = $dir . DIRECTORY_SEPARATOR . $name;
+  if (is_link($candidate) || !is_file($candidate)) return null;
+  $real = realpath($candidate);
+  if ($real === false || !str_starts_with($real, $dir . DIRECTORY_SEPARATOR)) return null;
+  $pathExt = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
+  $head = (string)@file_get_contents($real, false, null, 0, 12);
+  $ext = shv_bill_detect_ext($head);           // re-checked on the way out
+  if ($ext === null || $ext !== $pathExt) return null;
+  $size = @filesize($real);
+  if ($size === false || $size < 1) return null;
+  return ['path' => $real, 'ext' => $ext, 'size' => (int)$size];
+}
+function shv_bill_unlink(string $ref): bool {
+  $doc = shv_bill_resolve_ref($ref);
+  if ($doc === null) return false;
+  return @unlink($doc['path']);
+}
+/* One serialiser for both sides. $admin decides whether the owner's note, the
+   customer's mobile and the stored reference leave the server at all — a
+   shared serialiser that leaks one field to the wrong reader is how a private
+   note ends up on a customer's screen. */
+function bill_public(array $b, bool $admin = false): array {
+  $files = [];
+  foreach (($b['files'] ?? []) as $i => $f) {
+    if (!is_array($f)) continue;
+    $files[] = ['i' => (int)$i, 'ext' => (string)($f['ext'] ?? ''), 'size' => (int)($f['size'] ?? 0),
+      'label' => (string)($f['label'] ?? ''), 'uploadedAt' => (string)($f['uploadedAt'] ?? '')];
+  }
+  $out = [
+    'id' => (string)($b['id'] ?? ''),
+    'billNo' => (string)($b['billNo'] ?? ''),
+    'billDate' => (string)($b['billDate'] ?? ''),
+    'store' => (string)($b['store'] ?? ''),
+    'customerName' => (string)($b['customerName'] ?? ''),
+    'amount' => (float)($b['amount'] ?? 0),
+    'items' => (string)($b['items'] ?? ''),
+    'files' => $files,
+    'createdAt' => (string)($b['createdAt'] ?? ''),
+    'updatedAt' => (string)($b['updatedAt'] ?? ''),
+  ];
+  if ($admin) {
+    $out['phone'] = (string)($b['phone'] ?? '');
+    $out['userId'] = (string)($b['userId'] ?? '');
+    $out['notes'] = (string)($b['notes'] ?? '');
+    $out['createdBy'] = (string)($b['createdBy'] ?? '');
+    $out['anonymizedAt'] = isset($b['anonymizedAt']) ? (string)$b['anonymizedAt'] : null;
+  }
+  return $out;
+}
+/* Whose bill is this? By account id when it is linked, otherwise by the last
+   ten digits of the mobile written on the paper — hash_equals, so a timing
+   probe cannot walk a phone number one digit at a time. */
+function bills_for_user(array $db, array $u): array {
+  $uid = (string)($u['id'] ?? '');
+  $mobile = black_mobile($u['phone'] ?? '');
+  $out = [];
+  foreach (($db['storeBills'] ?? []) as $b) {
+    if (!is_array($b)) continue;
+    if ($uid !== '' && (string)($b['userId'] ?? '') === $uid) { $out[] = $b; continue; }
+    $bp = black_mobile($b['phone'] ?? '');
+    if ($mobile !== '' && $bp !== '' && hash_equals($mobile, $bp)) $out[] = $b;
+  }
+  usort($out, fn($a, $b2) => strcmp((string)($b2['billDate'] ?? ''), (string)($a['billDate'] ?? '')));
+  return $out;
+}
+function bill_index(array $db, string $id): ?int {
+  foreach (($db['storeBills'] ?? []) as $i => $b) if (is_array($b) && (string)($b['id'] ?? '') === $id) return (int)$i;
+  return null;
+}
+/* Link a fresh bill to an existing retail account by the mobile on the paper,
+   so a customer who registers later still finds their old purchases. */
+function bill_link_user(array $db, array &$b): bool {
+  if ((string)($b['userId'] ?? '') !== '') return false;
+  $mobile = black_mobile($b['phone'] ?? '');
+  if ($mobile === '') return false;
+  foreach (($db['users'] ?? []) as $u) {
+    if (($u['role'] ?? 'customer') !== 'customer') continue;
+    if (hash_equals($mobile, black_mobile($u['phone'] ?? ''))) { $b['userId'] = (string)$u['id']; return true; }
+  }
+  return false;
+}
+function bill_clean(array $in, bool $create): array {
+  $t = static function ($k, $max) use ($in): string {
+    $v = $in[$k] ?? '';
+    if (!is_scalar($v)) $v = '';
+    $v = trim((string)$v);
+    return $max > 0 ? mb_substr($v, 0, $max) : $v;
+  };
+  $row = ['error' => ''];
+  $row['billNo'] = $t('billNo', 40);
+  $row['store'] = $t('store', 120);
+  if ($row['store'] === '') $row['store'] = 'Shivaa Jewels · Jaipur';
+  $row['customerName'] = $t('customerName', 120);
+  $row['items'] = $t('items', 600);
+  $row['notes'] = $t('notes', 600);           // owner-side only — never in bill_public($b, false)
+  $digits = preg_replace('/\D/', '', $t('phone', 24));
+  $row['phone'] = strlen((string)$digits) > 10 ? substr((string)$digits, -10) : (string)$digits;
+  $amt = $in['amount'] ?? '';
+  $row['amount'] = is_numeric($amt) ? round(max(0.0, min(100000000.0, (float)$amt)), 2) : 0.0;
+  $d = $t('billDate', 10);
+  if ($d === '') $d = date('Y-m-d');
+  $row['billDate'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) ? $d : '';
+  if (!$create) return $row;
+  if ($row['billNo'] === '') $row['error'] = 'The bill number is required — it is what the customer and your register both quote.';
+  elseif ($row['customerName'] === '') $row['error'] = 'The customer name is required.';
+  elseif (!preg_match('/^[6-9]\d{9}$/', $row['phone'])) $row['error'] = 'A valid 10-digit customer mobile is required — it is how the bill reaches the right account.';
+  elseif ($row['billDate'] === '') $row['error'] = 'The bill date must look like 2026-05-06.';
+  elseif (strtotime($row['billDate'] . 'T23:59:59') < time()) $row['error'] = 'A bill date cannot be in the future.';
+  return $row;
+}
+/* Turn $_FILES into stored rows. At most six files per bill, each at most
+   8 MB. Over the cap the upload is REFUSED, not silently truncated: a bill
+   missing its last page is worse than an error the owner can act on. */
+function bill_files_from_upload(array $existing, int $cap = 6): ?array {
+  $src = !empty($_FILES['files']) ? $_FILES['files'] : (!empty($_FILES['file']) ? $_FILES['file'] : null);
+  if ($src === null) return $existing;
+  $names = is_array($src['name'] ?? null)
+    ? $src
+    : ['name' => [$src['name'] ?? ''], 'tmp_name' => [$src['tmp_name'] ?? ''],
+       'error' => [$src['error'] ?? 0], 'size' => [$src['size'] ?? 0]];
+  $rows = $existing;
+  $total = count($names['tmp_name'] ?? []);
+  for ($i = 0; $i < $total; $i++) {
+    if ((int)($names['error'][$i] ?? 0) !== UPLOAD_ERR_OK) continue;
+    if (count($rows) >= $cap) return null;
+    $stored = shv_bill_store_upload((string)$names['tmp_name'][$i]);
+    if ($stored === null) return null;
+    $label = mb_substr(basename((string)($names['name'][$i] ?? '')), 0, 80);
+    $rows[] = ['ref' => $stored['ref'], 'ext' => $stored['ext'], 'size' => $stored['size'],
+      'label' => $label, 'originalName' => $label, 'uploadedAt' => now_iso()];
+  }
+  return $rows;
+}
+/* v229 — erasure treats an in-store bill like an order: it is a GST/tax
+   record, so the paper stays and the person leaves it. BOTH erasure routes
+   call this, so a self-erase and an owner-side anonymise behave identically. */
+function bills_anonymize(array &$db, string $uid, string $phoneLast): int {
+  $n = 0;
+  foreach (($db['storeBills'] ?? []) as $i => $b) {
+    if (!is_array($b)) continue;
+    $hitUid = $uid !== '' && (string)($b['userId'] ?? '') === $uid;
+    $hitPhone = $phoneLast !== '' &&
+      substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10) === $phoneLast;
+    if (!$hitUid && !$hitPhone) continue;
+    $db['storeBills'][$i]['customerName'] = 'Deleted customer';
+    $db['storeBills'][$i]['phone'] = '';
+    $db['storeBills'][$i]['userId'] = '';
+    $db['storeBills'][$i]['notes'] = '';
+    $db['storeBills'][$i]['anonymizedAt'] = now_iso();
+    $n++;
+  }
+  return $n;
+}
+
 /* ═════════ router ═════════ */
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
@@ -4373,9 +4625,13 @@ if ($route === 'trust') {
   jout(200, trust_profile(db_load($DB_FILE)));
 }
 $db = db_load($DB_FILE);
+/* v229 — the Shivaa Black member percentage is ONE setting. It is resolved
+   once per request, before the router, so the card, the certificate, the
+   virtual coupon and the checkout maths can never disagree with each other. */
+$GLOBALS['shv_black_pct'] = black_pct_setting($db);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit','storeBills'] as $__k) $db[$__k] = $db[$__k] ?? [];
 
 /* v60 — lightweight audit trail for money/status actions */
 function audit_log(array &$db, string $what, array $meta = []): void {
@@ -5468,6 +5724,9 @@ try {
       jout(400, ['error' => 'Type DELETE to confirm']);
 
     $uid = $u['id'];
+    /* v229 — captured BEFORE the phone is cleared: it is the only way to find
+       the in-store bills that belong to this person. */
+    $billPhone = substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10);
     foreach ($db['users'] as $ui => $x) if ($x['id'] === $uid) {
       $db['users'][$ui]['name'] = 'Deleted customer';
       $db['users'][$ui]['email'] = 'deleted+' . $x['id'] . '@privacy.local';
@@ -5485,7 +5744,11 @@ try {
     $keptT = [];
     foreach (($db['tokens'] ?? []) as $tk => $tRec) if (($tRec['userId'] ?? '') !== $uid) $keptT[$tk] = $tRec;
     $db['tokens'] = $keptT;
-    audit_log($db, 'user.self_erased', ['user' => $uid, 'via' => $otpPhone ? 'otp' : 'session']);
+    /* v229 — in-store bills are GST/tax records: the paper stays, the person
+       leaves it. Same rule as orders, applied at BOTH erasure routes. */
+    $billsWiped = bills_anonymize($db, (string)$uid, (string)$billPhone);
+    audit_log($db, 'user.self_erased', ['user' => $uid, 'via' => $otpPhone ? 'otp' : 'session',
+      'storeBillsAnonymized' => $billsWiped]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'erased' => true,
                'message' => 'Your account is erased. Orders already placed stay with us for tax and hallmarking records, with your name removed.']);
@@ -5714,7 +5977,8 @@ try {
         'holderName' => black_holder_name($body, $db['users'][$idx]),
         'mobile' => $mobile, 'issuedAt' => $issuedAt,
         'expiresAt' => black_six_month_expiry($issuedAt),
-        'discountPct' => 20, 'discountBasis' => 'making-charges',
+        'discountPct' => black_discount_pct(), 'discountBasis' => 'making-charges',
+        'renewals' => 0,
         'couponId' => uid('c'),
         'certificateNo' => black_unique_identity($db, 'SFP'),
         'certificateTitle' => 'Shivaa Family Prestigious Member', 'certificateIssuedAt' => $issuedAt,
@@ -5728,6 +5992,233 @@ try {
     if ($changed) db_save($GLOBALS['DB_FILE'], $db);
     jout(200, ['ok' => true, 'created' => $created, 'membership' => black_card_public($card),
       'user' => pub_user($db['users'][$idx])]);
+  }
+
+  /* v229 — renewal in one tap, from the member's own Shivaa Black page. It
+     opens only in the last 30 days of validity or after expiry; memberId,
+     cardNumber and certificateNo never change, so the plastic already in the
+     customer's pocket stays correct and only the window moves. */
+  if ($route === 'black-card/renew' && $method === 'POST') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Sign in with your registered mobile to renew Shivaa Black.']);
+    if (($u['role'] ?? 'customer') !== 'customer') jout(403, ['error' => 'Shivaa Black is exclusively for retail customers.']);
+    $idx = null;
+    foreach (($db['users'] ?? []) as $i => $row) if (($row['id'] ?? '') === ($u['id'] ?? '')) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Customer account not found.']);
+    $card = is_array($db['users'][$idx]['blackCard'] ?? null) ? $db['users'][$idx]['blackCard'] : null;
+    if (!$card) jout(404, ['error' => 'Create your Shivaa Black card first.']);
+    if (!black_card_bound_to_user($card, $db['users'][$idx]))
+      jout(403, ['error' => 'This card is bound to a different registered mobile. Please contact Shivaa support.']);
+    rate_block($db, 'black-card-renew', (string)$u['id'], 6, 3600, 900,
+      'Too many renewal attempts — please wait 15 minutes and try again.');
+    $until = strtotime((string)($card['expiresAt'] ?? ''));
+    if ($until === false) jout(409, ['error' => 'This card has no readable expiry — please contact Shivaa support.']);
+    $left = $until - time();
+    if ($left > 30 * 86400) {
+      $days = (int)floor($left / 86400);
+      jout(409, ['error' => 'Renewal opens in the last 30 days of your validity — ' . $days . ' days to go.',
+        'daysLeft' => $days, 'renewable' => false]);
+    }
+    $previous = (string)$card['expiresAt'];
+    /* Still valid → extend from the expiry the member already earned. Already
+       expired → restart from today, so a lapse never gifts free months. */
+    $card['previousExpiresAt'] = $previous;
+    $card['expiresAt'] = black_add_months($left > 0 ? $previous : now_iso(), 6);
+    $card['renewedAt'] = now_iso();
+    $card['renewals'] = (int)($card['renewals'] ?? 0) + 1;
+    $card['discountPct'] = black_discount_pct();
+    $db['users'][$idx]['blackCard'] = $card;
+    audit_log($db, 'black-card.renew', ['userId' => $u['id'], 'memberId' => $card['memberId'] ?? '',
+      'from' => $previous, 'to' => $card['expiresAt'], 'renewals' => $card['renewals'], 'by' => 'member']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'membership' => black_card_public($card), 'user' => pub_user($db['users'][$idx]),
+      'previousExpiresAt' => $previous, 'renewals' => $card['renewals']]);
+  }
+
+  /* v229 — in-store purchases, customer side. Exactly two verbs: view and
+     download. There is no upload, no edit, no delete and no dispute route on
+     this side of the API at all. */
+  if ($route === 'store-bills' && $method === 'GET') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Sign in with your registered mobile to see your in-store purchases.']);
+    if (($u['role'] ?? 'customer') === 'admin') {
+      $rows = array_map(fn($b) => bill_public($b, true), array_reverse($db['storeBills'] ?? []));
+      jout(200, ['bills' => $rows, 'count' => count($rows), 'storage' => shv_bill_private_dir() !== null]);
+    }
+    $mine = bills_for_user($db, $u);
+    jout(200, ['bills' => array_map(fn($b) => bill_public($b, false), $mine), 'count' => count($mine)]);
+  }
+  /* Streamed by INDEX, never by path: a caller cannot address a file that
+     belongs to somebody else, and cannot put ../ or a stored ref in the URL. */
+  if (preg_match('#^store-bills/([\w-]+)/file/(\d+)$#', $route, $mBF)) {
+    if ($method !== 'GET') { header('Allow: GET'); jout(405, ['error' => 'Bill files are read-only.']); }
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Sign in to open your in-store purchase.']);
+    $bi = bill_index($db, $mBF[1]);
+    if ($bi === null) jout(404, ['error' => 'Purchase not found.']);
+    $bill = $db['storeBills'][$bi];
+    if (($u['role'] ?? 'customer') !== 'admin') {
+      $mine = false;
+      foreach (bills_for_user($db, $u) as $b) if ((string)($b['id'] ?? '') === $mBF[1]) { $mine = true; break; }
+      if (!$mine) jout(403, ['error' => 'This purchase belongs to another customer.']);
+    }
+    $idx = (int)$mBF[2];
+    $files = array_values(array_filter(($bill['files'] ?? []), 'is_array'));
+    if ($idx < 0 || $idx >= count($files)) jout(404, ['error' => 'That page of the bill does not exist.']);
+    $ref = (string)($files[$idx]['ref'] ?? '');
+    if ($ref === '') jout(404, ['error' => 'That file is no longer stored.']);
+    if (shv_bill_private_dir() === null)
+      jout(503, ['error' => 'Private bill storage is unavailable — please contact Shivaa support.']);
+    $doc = shv_bill_resolve_ref($ref);
+    if ($doc === null) jout(404, ['error' => 'Bill file not found or unsupported.']);
+    $wantDl = isset($_GET['download']) && !in_array((string)$_GET['download'], ['', '0', 'false'], true);
+    $safeNo = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($bill['billNo'] !== '' ? $bill['billNo'] : $bill['id']));
+    header('Content-Type: ' . shv_bill_mime($doc['ext']));
+    header('Content-Disposition: ' . ($wantDl ? 'attachment' : 'inline')
+      . '; filename="shivaa-bill-' . $safeNo . '-' . ($idx + 1) . '.' . $doc['ext'] . '"');
+    header('Content-Length: ' . (int)$doc['size']);
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: no-referrer');
+    header('X-Frame-Options: SAMEORIGIN');
+    readfile($doc['path']);
+    exit;
+  }
+
+  /* v229 — the owner's side of Shivaa Black: renew for a member, and move the
+     free physical card through to-ship → printed → shipped. */
+  if ($route === 'admin/black-card/renew' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $months = (int)($b['months'] ?? 6);
+    if ($months < 1 || $months > 36) jout(400, ['error' => 'months must be between 1 and 36']);
+    $idx = null;
+    foreach (($db['users'] ?? []) as $i => $row) if (($row['id'] ?? '') === (string)($b['userId'] ?? '')) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Customer not found']);
+    $card = is_array($db['users'][$idx]['blackCard'] ?? null) ? $db['users'][$idx]['blackCard'] : null;
+    if (!$card) jout(404, ['error' => 'This customer has no Shivaa Black card']);
+    $previous = (string)($card['expiresAt'] ?? '');
+    $until = strtotime($previous);
+    /* A live card EXTENDS from its own expiry, so renewing early never takes
+       away a day the member already paid for. */
+    $card['previousExpiresAt'] = $previous;
+    $card['expiresAt'] = black_add_months($until !== false && $until > time() ? $previous : now_iso(), $months);
+    $card['renewedAt'] = now_iso();
+    $card['renewals'] = (int)($card['renewals'] ?? 0) + 1;
+    $card['discountPct'] = black_discount_pct();
+    $db['users'][$idx]['blackCard'] = $card;
+    audit_log($db, 'black-card.renew', ['userId' => $db['users'][$idx]['id'], 'memberId' => $card['memberId'] ?? '',
+      'from' => $previous, 'to' => $card['expiresAt'], 'months' => $months, 'renewals' => $card['renewals'], 'by' => 'admin']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'membership' => black_card_public($card), 'user' => pub_user($db['users'][$idx]),
+      'previousExpiresAt' => $previous, 'months' => $months, 'renewals' => $card['renewals']]);
+  }
+  if ($route === 'admin/black-card/delivery' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $status = (string)($b['status'] ?? '');
+    if (!in_array($status, ['to-ship', 'printed', 'shipped'], true))
+      jout(400, ['error' => 'status must be to-ship, printed or shipped']);
+    $idx = null;
+    foreach (($db['users'] ?? []) as $i => $row) if (($row['id'] ?? '') === (string)($b['userId'] ?? '')) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Customer not found']);
+    $card = is_array($db['users'][$idx]['blackCard'] ?? null) ? $db['users'][$idx]['blackCard'] : null;
+    if (!$card) jout(404, ['error' => 'This customer has no Shivaa Black card']);
+    if (empty($card['delivery'])) jout(409, ['error' => 'This member has not requested the free physical card yet']);
+    $card['delivery']['status'] = $status;
+    $card['delivery']['updatedAt'] = now_iso();
+    $track = trim((string)($b['trackingNo'] ?? ''));
+    if ($track !== '') $card['delivery']['trackingNo'] = mb_substr(preg_replace('/[^A-Za-z0-9 _-]/', '', $track), 0, 60);
+    if ($status === 'shipped' && empty($card['delivery']['shippedAt'])) $card['delivery']['shippedAt'] = now_iso();
+    $db['users'][$idx]['blackCard'] = $card;
+    audit_log($db, 'black-card.delivery.status', ['userId' => $db['users'][$idx]['id'],
+      'memberId' => $card['memberId'] ?? '', 'status' => $status, 'trackingNo' => $card['delivery']['trackingNo'] ?? '']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'membership' => black_card_public($card), 'delivery' => $card['delivery']]);
+  }
+
+  /* v229 — the owner's side of the in-store bills. */
+  if ($route === 'admin/store-bills' && $method === 'GET') {
+    need_admin($db);
+    $rows = array_map(fn($b) => bill_public($b, true), array_reverse($db['storeBills'] ?? []));
+    jout(200, ['bills' => $rows, 'count' => count($rows), 'storage' => shv_bill_private_dir() !== null,
+      'storageDir' => shv_bill_private_dir() !== null ? 'private (outside the web root)' : 'unavailable']);
+  }
+  if ($route === 'admin/store-bills' && $method === 'POST') {
+    need_admin($db);
+    rate_block($db, 'bill-create', client_ip(), 300, 3600);
+    if (shv_bill_private_dir() === null)
+      jout(503, ['error' => 'Private bill storage is unavailable — nothing was saved. Ask the host for a writable folder beside public_html (or set SHIVAA_PRIVATE_BILLS_DIR).']);
+    $clean = bill_clean($_POST, true);          // multipart: the fields arrive in $_POST
+    if ($clean['error'] !== '') jout(400, ['error' => $clean['error']]);
+    $files = bill_files_from_upload([], 6);
+    if ($files === null) jout(400, ['error' => 'Each bill takes up to 6 files of 8 MB — jpg, png, webp or pdf, and the file must really be one of those.']);
+    if (count($files) < 1) jout(400, ['error' => 'Attach the bill itself — a photo or a PDF of the paper.']);
+    $me = need_admin($db);
+    $row = [
+      'id' => uid('sb'), 'billNo' => $clean['billNo'], 'billDate' => $clean['billDate'],
+      'store' => $clean['store'], 'customerName' => $clean['customerName'],
+      'phone' => $clean['phone'], 'userId' => '', 'amount' => $clean['amount'],
+      'items' => $clean['items'], 'notes' => $clean['notes'], 'files' => $files,
+      'createdBy' => (string)($me['id'] ?? 'admin'), 'createdAt' => now_iso(), 'updatedAt' => now_iso(),
+    ];
+    $linked = bill_link_user($db, $row);
+    $db['storeBills'][] = $row;
+    audit_log($db, 'bill.create', ['id' => $row['id'], 'billNo' => $row['billNo'],
+      'files' => count($files), 'linked' => $linked, 'userId' => $row['userId']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'linked' => $linked, 'bill' => bill_public($row, true)]);
+  }
+  if (preg_match('#^admin/store-bills/([\w-]+)$#', $route, $mBA) && in_array($method, ['POST', 'DELETE'], true)) {
+    need_admin($db);
+    $bi = bill_index($db, $mBA[1]);
+    if ($bi === null) jout(404, ['error' => 'Bill not found']);
+    if ($method === 'DELETE') {
+      $row = $db['storeBills'][$bi];
+      $gone = 0;
+      foreach (($row['files'] ?? []) as $f) if (is_array($f) && shv_bill_unlink((string)($f['ref'] ?? ''))) $gone++;
+      array_splice($db['storeBills'], $bi, 1);
+      audit_log($db, 'bill.delete', ['id' => $mBA[1], 'billNo' => (string)($row['billNo'] ?? ''), 'filesUnlinked' => $gone]);
+      db_save($DB_FILE, $db);
+      jout(200, ['ok' => true, 'deleted' => $mBA[1], 'filesUnlinked' => $gone]);
+    }
+    /* POST = edit the paper's details, attach more pages, or drop one page. */
+    $in = !empty($_POST) ? $_POST : body_json();
+    $drop = isset($_GET['dropFile']) ? (int)$_GET['dropFile'] : -1;
+    $row = $db['storeBills'][$bi];
+    if ($drop >= 0) {
+      $files = array_values(array_filter(($row['files'] ?? []), 'is_array'));
+      if ($drop >= count($files)) jout(404, ['error' => 'That page of the bill does not exist.']);
+      $ref = (string)($files[$drop]['ref'] ?? '');
+      if ($ref !== '') shv_bill_unlink($ref);
+      array_splice($files, $drop, 1);
+      $row['files'] = $files;
+      audit_log($db, 'bill.file.drop', ['id' => $row['id'], 'index' => $drop, 'left' => count($files)]);
+    }
+    $clean = bill_clean(is_array($in) ? $in : [], false);
+    foreach (['billNo', 'billDate', 'store', 'customerName', 'phone', 'amount', 'items', 'notes'] as $k) {
+      if (!array_key_exists($k, $in)) continue;
+      if ($k === 'billDate' && $clean['billDate'] === '') continue;      // never blank a real date
+      if ($k === 'billDate' && strtotime($clean['billDate'] . 'T23:59:59') < time())
+        jout(400, ['error' => 'A bill date cannot be in the future.']);
+      $row[$k] = $clean[$k];
+    }
+    if (!empty($_FILES)) {
+      if (shv_bill_private_dir() === null)
+        jout(503, ['error' => 'Private bill storage is unavailable — nothing was saved.']);
+      $files = bill_files_from_upload(array_values(array_filter(($row['files'] ?? []), 'is_array')), 6);
+      if ($files === null) jout(400, ['error' => 'Each bill takes up to 6 files of 8 MB — jpg, png, webp or pdf, and the file must really be one of those.']);
+      $row['files'] = $files;
+    }
+    if (($row['phone'] ?? '') !== '' && (string)($row['userId'] ?? '') === '') bill_link_user($db, $row);
+    $row['updatedAt'] = now_iso();
+    $db['storeBills'][$bi] = $row;
+    audit_log($db, 'bill.update', ['id' => $row['id'], 'billNo' => (string)($row['billNo'] ?? ''),
+      'files' => count(array_filter(($row['files'] ?? []), 'is_array')), 'userId' => (string)($row['userId'] ?? '')]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'bill' => bill_public($row, true)]);
   }
 
   /* ── coupons ── */
@@ -8602,7 +9093,11 @@ try {
       $keptT = [];
       foreach (($db['tokens'] ?? []) as $tk => $t) if (($t['userId'] ?? '') !== $x['id']) $keptT[$tk] = $t;
       $db['tokens'] = $keptT;
-      audit_log($db, 'user.anonymized', ['user' => $x['id']]);
+      /* v229 — $x is the pre-erasure copy, so the mobile is still readable
+         here; it is the only way to find this person's in-store bills. */
+      $billsWipedAN = bills_anonymize($db, (string)$x['id'],
+        substr(preg_replace('/\D/', '', (string)($x['phone'] ?? '')), -10));
+      audit_log($db, 'user.anonymized', ['user' => $x['id'], 'storeBillsAnonymized' => $billsWipedAN]);
       db_save($DB_FILE, $db); jout(200, ['ok' => true]);
     }
     jout(404, ['error' => 'Customer not found']);
@@ -8878,6 +9373,10 @@ try {
          v156 — gold24Premium joins it: the 24K line now carries the SAME
          ₹398/g figure (owner: "add the same premium as the 22 karat"). */
       'gold22Premium' => [0, 100000, 'int'], 'gold24Premium' => [0, 100000, 'int'], 'jaipurPremium' => [0, 100000, 'int'],
+      /* v229 — the Shivaa Black member percentage. Whole number, 0-40: 0 is
+         'the benefit is off' (cards are kept), 40 is the ceiling beyond which
+         a typo would give away the making charges entirely. */
+      'blackDiscountPct' => [0, 40, 'int'],
     ];
     foreach ($numRules as $nk => [$lo, $hi, $cast]) {
       if (array_key_exists($nk, $setBody)) {
