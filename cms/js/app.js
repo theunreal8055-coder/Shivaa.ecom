@@ -3345,6 +3345,9 @@ function billFileName(disposition, billId, index, ctype) {
 /* Defined ABOVE the page on purpose: the viewer is the interesting half, and
    keeping it next to the markup that calls it means a reader never has to
    search 8,000 lines to find out what "View" actually does. */
+/* route() lives inside this file's IIFE, so an inline onclick can never reach
+   it. Anything a rendered button needs is exposed here instead. */
+window.Shivaa.reloadView = () => route();
 window.Shivaa.openBillFile = async (btn, billId, index, mode) => {
   if (!token()) { openLogin('my-bills'); return; }
   const want = mode === 'download' ? 'download' : 'view';
@@ -3458,7 +3461,7 @@ pages['my-bills'] = async view => {
     if (!isCurrent() || !list) return;
     list.innerHTML = `<div class="bill-empty"><b>We could not load your in-store purchases.</b>
       <p>${esc((e && e.message) || 'Please try again in a moment.')}</p>
-      <button type="button" class="btn btn-outline" onclick="route()">Retry</button></div>`;
+      <button type="button" class="btn btn-outline" onclick="Shivaa.reloadView()">Retry</button></div>`;
   }
 };
 

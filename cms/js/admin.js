@@ -83,6 +83,20 @@ async function renderAdmin(view, q) {
   if (tab === 'orders') { try { reviewAsks = (await api('/api/admin/review-asks')).asks || []; } catch (e) {} }
   let carts = [];
   if (tab === 'overview') { try { carts = (await api('/api/admin/carts')).carts; } catch (e) {} }
+  /* v229 — the Shivaa Black queue is asked for on EVERY tab, because its
+     number is a sidebar badge: "2 cards to post" is exactly the kind of thing
+     the owner should see without remembering to open the tab. It is one pass
+     over users[] on the server, so it stays cheap enough to ask every time. */
+  let blackQ = null;
+  try { blackQ = await api('/api/admin/black-card/queue'); } catch (e) {}
+  let blackUsers = [];
+  if (tab === 'black') {
+    try { blackUsers = ((await api('/api/admin/users')).users || []).filter(u => u && u.blackCard); } catch (e) {}
+  }
+  let bills = [], billsStorage = true;
+  if (tab === 'bills') {
+    try { const br = await api('/api/admin/store-bills'); bills = br.bills || []; billsStorage = br.storage !== false; } catch (e) {}
+  }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -92,12 +106,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['black','✦','Shivaa Black'],['bills','🧾','In-store Bills'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}${n[0] === 'black' && blackQ && blackQ.toShip ? ` <span class="cnt" title="free cards still to post">${blackQ.toShip}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',black:'Shivaa Black · members, renewals & cards to post',bills:'In-store Bills · uploaded by the shop, viewed by the customer',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -1003,6 +1017,124 @@ function v180DbStrip() {
       </div>`;
   }
 
+  /* ── v229 · SHIVAA BLACK: members, renewals and the free-card queue ── */
+  if (tab === 'black') {
+    const Q = blackQ || {};
+    const rows = blackUsers.map(u => {
+      const c = u.blackCard || {};
+      const d = c.delivery || null;
+      const st = d ? String(d.status || 'to-ship') : '';
+      const days = Number(c.daysLeft) || 0;
+      const state = !c.benefitActive ? 'expired' : (c.renewable ? 'renewal' : 'active');
+      return `<tr data-bstate="${state}" data-ship="${d && st !== 'shipped' ? '1' : '0'}">
+        <td><b>${esc(u.name || '—')}</b><br><small style="color:var(--ink-3)">${esc(u.phone || '—')}</small></td>
+        <td><span class="pill ${state === 'active' ? 'pm' : (state === 'renewal' ? 'pf' : 'pd')}">${state === 'active' ? 'active' : (state === 'renewal' ? 'renewal open' : 'expired')}</span></td>
+        <td style="font-family:monospace;font-size:12px">${esc(String(c.cardNumber || '—'))}</td>
+        <td style="font-family:monospace;font-size:12px">${esc(String(c.memberId || '—'))}</td>
+        <td>${esc(c.issuedAt ? new Date(c.issuedAt).toLocaleDateString('en-IN') : '—')}</td>
+        <td>${esc(c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-IN') : '—')}</td>
+        <td class="num">${c.benefitActive ? days + ' d' : '—'}</td>
+        <td class="num">${Number(c.renewals) || 0}×</td>
+        <td>${d
+          ? `<span class="pill ${st === 'shipped' ? 'pm' : (st === 'printed' ? 'pf' : 'pd')}">${esc(st)}</span>${d.trackingNo ? `<br><small style="color:var(--ink-3)">${esc(String(d.trackingNo))}</small>` : ''}`
+          : '<small style="color:var(--ink-3)">not requested</small>'}</td>
+        <td style="white-space:nowrap">
+          ${d && st !== 'shipped' ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blackShip('${jsArg(u.id)}','${st === 'to-ship' ? 'printed' : 'shipped'}')">${st === 'to-ship' ? '🖶 Printed' : '✔ Shipped'}</button>` : ''}
+          ${d && st === 'shipped' ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blackShip('${jsArg(u.id)}','to-ship')" title="put it back in the queue">↩ Re-open</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blackRenew('${jsArg(u.id)}')" title="extend this membership">↻ Renew</button>
+        </td>
+      </tr>`;
+    }).join('');
+    body.innerHTML = `
+      <div class="adm-card">
+        <div class="bk-tiles">
+          <span><small>MEMBERS</small><b>${Number(Q.members) || blackUsers.length}</b></span>
+          <span><small>ACTIVE</small><b>${Number(Q.active) || 0}</b></span>
+          <span><small>RENEWAL OPEN</small><b>${Number(Q.renewable) || 0}</b></span>
+          <span><small>EXPIRED · KEPT</small><b>${Number(Q.expired) || 0}</b></span>
+          <span class="bk-alert"><small>CARDS TO POST</small><b>${Number(Q.toShip) || 0}</b></span>
+          <span><small>PRINTED</small><b>${Number(Q.printed) || 0}</b></span>
+          <span><small>SHIPPED</small><b>${Number(Q.shipped) || 0}</b></span>
+          <span><small>MEMBER DISCOUNT</small><b>${Number(Q.pct) || 25}%</b></span>
+        </div>
+        <p class="partner-note" style="margin:10px 0 0">One number moves the whole programme — change it in
+          <a href="#/admin?tab=settings">Settings</a>. Renewing keeps the member number, the card number and the
+          certificate number exactly as they are, so the plastic already in the customer's pocket stays correct.
+          A member can also renew themselves in the last 30 days of validity.</p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 10px">
+          <label style="font-size:12px;color:var(--ink-3)">Show
+            <select class="sortsel" onchange="ShivaaAdmin.blackFilter(this.value)" style="margin-left:6px">
+              <option value="all">every member</option>
+              <option value="ship">cards still to post</option>
+              <option value="renewal">renewal open</option>
+              <option value="active">active</option>
+              <option value="expired">expired (kept forever)</option>
+            </select>
+          </label>
+          <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blackCsv()">⬇ CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blackPrint()">🖶 Print posting list</button>
+        </div>
+        <div class="adm-table-wrap"><table class="adm-table" data-bk-table>
+          <thead><tr><th>Member</th><th>State</th><th>Card number</th><th>Member ID</th><th>Issued</th><th>Valid through</th><th class="num">Left</th><th class="num">Renewals</th><th>Free card</th><th></th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="10"><p class="partner-note">No Shivaa Black members yet — the card is claimed from <b>#/black-card</b> after an OTP sign-in.</p></td></tr>`}</tbody>
+        </table></div>
+      </div>`;
+  }
+
+  /* ── v229 · IN-STORE BILLS: the owner uploads, the customer only views ── */
+  if (tab === 'bills') {
+    const rows = bills.map(b => `<tr>
+      <td><b>${esc(String(b.billNo || '—'))}</b><br><small style="color:var(--ink-3)">${esc(String(b.billDate || ''))}</small></td>
+      <td>${esc(String(b.customerName || '—'))}<br><small style="color:var(--ink-3)">${esc(String(b.phone || '—'))}</small></td>
+      <td>${esc(String(b.store || 'Shivaa Jewels · Jaipur'))}</td>
+      <td class="num">${fmt(Number(b.amount) || 0)}</td>
+      <td>${esc(String(b.items || '—'))}</td>
+      <td>${(b.files || []).length
+        ? (b.files || []).map(f => `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.billOpen('${jsArg(b.id)}',${Number(f.i)},'view')" title="${esc(String(f.label || ''))}">${esc(String(f.ext || 'file').toUpperCase())}</button>`).join(' ')
+        : '<small style="color:var(--ink-3)">none</small>'}</td>
+      <td>${b.userId ? '<span class="pill pm">linked</span>' : '<span class="pill pd">no account</span>'}</td>
+      <td>${b.notes ? `<small style="color:var(--ink-3)" title="private — never shown to the customer">🔒 note</small>` : '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.billEdit('${jsArg(b.id)}')">✎ Edit / attach</button>
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.billDelete('${jsArg(b.id)}','${jsArg(String(b.billNo || ''))}')">🗑</button>
+      </td>
+    </tr>`).join('');
+    body.innerHTML = `
+      ${billsStorage ? '' : `<div class="adm-card bk-warn"><h3>⚠ Private bill storage is unavailable — nothing can be saved yet</h3>
+        <p style="font-size:13px;line-height:1.6">Bills are kept <b>outside</b> the web root, in a folder named
+        <code>.shivaa-private-bills</code> <b>beside</b> <code>public_html</code>. PHP could not create or write it, so
+        uploads answer 503 and no file is ever half-saved. Either create that folder yourself in hPanel → File Manager
+        (one level above <code>public_html</code>, permissions <b>700</b>), or point the code at any writable private
+        path with the environment variable <code>SHIVAA_PRIVATE_BILLS_DIR</code>. Nothing is lost by waiting — the bills
+        simply are not uploadable until the folder exists.</p></div>`}
+      <div class="adm-card">
+        <h3>Upload a paper bill</h3>
+        <p class="partner-note" style="margin:0 0 12px">The customer sees <b>only</b> “view and download your in-store
+          purchases”. Your note stays here: it is never sent to the customer side of the API. Files are matched to the
+          account by the mobile written on the paper, and stored privately — jpg, png, webp or pdf, up to 6 files of
+          8 MB each, checked by their own bytes rather than their filename.</p>
+        <form class="form-grid" onsubmit="ShivaaAdmin.billCreate(event)">
+          <div class="fld"><label>Customer name *</label><input name="customerName" required maxlength="120" autocomplete="off"></div>
+          <div class="fld"><label>Customer mobile * <span style="font-size:11px;color:var(--ink-3)">(links it to their account)</span></label><input name="phone" type="tel" inputmode="tel" required maxlength="10" placeholder="10-digit mobile" autocomplete="off"></div>
+          <div class="fld"><label>Bill number *</label><input name="billNo" required maxlength="40" autocomplete="off"></div>
+          <div class="fld"><label>Bill date *</label><input name="billDate" type="date" required max="${new Date().toISOString().slice(0, 10)}"></div>
+          <div class="fld"><label>Store</label><input name="store" value="Shivaa Jewels · Jaipur" maxlength="120" autocomplete="off"></div>
+          <div class="fld"><label>Amount ₹</label><input name="amount" type="number" min="0" step="0.01" value="0"></div>
+          <div class="fld full"><label>What was bought</label><input name="items" maxlength="600" placeholder="e.g. 22K gold bangle pair · 18.40 g" autocomplete="off"></div>
+          <div class="fld full"><label>Private note <span style="font-size:11px;color:var(--ink-3)">(owner-side only — the customer never sees this)</span></label><textarea name="notes" maxlength="600" placeholder="e.g. paid by UPI, exchange of an old chain adjusted"></textarea></div>
+          <div class="fld full"><label>Bill scan / photo * <span style="font-size:11px;color:var(--ink-3)">(jpg, png, webp or pdf · up to 6 files)</span></label><input name="files" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" multiple required></div>
+          <button class="btn btn-primary btn-sm" style="justify-self:start" ${billsStorage ? '' : 'disabled'}>⬆ Upload bill</button>
+        </form>
+      </div>
+      <div class="adm-card" style="margin-top:14px">
+        <h3>${bills.length} in-store bill${bills.length === 1 ? '' : 's'}</h3>
+        <div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Bill</th><th>Customer</th><th>Store</th><th class="num">Amount</th><th>Items</th><th>Files</th><th>Account</th><th>Note</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="9"><p class="partner-note">No in-store bills uploaded yet.</p></td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  }
+
   if (tab === 'settings') {
     const S = state.settings;
     body.innerHTML = `    <div class="adm-card"><h3>Store settings</h3>
@@ -1098,6 +1230,18 @@ function v180DbStrip() {
                   <label style="font-size:12px;color:var(--ink-3)">Making-charges coupon code (blank = MAKING20; letters and digits, 3&ndash;24)</label>
                   <input name="bannerOfferCode" value="${String(S.bannerOfferCode || '').replace(/[^A-Za-z0-9]/g, '')}" maxlength="24" autocomplete="off" style="text-transform:uppercase" placeholder="e.g. MAKING20">
                 </div>
+              </div>
+              <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
+                <label style="font-size:13px"><b>✦ Shivaa Black member discount — % off MAKING CHARGES</b></label>
+                <input name="blackDiscountPct" type="number" min="0" max="40" step="1" value="${Number.isFinite(+S.blackDiscountPct) && String(S.blackDiscountPct).trim() !== '' ? Math.round(+S.blackDiscountPct) : 25}" style="max-width:160px">
+                <small style="color:var(--ink-3);display:block;margin-top:6px;line-height:1.55">
+                  ONE number for the whole programme — every member's card, certificate, checkout line and the
+                  downloaded artwork follow it the moment you save, and <b>no card number changes</b> because no coupon
+                  is stored per member. Default <b>25</b>. Keep it above the public <b>MAKING20</b> offer (20), or a
+                  KYC-verified membership pays the same as a guest and the privilege means nothing. <b>0</b> switches
+                  the discount off without deleting anybody's card, certificate or member number. This does not touch
+                  the Premium lifetime 20%, Amrita ji's personal ticket, metal value, stones, GST or shipping.
+                </small>
               </div>
                   <input type="checkbox" name="forceLatestVersion" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${(S.forceLatestVersion === undefined ? true : !!S.forceLatestVersion) ? 'checked' : ''}>
                   <span><b>🔄 Always show customers the latest version</b> <small style="color:var(--ink-3)">(recommended: ON)</small><br>
@@ -2177,7 +2321,11 @@ window.ShivaaAdmin.savePay = async e => {
                  amritaPage: !!document.querySelector('[name="amritaPage"]')?.checked,
                  // v188 — public banner offer (20% off making charges, everyone)
                  bannerOfferOn: !!document.querySelector('[name="bannerOfferOn"]')?.checked,
-                 bannerOfferCode: (document.querySelector('[name="bannerOfferCode"]')?.value || '').trim().toUpperCase() };
+                 bannerOfferCode: (document.querySelector('[name="bannerOfferCode"]')?.value || '').trim().toUpperCase(),
+                 /* v229 — the Shivaa Black member percentage. Clamped here AND
+                    on the server, because a form that only clamps in the browser
+                    is a form that a stale tab can still submit out of range. */
+                 blackDiscountPct: Math.max(0, Math.min(40, Math.round(Number(document.querySelector('[name="blackDiscountPct"]')?.value ?? 25) || 0))) };
   /* v152 — the partner-key field is GONE from the save body: the settings PUT
      no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)
@@ -4189,6 +4337,173 @@ window.ShivaaAdmin.loadReviews = async () => {
     </tbody></table></div>` : '<p class="partner-note">No reviews yet.</p>';
   } catch (e) { host.textContent = e.message; }
 };
+
+/* ═══ v229 · Shivaa Black admin actions ═══════════════════════════════════
+   Everything here is owner-side. The member-side renew route is the only other
+   writer, and it can only ever extend the caller's own card. */
+window.ShivaaAdmin.blackFilter = (mode) => {
+  const trs = $$('[data-bk-table] tbody tr');
+  trs.forEach(tr => {
+    const st = tr.dataset.bstate || '', ship = tr.dataset.ship === '1';
+    const show = mode === 'all' ? true
+      : mode === 'ship' ? ship
+      : mode === 'renewal' ? st === 'renewal'
+      : mode === 'active' ? st === 'active'
+      : mode === 'expired' ? st === 'expired' : true;
+    tr.style.display = show ? '' : 'none';
+  });
+};
+window.ShivaaAdmin.blackRenew = async (userId) => {
+  const months = Number(window.prompt('Extend this Shivaa Black membership by how many months? (1–36)', '6'));
+  if (!Number.isFinite(months)) return;
+  if (months < 1 || months > 36) return toast('Between 1 and 36 months', 'err');
+  try {
+    const r = await api('/api/admin/black-card/renew', { method: 'POST', body: JSON.stringify({ userId, months }) });
+    const m = r.membership || {};
+    toast('Renewed through ' + (m.expiresAt ? new Date(m.expiresAt).toLocaleDateString('en-IN') : '—') + ' ✦');
+    renderAdmin($('#view'), new URLSearchParams('tab=black'));
+  } catch (e) { toast(e.message || 'Could not renew', 'err'); }
+};
+window.ShivaaAdmin.blackShip = async (userId, status) => {
+  let trackingNo = '';
+  if (status === 'shipped') {
+    trackingNo = (window.prompt('Courier / tracking number (optional)', '') || '').trim();
+    if (trackingNo === null) return;
+  }
+  try {
+    await api('/api/admin/black-card/delivery', { method: 'POST', body: JSON.stringify({ userId, status, trackingNo }) });
+    toast(status === 'shipped' ? 'Marked shipped ✔' : (status === 'printed' ? 'Marked printed 🖶' : 'Back in the queue ↩'));
+    renderAdmin($('#view'), new URLSearchParams('tab=black'));
+  } catch (e) { toast(e.message || 'Could not update the card', 'err'); }
+};
+window.ShivaaAdmin.blackCsv = () => {
+  const head = ['Name', 'Mobile', 'State', 'Card number', 'Member ID', 'Certificate', 'Issued', 'Valid through',
+    'Days left', 'Renewals', 'Free card', 'Tracking'];
+  const rows = $$('[data-bk-table] tbody tr').filter(tr => tr.style.display !== 'none').map(tr => {
+    const c = [...tr.children];
+    return [c[0].querySelector('b')?.textContent.trim() || '', c[0].querySelector('small')?.textContent.trim() || '',
+      c[1].textContent.trim(), c[2].textContent.trim(), c[3].textContent.trim(), '',
+      c[4].textContent.trim(), c[5].textContent.trim(), c[6].textContent.trim(), c[7].textContent.trim(),
+      c[8].textContent.trim(), ''];
+  });
+  const blob = new Blob(['\uFEFF' + csvRows([head.slice(0, 10), ...rows.map(r => r.slice(0, 10))])], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'shivaa-black-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+/* The posting list is printed, not exported: it is a stack of address labels
+   for the free cards, one per page-break-safe block, so it can be cut out and
+   taped to an envelope at the counter. */
+window.ShivaaAdmin.blackPrint = () => {
+  const q = blackUsers.filter(u => u.blackCard && u.blackCard.delivery &&
+    String(u.blackCard.delivery.status || 'to-ship') !== 'shipped');
+  if (!q.length) return toast('No free cards waiting to be posted ✦', 'err');
+  const w = window.open('', '_blank', 'width=900,height=1100');
+  if (!w) return toast('Allow pop-ups to print the posting list', 'err');
+  const labels = q.map(u => {
+    const c = u.blackCard, d = c.delivery || {};
+    return `<div class="lbl"><b>${esc(String(d.name || u.name || ''))}</b>
+      <p>${esc(String(d.address || d.line1 || ''))}${d.city ? ', ' + esc(String(d.city)) : ''}${d.pincode ? ' — ' + esc(String(d.pincode)) : ''}</p>
+      <p>${esc(String(d.phone || u.phone || ''))}</p>
+      <small>Shivaa Black · ${esc(String(c.memberId || ''))} · valid through ${esc(c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-IN') : '—')}</small></div>`;
+  }).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Shivaa Black — cards to post</title><style>
+    body{font-family:Georgia,serif;margin:18mm;color:#20140a}
+    h1{font-size:17px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 4px}
+    p.note{font-size:12px;color:#5c4a33;margin:0 0 14px}
+    .lbl{border:1px solid #b99b5e;border-radius:6px;padding:10px 12px;margin:0 0 8px;page-break-inside:avoid}
+    .lbl b{font-size:15px}.lbl p{margin:3px 0;font-size:13px}.lbl small{font-size:11px;color:#5c4a33}
+    @media print{button{display:none}}</style></head><body>
+    <h1>Shivaa Black — ${q.length} free card${q.length === 1 ? '' : 's'} to post</h1>
+    <p class="note">Printed ${new Date().toLocaleString('en-IN')} · mark each one Printed, then Shipped, in Admin → Shivaa Black.</p>
+    ${labels}<button onclick="window.print()" style="padding:8px 20px;font-size:14px">🖨 Print</button>
+    <script>window.onload=()=>{try{window.print()}catch(e){}}</script></body></html>`);
+  w.document.close();
+};
+
+/* ═══ v229 · in-store bill desk ═══════════════════════════════════════════
+   The customer side has two verbs; every other verb lives here. */
+window.ShivaaAdmin.billOpen = (id, i, mode) => {
+  /* One viewer for both sides of the house: the admin route is the same
+     authenticated stream the customer uses, so there is no second
+     implementation to drift out of step with it. */
+  if (window.Shivaa && typeof window.Shivaa.openBillFile === 'function')
+    return window.Shivaa.openBillFile(null, id, i, mode || 'view');
+  toast('The bill viewer is not loaded — reload the admin page.', 'err');
+};
+window.ShivaaAdmin.billCreate = async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  const fd = new FormData();
+  ['customerName', 'phone', 'billNo', 'billDate', 'store', 'amount', 'items', 'notes'].forEach(k => {
+    const el = f.querySelector('[name="' + k + '"]');
+    if (el) fd.append(k, el.value);
+  });
+  const files = f.querySelector('[name="files"]');
+  if (!files || !files.files || !files.files.length) return toast('Attach the bill itself — a photo or a PDF', 'err');
+  [...files.files].forEach(file => fd.append('files[]', file));
+  const btn = f.querySelector('button[type="submit"], button.btn-primary');
+  const old = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
+  try {
+    const r = await api('/api/admin/store-bills', { method: 'POST', body: fd });
+    toast(r && r.linked ? 'Bill uploaded and linked to their account ✦' : 'Bill uploaded ✦ (no account on that mobile yet)');
+    renderAdmin($('#view'), new URLSearchParams('tab=bills'));
+  } catch (e) {
+    toast(e.message || 'Could not upload the bill', 'err');
+    if (btn) { btn.disabled = false; btn.textContent = old || '⬆ Upload bill'; }
+  }
+};
+window.ShivaaAdmin.billEdit = (id) => {
+  const b = bills.find(x => String(x.id) === id);
+  if (!b) return toast('That bill is not loaded — reload the tab', 'err');
+  const pages = (b.files || []).map(f => `<label class="bk-file-row"><span>${esc(String(f.label || ('page ' + (Number(f.i) + 1))))} · ${esc(String(f.ext || '').toUpperCase())}</span>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.billDrop('${jsArg(id)}',${Number(f.i)})">drop</button></label>`).join('');
+  openModal(`<h3>Bill ${esc(String(b.billNo || ''))}</h3>
+    <form class="form-grid" onsubmit="ShivaaAdmin.billSave(event,'${jsArg(id)}')" style="grid-template-columns:1fr 1fr">
+      <div class="fld"><label>Bill number</label><input name="billNo" value="${esc(String(b.billNo || ''))}" maxlength="40"></div>
+      <div class="fld"><label>Bill date</label><input name="billDate" type="date" value="${esc(String(b.billDate || ''))}"></div>
+      <div class="fld"><label>Customer name</label><input name="customerName" value="${esc(String(b.customerName || ''))}" maxlength="120"></div>
+      <div class="fld"><label>Customer mobile</label><input name="phone" type="tel" inputmode="tel" value="${esc(String(b.phone || ''))}" maxlength="10"></div>
+      <div class="fld"><label>Store</label><input name="store" value="${esc(String(b.store || ''))}" maxlength="120"></div>
+      <div class="fld"><label>Amount ₹</label><input name="amount" type="number" min="0" step="0.01" value="${Number(b.amount) || 0}"></div>
+      <div class="fld" style="grid-column:1/-1"><label>What was bought</label><input name="items" value="${esc(String(b.items || ''))}" maxlength="600"></div>
+      <div class="fld" style="grid-column:1/-1"><label>Private note (never shown to the customer)</label><textarea name="notes" maxlength="600">${esc(String(b.notes || ''))}</textarea></div>
+      <div class="fld" style="grid-column:1/-1"><label>Attach more pages (jpg, png, webp, pdf · 6 max)</label><input name="files" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple></div>
+      <div class="fld" style="grid-column:1/-1"><b style="font-size:12px;letter-spacing:.12em">STORED PAGES</b>${pages || '<p class="partner-note">none</p>'}</div>
+      <button class="btn btn-primary btn-sm" style="grid-column:1/-1;justify-self:start">Save bill</button>
+    </form>`, 'bk-edit');
+};
+window.ShivaaAdmin.billSave = async (ev, id) => {
+  ev.preventDefault();
+  const f = ev.target, fd = new FormData();
+  ['billNo', 'billDate', 'customerName', 'phone', 'store', 'amount', 'items', 'notes'].forEach(k => {
+    const el = f.querySelector('[name="' + k + '"]');
+    if (el) fd.append(k, el.value);
+  });
+  const files = f.querySelector('[name="files"]');
+  if (files && files.files && files.files.length) [...files.files].forEach(file => fd.append('files[]', file));
+  try {
+    await api('/api/admin/store-bills/' + encodeURIComponent(id), { method: 'POST', body: fd });
+    closeModal(); toast('Bill saved ✦'); renderAdmin($('#view'), new URLSearchParams('tab=bills'));
+  } catch (e) { toast(e.message || 'Could not save the bill', 'err'); }
+};
+window.ShivaaAdmin.billDrop = async (id, i) => {
+  if (!window.confirm('Remove that page from the bill? The stored file is deleted too.')) return;
+  try {
+    await api('/api/admin/store-bills/' + encodeURIComponent(id) + '?dropFile=' + Number(i), { method: 'POST' });
+    closeModal(); toast('Page removed'); renderAdmin($('#view'), new URLSearchParams('tab=bills'));
+  } catch (e) { toast(e.message || 'Could not remove that page', 'err'); }
+};
+window.ShivaaAdmin.billDelete = async (id, billNo) => {
+  if (!window.confirm('Delete bill ' + (billNo || id) + '? Every stored page is deleted with it. This cannot be undone.')) return;
+  try {
+    const r = await api('/api/admin/store-bills/' + encodeURIComponent(id), { method: 'DELETE' });
+    toast('Bill deleted' + (r && r.filesUnlinked ? ' · ' + r.filesUnlinked + ' file(s) removed' : '') );
+    renderAdmin($('#view'), new URLSearchParams('tab=bills'));
+  } catch (e) { toast(e.message || 'Could not delete the bill', 'err'); }
+};
+
 
 /* register routes */
 window.Shivaa.routes.admin = renderAdmin;

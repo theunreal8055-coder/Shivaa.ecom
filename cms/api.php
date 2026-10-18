@@ -6089,6 +6089,29 @@ try {
 
   /* v229 — the owner's side of Shivaa Black: renew for a member, and move the
      free physical card through to-ship → printed → shipped. */
+  /* v229 — the numbers behind the Admin sidebar badge and the Shivaa Black
+     tab's summary strip. One pass over users[], no joins, no file reads: the
+     admin shell asks for it on every tab, so it has to stay cheap. */
+  if ($route === 'admin/black-card/queue' && $method === 'GET') {
+    need_admin($db);
+    $q = ['members' => 0, 'active' => 0, 'expired' => 0, 'renewable' => 0,
+          'toShip' => 0, 'printed' => 0, 'shipped' => 0, 'pct' => black_discount_pct()];
+    foreach (($db['users'] ?? []) as $u) {
+      $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
+      if (!$card) continue;
+      $q['members']++;
+      $pub = black_card_public($card);
+      if ($pub['status'] === 'active') $q['active']++; else $q['expired']++;
+      if (!empty($pub['renewable'])) $q['renewable']++;
+      $st = (string)($card['delivery']['status'] ?? '');
+      if (!empty($card['delivery'])) {
+        if ($st === 'printed') $q['printed']++;
+        elseif ($st === 'shipped') $q['shipped']++;
+        else $q['toShip']++;
+      }
+    }
+    jout(200, $q);
+  }
   if ($route === 'admin/black-card/renew' && $method === 'POST') {
     need_admin($db);
     $b = body_json();
