@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 231;
+const APP_REL = 232;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -1078,23 +1078,143 @@ const isWished = id => state.user ? null : state.localWish.includes(id); // null
   }, true);
 })();
 
-/* ─────────── 3D + motion helpers ─────────── */
-function bindTilt(scope = document) {
-  // v42: skip tilt on mobile/touch — causes vibration, flicker, scroll-jank
-  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820)) return;
-  $$('.p-card, .cat-card, .poster, .testi', scope).forEach(card => {
-    if (card._tilt) return; card._tilt = true;
-    card.addEventListener('mousemove', e => {
-      const r = card.getBoundingClientRect();
-      const TI = +card.dataset.tilt || 1;
-      const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-      card.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 7 * TI}deg) rotateY(${(px - 0.5) * 9 * TI}deg) translateY(-4px)`;
-      const g = card.querySelector('.glare');
-      if (g) { g.style.setProperty('--gx', px * 100 + '%'); g.style.setProperty('--gy', py * 100 + '%'); }
-    });
-    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
-  });
+/* ─────────── v232 · images decode off the frame ───────────
+   56 of the 68 <img> literals this app renders — the gallery, the quick-view
+   photo, every cart thumb, every logo, every empty-state mark — left
+   `decoding` at the browser default, which for bytes that land while a thumb
+   is moving can mean the decode happens ON the main thread, inside that frame.
+   On a grid where forty images arrive at once that is a long task in the
+   middle of a scroll: the stutter a shopper feels but cannot name. One sweep
+   at boot and one observer on inserted nodes now ask every image for the async
+   decode, except the images that ARE the largest contentful paint — an async
+   decode on the hero can cost a frame of LCP, and this release is not allowed
+   to buy one kind of smooth with another. Anything the markup already marked
+   critical (`loading="eager"`, `fetchpriority="high"`) is left alone too. */
+const DECODE_LCP = '#preloader, .hero, .page-hero, .poster, .c-slide, .gal-track, [data-lcp]';
+let _decSwept = 0;
+function decodeGovern(node) {
+  if (!node || node.nodeType !== 1) return 0;
+  const list = node.tagName === 'IMG' ? [node] : (node.querySelectorAll ? Array.from(node.querySelectorAll('img')) : []);
+  let n = 0;
+  for (const im of list) {
+    if (im.getAttribute('decoding')) continue;
+    if (im.getAttribute('loading') === 'eager') continue;
+    if (im.getAttribute('fetchpriority') === 'high') continue;
+    if (im.closest && im.closest(DECODE_LCP)) continue;
+    im.setAttribute('decoding', 'async'); n++;
+  }
+  _decSwept += n;
+  return n;
 }
+window.__shvDecode = { lcp: DECODE_LCP, govern: decodeGovern, get swept() { return _decSwept; } };
+decodeGovern(document.body || document.documentElement);
+if (window.MutationObserver) {
+  new MutationObserver(ms => {
+    for (let i = 0; i < ms.length; i++) {
+      const added = ms[i].addedNodes;
+      for (let j = 0; j < added.length; j++) decodeGovern(added[j]);
+    }
+  }).observe(document.body || document.documentElement, { childList: true, subtree: true });
+}
+
+/* ─────────── 3D + motion helpers ─────────── */
+/* v232 · ONE tilt engine instead of a listener per card.
+   bindTilt() hung a mousemove on every .p-card / .cat-card / .poster / .testi
+   it was handed — a hundred-piece grid got a hundred listeners — and each
+   event ran getBoundingClientRect() and then wrote style.transform: a forced
+   layout plus a paint per pointer event, with no frame coalescing, so a mouse
+   reporting at 120 Hz bought 120 layouts a second. init3DCardTilts() did the
+   same for four more families AND hung a touchmove on them, which is a layout
+   read per touch event *while the page is scrolling* — the most expensive
+   thing a phone can be asked to do under a moving thumb.
+   Now: one mousemove and one touchmove for the whole document, the rect taken
+   ONCE per card visit (a touch gesture takes it at touchstart and reuses it
+   for the whole gesture), the write coalesced into a single frame, and a
+   gesture that turns out to be a scroll stands the tilt down instead of
+   wobbling a card while the reader is trying to read past it. The selectors,
+   the degrees, the perspective and the resting transforms are unchanged — this
+   is the same effect for a fraction of the frame cost. */
+const TILT_SEL = '.p-card, .cat-card, .poster, .testi';
+const TILT3D_SEL = '.shv-gender-card, .shv-stud-card, .shv-poster-card, .shv-pillar-card';
+const TILT3D_REST = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+let _tlArmed = false, _tlRaf = 0, _tlPt = null, _tlCard = null, _tlRect = null;
+let _tlGlare = null, _tlKind = 0, _tlScrolling = false;
+const _tlTouch = () => ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+function _tlRest() {
+  const card = _tlCard;
+  _tlCard = null; _tlRect = null; _tlGlare = null; _tlPt = null;
+  const kind = _tlKind; _tlKind = 0;
+  if (!card || !card.isConnected) return;
+  card.style.transform = kind === 1 ? '' : TILT3D_REST;
+}
+function _tlFrame() {
+  _tlRaf = 0;
+  const card = _tlCard, pt = _tlPt;
+  if (!card || !pt || _tlScrolling || document.hidden) return;
+  if (!card.isConnected) { _tlRest(); return; }
+  if (!_tlRect) _tlRect = card.getBoundingClientRect();
+  const r = _tlRect;
+  if (!r.width || !r.height) return;
+  if (_tlKind === 1) {
+    const TI = +card.dataset.tilt || 1;
+    const px = (pt.x - r.left) / r.width, py = (pt.y - r.top) / r.height;
+    card.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 7 * TI}deg) rotateY(${(px - 0.5) * 9 * TI}deg) translateY(-4px)`;
+    if (_tlGlare === null) _tlGlare = card.querySelector('.glare') || false;
+    if (_tlGlare) { _tlGlare.style.setProperty('--gx', px * 100 + '%'); _tlGlare.style.setProperty('--gy', py * 100 + '%'); }
+  } else {
+    const x = pt.x - r.left, y = pt.y - r.top, midX = r.width / 2, midY = r.height / 2;
+    const K = _tlKind === 3 ? 5 : 7, lift = _tlKind === 3 ? '-2px' : '-4px';
+    const rotX = ((y - midY) / midY) * -K, rotY = ((x - midX) / midX) * K;
+    card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(${lift})`;
+  }
+}
+function _tlGo() { if (!_tlRaf) _tlRaf = requestAnimationFrame(_tlFrame); }
+function _tlArm() {
+  if (_tlArmed) return;
+  _tlArmed = true;
+  /* A scroll invalidates a cached rect, and a finger that is scrolling is not
+     asking for a 3D tilt. Flag-only: this listener reads no geometry, so it
+     cannot force a layout of its own. */
+  addEventListener('scroll', () => { _tlRect = null; if (_tlKind === 3) _tlScrolling = true; }, { passive: true });
+  addEventListener('resize', () => { _tlRect = null; }, { passive: true });
+  document.addEventListener('mousemove', e => {
+    const t = e.target;
+    const card = (t && t.closest) ? t.closest(TILT_SEL + ',' + TILT3D_SEL) : null;
+    if (!card) { _tlRest(); return; }
+    const d3 = card.matches(TILT3D_SEL);
+    // v42: skip tilt on mobile/touch — causes vibration, flicker, scroll-jank
+    if (!d3 && _tlTouch()) { _tlRest(); return; }
+    if (card !== _tlCard) {
+      _tlRest();
+      _tlCard = card; _tlKind = d3 ? 2 : 1;
+      if (d3) { try { ShivaaAudio.playHover(); } catch (err) {} }
+    }
+    _tlPt = { x: e.clientX, y: e.clientY };
+    _tlGo();
+  }, { passive: true });
+  document.addEventListener('touchstart', e => {
+    const t = e.touches && e.touches[0];
+    _tlScrolling = false;
+    if (!t) { _tlRest(); return; }
+    const card = (t.target && t.target.closest) ? t.target.closest(TILT3D_SEL) : null;
+    _tlRest();
+    if (!card) return;
+    _tlCard = card; _tlKind = 3;
+    _tlRect = card.getBoundingClientRect();          // once for the whole gesture
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (_tlKind !== 3 || !_tlCard || !_tlRect || _tlScrolling) return;
+    const t = e.touches && e.touches[0]; if (!t) return;
+    _tlPt = { x: t.clientX, y: t.clientY };
+    _tlGo();
+  }, { passive: true });
+  const _tlEnd = () => { _tlRest(); _tlScrolling = false; };
+  document.addEventListener('touchend', _tlEnd, { passive: true });
+  document.addEventListener('touchcancel', _tlEnd, { passive: true });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) _tlRest(); }, { passive: true });
+}
+window.__shvTilt = { arm: _tlArm, rest: _tlRest, get card() { return _tlCard; }, get reads() { return _tlRect ? 1 : 0; } };
+function bindTilt(scope = document) { _tlArm(); }
 function bindReveal(scope = document) {
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
   $$('.rv', scope).forEach(el => io.observe(el));
@@ -1635,39 +1755,11 @@ function finaleHomeBand() {
 }
 
 function init3DCardTilts() {
-  const cards = document.querySelectorAll('.shv-gender-card, .shv-stud-card, .shv-poster-card, .shv-pillar-card');
-  cards.forEach(card => {
-    if (card._tiltInit) return;
-    card._tiltInit = true;
-    card.addEventListener('mouseenter', () => ShivaaAudio.playHover());
-    card.addEventListener('mousemove', e => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const midX = rect.width / 2;
-      const midY = rect.height / 2;
-      const rotX = ((y - midY) / midY) * -7;
-      const rotY = ((x - midX) / midX) * 7;
-      card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-4px)`;
-    });
-    card.addEventListener('mouseleave', () => {
-      card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
-    });
-    card.addEventListener('touchmove', e => {
-      if (!e.touches || !e.touches[0]) return;
-      const rect = card.getBoundingClientRect();
-      const x = e.touches[0].clientX - rect.left;
-      const y = e.touches[0].clientY - rect.top;
-      const midX = rect.width / 2;
-      const midY = rect.height / 2;
-      const rotX = ((y - midY) / midY) * -5;
-      const rotY = ((x - midX) / midX) * 5;
-      card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-2px)`;
-    }, { passive: true });
-    card.addEventListener('touchend', () => {
-      card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
-    }, { passive: true });
-  });
+  /* v232 — the four 3D families are served by the same single engine as the
+     product cards: one delegated listener for the document, the hover chime on
+     the way in, one rect per gesture instead of one per touch event, and one
+     coalesced write per frame. Same degrees, same perspective, same rest. */
+  _tlArm();
 }
 
 function finaleLanding() {
@@ -2854,39 +2946,94 @@ async function loadRates() {
    returning to the foreground refreshes immediately if its quote is stale.
    Millisecond smooth animation is handled by renderTicker's interpolation (see below). */
 let _ratesTimer = null;
+/* v232 — a tab nobody is looking at kept asking the server for the gold rate
+   once a second, forever, and kept the whole rates chain (event → ticker →
+   interpolator) awake with it. The visibilitychange handler below already
+   re-synced on the way back, so the poll now stops when the tab hides and
+   restarts when it is read again: same numbers on screen, none of the work
+   while nobody is watching. */
 function scheduleRatesPoll() {
-  clearTimeout(_ratesTimer);
+  clearTimeout(_ratesTimer); _ratesTimer = null;
+  if (document.hidden) return;
   const live = !!(state.rates && state.rates.live);
   const delay = live ? 1000 : 5000;
-  _ratesTimer = setTimeout(async () => { await loadRates(); scheduleRatesPoll(); }, delay);
+  _ratesTimer = setTimeout(async () => {
+    _ratesTimer = null;
+    if (document.hidden) return;
+    await loadRates();
+    scheduleRatesPoll();
+  }, delay);
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden || !_lastRatesAt) return;
+  if (document.hidden) { clearTimeout(_ratesTimer); _ratesTimer = null; return; }
+  if (!_lastRatesAt) { if (!_ratesTimer) scheduleRatesPoll(); return; }
   const maxAge = state.rates && state.rates.live ? 3000 : 10000;
   if (Date.now() - _lastRatesAt > maxAge) { loadRates(); scheduleRatesPoll(); }
+  else if (!_ratesTimer) scheduleRatesPoll();
 }, { passive: true });
 // v2026-09-14 — bullion millisecond smooth: 60fps interpolation so the ticker *looks* like it moves every millisecond
 // Real MCX tick is still 1/sec (exchange limit), but the display lerps between ticks so customers see smooth motion.
+/* v232 — …but it only interpolates now while there is something to interpolate.
+   Measured before this change: _msTick() asked for 60 frames a second from the
+   moment app.js parsed until the tab was closed — 574 frames in the first
+   twelve seconds of a silent home page with nothing on screen moving, and TWO
+   document.querySelector calls inside every one of them. The lerp settles in
+   about thirty frames, so the other ~200,000 frames an hour were pure tax on
+   the one thread a thumb is scrolling with, and the two queries kept walking a
+   1,400-element document 120 times a second. It now runs while a number is
+   still moving, keeps the two nodes it writes (re-finding them only when a
+   route has rebuilt the strip), arrives EXACTLY on the last frame instead of
+   stopping 0.01 short, and stands down while the tab is hidden. Same 0.14
+   easing, same rounding, same text — the ticker glides exactly as it did. */
 let _msGold = null, _msTargetGold = null, _msSilver = null, _msTargetSilver = null, _msRaf = null;
+let _msG = null, _msS = null;
+const _msGoldTxt = v => '₹' + Math.round(v).toLocaleString('en-IN') + '/g';
+const _msSilverTxt = v => '₹' + v.toFixed(2).replace(/\.00$/, '') + '/g';
+function _msNodes() {
+  if (_msG && _msG.isConnected && _msS && _msS.isConnected) return true;
+  _msG = document.querySelector('[data-rt="gold22"]');
+  _msS = document.querySelector('[data-rt="silver"]');
+  return !!(_msG || _msS);
+}
+function _msMoving() {
+  return _msTargetGold != null && _msGold != null &&
+    (Math.abs(_msGold - _msTargetGold) > 0.01 || Math.abs(_msSilver - _msTargetSilver) > 0.001);
+}
+function _msStop() { if (_msRaf != null) { cancelAnimationFrame(_msRaf); _msRaf = null; } }
 function _msTick() {
-  if (_msTargetGold != null && state.rates) {
-    if (_msGold == null) { _msGold = _msTargetGold; _msSilver = _msTargetSilver; }
+  _msRaf = null;
+  if (document.hidden || _msTargetGold == null || !state.rates) return;
+  if (_msGold == null) { _msGold = _msTargetGold; _msSilver = _msTargetSilver; }
+  _msNodes();
+  if (_msMoving()) {
     _msGold += (_msTargetGold - _msGold) * 0.14;
     _msSilver += (_msTargetSilver - _msSilver) * 0.14;
-    const gEl = document.querySelector('[data-rt="gold22"]');
-    if (gEl && Math.abs(_msGold - _msTargetGold) > 0.01) gEl.textContent = '₹' + Math.round(_msGold).toLocaleString('en-IN') + '/g';
-    const sEl = document.querySelector('[data-rt="silver"]');
-    if (sEl && Math.abs(_msSilver - _msTargetSilver) > 0.001) sEl.textContent = '₹' + _msSilver.toFixed(2).replace(/\.00$/,'') + '/g';
+    if (_msG && Math.abs(_msGold - _msTargetGold) > 0.01) _msG.textContent = _msGoldTxt(_msGold);
+    if (_msS && Math.abs(_msSilver - _msTargetSilver) > 0.001) _msS.textContent = _msSilverTxt(_msSilver);
   }
+  if (_msMoving()) { _msRaf = requestAnimationFrame(_msTick); return; }
+  /* arrived: write the exact rate once, then go quiet */
+  _msGold = _msTargetGold; _msSilver = _msTargetSilver;
+  if (_msG) _msG.textContent = _msGoldTxt(_msGold);
+  if (_msS) _msS.textContent = _msSilverTxt(_msSilver);
+}
+function _msWake() {
+  if (_msRaf != null || document.hidden) return;
+  if (_msTargetGold == null || !state.rates) return;
+  if (_msGold == null) { _msGold = _msTargetGold; _msSilver = _msTargetSilver; }
   _msRaf = requestAnimationFrame(_msTick);
 }
-_msTick();
 document.addEventListener('rates', () => {
   if (!state.rates) return;
   _msTargetGold = state.rates.gold22;
   _msTargetSilver = state.rates.silver;
   if (_msGold == null) { _msGold = _msTargetGold; _msSilver = _msTargetSilver; }
+  _msWake();
 });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { _msStop(); return; }
+  _msWake();
+}, { passive: true });
 /* flash a numeric element green/red when the market moves it */
 function flashMove(el, text, dir) {
   if (!el) return;
@@ -12193,14 +12340,38 @@ function decorate5D() {
 }
 // cursor glow — positioned always, shown only on fine pointers (CSS media gate)
 // v42: disabled on mobile/touch to prevent scroll-jank and page unresponsiveness
+/* v232 — this was the second loop that never slept, and the worse of the two:
+   it wrote style.left and style.top at 60 fps forever, on every page, with the
+   mouse parked, in a hidden tab, and on a 340 px mix-blend-mode:screen layer —
+   a forced layout AND a blended repaint of the whole viewport per frame. It
+   now sits at 0,0 (css/v232.css), moves on the compositor through a transform,
+   wakes on a real mousemove, and ends the moment it has caught up: a parked
+   pointer costs nothing at all. Same 0.12 easing, same centre offset, same
+   layer — it just stops working when there is no work. */
 (() => {
   const cg = $('#cursorGlow'); if (!cg) return;
   const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
   if (_isTouchDevice) return;  // skip entirely on mobile — prevents flicker + lag
+  if (window.matchMedia && matchMedia('(hover: none)').matches) return;  // the layer is display:none there
   cg.classList.add('on');
-  let mx = innerWidth / 2, my = innerHeight / 2, gx = mx, gy = my;
-  addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
-  (function glow() { gx += (mx - gx) * 0.12; gy += (my - gy) * 0.12; cg.style.left = gx + 'px'; cg.style.top = gy + 'px'; requestAnimationFrame(glow); })();
+  let mx = innerWidth / 2, my = innerHeight / 2, gx = mx, gy = my, raf = 0, last = '';
+  const put = () => {
+    raf = 0;
+    if (document.hidden) return;
+    gx += (mx - gx) * 0.12; gy += (my - gy) * 0.12;
+    const done = Math.abs(mx - gx) < 0.4 && Math.abs(my - gy) < 0.4;
+    if (done) { gx = mx; gy = my; }
+    const t = 'translate3d(' + gx.toFixed(1) + 'px,' + gy.toFixed(1) + 'px,0) translate(-50%,-50%)';
+    if (t !== last) { last = t; cg.style.transform = t; }
+    if (!done) raf = requestAnimationFrame(put);
+  };
+  const wake = () => { if (!raf && !document.hidden) raf = requestAnimationFrame(put); };
+  addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; wake(); }, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = 0; } } else wake();
+  }, { passive: true });
+  window.__shvGlow = { get running() { return !!raf; }, wake, el: cg };
+  wake();
 })();
 
 /* ─────────── v166 · the catalogue must never be silently missing ───────────

@@ -100,7 +100,7 @@ if printf '%s' "$APPJS" | grep -q "pages\['delete-account'\]"; then
   ok "the deployed app.js contains the erasure page Play requires"
 else
   bad "the deployed app.js does NOT contain #/delete-account — the live tree is older than v228.
-          Deploy shivaa-update-v229.zip (or any newer release) before pointing Play at this URL."
+          Deploy shivaa-update-v232.zip (or any newer release) before pointing Play at this URL."
 fi
 AREL=$(printf '%s' "$APPJS" | grep -o 'APP_REL *= *[0-9]*' | head -1 | grep -o '[0-9]*$')
 [ -n "${AREL:-}" ] && ok "APP_REL ${AREL}" || note "APP_REL not found in the deployed js (minified?)"
@@ -117,7 +117,7 @@ else
   # -ge 228, NOT an equality: the erasure page Play requires shipped at v228 and
   # the live site is v228 today. Rolling this to the newest release would fail for
   # a package the owner has not uploaded yet — the normal state between releases.
-  [ "${REL:-0}" -ge 228 ] && ok "live release v$REL" || bad "live release is v${REL:-?} — deploy shivaa-update-v229.zip (or newer)"
+  [ "${REL:-0}" -ge 228 ] && ok "live release v$REL" || bad "live release is v${REL:-?} — deploy shivaa-update-v232.zip (or newer)"
   [ "${MT:-}" = "true" ] && ok "release stamps are consistent (index = app = sw)" || note "stamp.matched=${MT:-?} — index/app/sw disagree, check the deploy"
   [ "${DB:-}" = "mysql" ] && ok "data source: mysql" || note "data source: ${DB:-unknown} (JSON safety net — the app is unaffected)"
 fi

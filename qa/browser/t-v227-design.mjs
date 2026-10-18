@@ -165,10 +165,10 @@ T('physics: nothing shouts — no !important in this layer at all',
   !/!important/.test(LAYER_C));
 
 /* ── 7 · the shell ships it ────────────────────────────────────────────── */
-T('shell: v231.css is the last layer and v227.js loads after app.js',
-  ORDER[ORDER.length - 1] === 'v231.css' && ORDER[ORDER.length - 2] === 'v230.css' &&
-  BUNDLE.lastIndexOf('/* v231.css */') > BUNDLE.lastIndexOf('/* v230.css */') &&
-  INDEX.indexOf('/js/v227.js?v=231') > INDEX.indexOf('/js/app.js?v=231'));
+T('shell: v232.css is the last layer and v227.js loads after app.js',
+  ORDER[ORDER.length - 1] === 'v232.css' && ORDER[ORDER.length - 2] === 'v231.css' &&
+  BUNDLE.lastIndexOf('/* v232.css */') > BUNDLE.lastIndexOf('/* v231.css */') &&
+  INDEX.indexOf('/js/v227.js?v=232') > INDEX.indexOf('/js/app.js?v=232'));
 
 /* ── 8 · live: the page a shopper gets ────────────────────────────────── */
 {
