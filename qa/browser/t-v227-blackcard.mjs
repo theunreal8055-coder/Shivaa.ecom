@@ -64,7 +64,7 @@ T('shim: mirrors api.php\'s two black-card routes for this sandbox',
   SHIM.includes('if route == "black-card/claim":') && SHIM.includes('if route == "black-card":') &&
   SHIM.includes('def dev_black_claim(u, body):') && SHIM.includes('"blackCard": dev_black_public'));
 T('stamp: v227.js is loaded by the page and precached by the shell',
-  INDEX.includes('/js/v227.js?v=228') && SW.includes("'/js/v227.js?v=228'"));
+  INDEX.includes('/js/v227.js?v=229') && SW.includes("'/js/v227.js?v=229'"));
 
 /* ── 2 · live: signed out, from a product page ─────────────────────────── */
 const PDP = '#/product/p_smp_rings_01';
@@ -136,7 +136,8 @@ const PDP = '#/product/p_smp_rings_01';
     T('journey: the card is created without a second tap (the auto-claim ran)',
       !!card2, card2 ? card2.memberId + ' · expires ' + String(card2.expiresAt).slice(0, 10) : 'no membership');
     T('journey: it is a real Shivaa Black membership, not a placeholder',
-      !!card2 && card2.discountPct === 20 && card2.discountBasis === 'making-charges' &&
+      !!card2 && card2.discountPct === ((window.Shivaa.state.settings || {}).blackDiscountPct || 25) &&
+      card2.discountBasis === 'making-charges' &&
       card2.holderName === 'Meera Kanwar' && String(card2.mobile).slice(-10) === phone.slice(-10),
       card2 ? [card2.discountPct, card2.discountBasis, card2.holderName, card2.mobile].join(' | ') : '');
     await until(() => window.location.hash === PDP, 8000);
