@@ -68,6 +68,7 @@
 
   /* ═══ 1 · FOOTER RATE TICKER + BASIS LINE ═══════════════════════════════ */
   let tickPrev = null;
+  let tickHTML = '';   /* v224 — last markup written, so an unchanged redraw is free */
   function tickCells(rates) {
     const defs = [
       ['24K', rates.gold24, fmt], ['22K', rates.gold22, fmt],
@@ -99,9 +100,15 @@
     const basis = (isFinite(premG) && isFinite(premS))
       ? `How this price is built: live bullion spot <b>${fmt2(r.gold22)}/g (22K)</b> + <b>${fmt2(premG)}/g</b> 22K Shivaa premium — desk physical (silver +${fmt2(premS)}/g) · GST extra at checkout · rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''}.`
       : `Rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''} · GST extra at checkout.`;
-    host.innerHTML =
+    /* v224 — the redraw used to rebuild the footer every 2.5s even when the
+       markup was byte-identical (rates move every 10 minutes), and even on a
+       hidden tab. Only a real change touches the DOM now. */
+    const html =
       `<div class="v107-tick" role="list" aria-label="Today's metal rates per gram">${cells}</div>` +
       `<p class="v107-basis"><span class="live-dot" aria-hidden="true"></span>${basis}</p>`;
+    if (document.hidden || html === tickHTML) return;
+    tickHTML = html;
+    host.innerHTML = html;
   }
   function footerTicker() {
     const foot = $('footer');

@@ -1,4 +1,95 @@
-# AGENT HANDOFF — v200 BUILT (button colour fixes); v199 BUILT (Black Card journey); NOTHING DEPLOYED (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom`)
+> ## CURRENT STATE — **v232 IS LIVE** (owner applied every update, 21 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+>
+> - **LIVE: v232 “The Idle Release”.** The owner applied every update and reported *“I have applied
+>   each and every update to the website and it's fine”* on 21 Oct 2026. The package that matches the
+>   live site is `shivaa-update-v232.zip` — **361 files · 37,349,816 B ·
+>   `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**. **Next release number: v233.**
+>   Live chain: v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)**.
+> - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the Arena session is hard-wired to it. Commit and push
+>   there only: `git push origin arena/e8a470c6-shivaa-ecom`. The twin `arena/09f3c79f-shivaa-ecom` stays
+>   at its v220 tip (`4a9e239`); PR #106 on it is open and untouched. **The session branch itself is
+>   proposed upstream as PR #107** (`arena/e8a470c6-shivaa-ecom` → `arena/5529f0ec-shivaa-ecom`) — it is a
+>   review artefact, and nothing is merged without the owner's word.
+> - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
+>   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
+>   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do
+>   not write docs; run the three commands it prints. **Never work on a tree older than the newest
+>   release, and never rebuild a spent number.** On 21 Oct a sandbox came back on the v220 base commit
+>   with a stale worktree — this guard exists because of exactly that.
+> - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). It holds every
+>   release from v221 with commit, file count, byte size, sha256, status, plus `live` and `next_release`.
+>   `python3 qa/check-handoff.py` proves ledger ⟷ stamps in the shipped tree ⟷ zips on disk (and in git)
+>   ⟷ these docs. Run it after any doc edit and before any release.
+> - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
+>   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` now
+>   refuses a spent number whose bytes do not reproduce (a faithful v232 rebuild reproduces the sha256
+>   above byte for byte). Owner approval before anything goes live; a push, a merge, a green gate or a
+>   finished zip is **not** approval. Rollback is the previous ledger row (v231), never an older tree.
+> - **Sandbox resets between turns.** First
+>   `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`, then
+>   `bash qa/where-am-i.sh`. Then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
+>   `python3 qa/build-test-db.py`, `python3 qa/preview_shim.py --port 8090`. The zips are tracked in git,
+>   so the reset restores them. **Check for stray `node` before believing a flaky suite**
+>   (`ps aux | grep "[n]ode"`).
+> - **v232's measured facts (the proof the owner was given):** idle animation frames **123/s → 0/s** on a
+>   silent home page (1264 frames in 12 s, 1148 from `_msTick` + the cursor glow); layout reads for ten
+>   pointer moves over one card **10 → 1**, twenty more **→ 0**; main-thread image decodes **56 of 68 → 0**
+>   (the LCP set keeps its decode); hidden-tab rate polls **1/s → 0**. **The find:** v226's press rules
+>   for `.p-card`/`.cat-card`/the offer banner had been dead on every phone since v226 —
+>   `styles.css:4637` and `v219.css:129` beat them — restored in `cms/css/v232.css` §1.
+> - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
+>   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`,
+>   and the order in `tools/css-bundle-order.txt` is load-bearing (66 positions, `v186.css` twice);
+>   films load only via `wake()`, never put `src`/`preload="auto"` back; never animate a layout property,
+>   a `filter` or `background-position` in a loop; scroll work lives in `v225.js`'s one frame; one ripple
+>   system; **zero idle frames** and **no per-event `getBoundingClientRect()`** in any move listener
+>   (v232); the member percentage is one setting, ships **20**, never hard-coded elsewhere;
+>   `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed and never ships.
+> - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
+>   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
+>   × 14 days), and the private bills folder `.shivaa-private-bills` **beside** `public_html`
+>   (`DEPLOY-v229.md` §2 — without it the admin upload answers 503 by design). Details:
+>   `docs/NEXT-CHAT-HEAD.md` §12.
+
+# AGENT HANDOFF — the v223 → v232 arc, and where the project stands (21 Oct 2026)
+
+**Read the CURRENT STATE block at the top first; this section is the story behind it.**
+The machine truth is `docs/release-ledger.json`; the paste-first handoff is
+`docs/NEXT-CHAT-HEAD.md`; the newest deploy note is `DEPLOY-v232.md`.
+
+## What shipped between the last handoff (v222) and now
+
+Ten releases, all on `arena/e8a470c6-shivaa-ecom`, all applied by the owner, in order:
+
+| Release | Title | The one-line story |
+|---|---|---|
+| v223 | The Smooth Release | Films stopped mounting with `src`/`preload="auto"` — a fresh home page fetched **4.5 MB of video before the reader scrolled**. Now zero bytes at mount; one `IntersectionObserver` wakes, shuts and rests them. |
+| v224 | The Every-Corner Release | Every continuously running animation became compositor-only (hero float animated `margin-top`; sweeps animated `left`; two loops animated `filter`) and every per-second DOM rebuild died → ~35 → ~2 DOM writes/sec, plus the usability corners (16 px focus floor, dot targets, safe-area FABs, `dvh` chat, tabular numerals). |
+| v225 | The App-Feel Release | The chrome's scroll work moved into **one** frame (`cms/js/v225.js`, `window.__shvHub`): one passive listener, one rAF, geometry only on resize/route, quantised writes. A six-event scroll burst now reads the document **zero** times. |
+| v226 | The Butter Release | Measured 1058 visible interactive elements and found **265 that answered a press with nothing**; every family got a transform press under the coarse/hover union with `!important`, one ripple system, a tap-vs-drag line, rail centring, instant route jumps, a lazily armed pace bar, and a view transition where supported. |
+| v227 | The Reading Layer | Black-card **Verify & create** now works from every product page (the reader demanded a form only `#/black-card` had); forgot-password became mobile-first (SMS code → new password); home fixed `₹₹6,998/g`, a bare `<div>` hint, eager logo art; footer clears the nav by its measured height. |
+| v228 | The Play Store Gate | `#/delete-account` really exists (the API route had shipped at v183 with no caller), signed out proves the number with an SMS code, both paths need DELETE, success anonymises and kills every device token; `#/size-guide` aliased to the real sizer; `holdRepeat` stops when its element leaves the page. |
+| **v229** | **The Paperwork Release** | `Admin → Shivaa Black` control room (members, renewal, free-card posting queue, CSV); `POST black-card/renew` (last 30 days, 409 with days left, +6 calendar months, keeps ids); the member percentage became **one setting** (`settings.blackDiscountPct`, ships 20) instead of nine literals; in-store bills in a private vault beside the docroot with exactly View + Download, `bill_public()` never leaking the owner's note; the certificate became a document (A4 landscape 3508×2480). |
+| **v230** | **The Legibility Release** | The owner's two reports were both real: the name was **gold foil clipped into text on cream (~1.4:1)** — now ink `#2b1a05` at 15.4:1 / 9.6:1 — and the member rate said 25 % when he wanted **20 %**, so the default moved (and the fixture stores 25 so the override stays proven). Graphics: seal, engraved border, denser guilloche, cartouche, signature rule. |
+| **v231** | **The Engraved Layer** | The ink fix became **structural** (reset on the bare `.bc-cert-name`, not a class list one edit from dead), microtext band, guilloche repainted as two 58 px bands instead of a full sheet. No keyframes, no transitions. |
+| **v232** | **The Idle Release** | Measured a silent home page: **1264 animation frames in 12 s**, 1148 from `_msTick` and the cursor glow. Idle **123/s → 0/s**; one delegated tilt engine + one magnetic engine replace a listener per card and a rect read per pointer event (**10 → 1** reads per ten moves); 56 of 68 `<img>` stop decoding on the main thread; hidden tab stops polling. **Found:** v226's press rules for `.p-card`/`.cat-card`/offer banner were dead on every phone since v226 (`styles.css:4637`, `v219.css:129`) — restored. |
+
+## Where the documentation lives now
+
+- `docs/release-ledger.json` — the machine truth (release, commit, zip, bytes, sha256, status).
+- `docs/RELEASE-LEDGER.md` — the readable ledger + the forward-only rules + the ritual.
+- `docs/NEXT-CHAT-HEAD.md` — paste this first: branch, guards, QA, rules, open items, v233 candidates.
+- `qa/where-am-i.sh` — run first on any branch; exit 3 means this tree is behind.
+- `qa/check-handoff.py` — proves the ledger, the stamps, the zips and the docs agree.
+- `qa/make-update-zip.py` — builds a release and **refuses a spent number that does not reproduce**.
+- `DEPLOY-v232.md` — the live release's before/after measurement table and deploy record.
+
+**Not verified anywhere in this sandbox, and still owed on a real device:** every visual and
+touch claim from v224 to v232 (press feel, scroll smoothness, certificate legibility on paper,
+the silent idle on Safari), PHP on the server, the Play Console path, and `shivaa.in` itself
+(the sandbox has no route to it). The owner is the only one who has seen v232 running.
+
+# AGENT HANDOFF — v207 BUILT (readability pass); v205 LIVE (11 Oct 2026, session branch `arena/09f3c79f-shivaa-ecom`)
 
 ## FORWARD-ONLY RULE (restated by the owner; absolute)
 
@@ -7,25 +98,34 @@ reset or revert, no old-file or old-ZIP restoration, no rewritten or force-pushe
 Never reuse or renumber a shipped release. Never deploy an older tree over a newer live
 site. Production deploys are owner-approved only; a push or merge is not approval.
 
-- **LIVE: v205 is deployed to the live site (owner confirmed, 11 Oct 2026).** The owner reports it works.
-  Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
-  Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
+- **LIVE: v232** — the owner applied every update and confirmed on 21 Oct 2026
+  (*“I have applied each and every update to the website and it's fine”*). Machine truth:
+  `docs/release-ledger.json`; guard: `bash qa/where-am-i.sh`; next release: **v233**.
+  Live chain: v205 (11 Oct) → v228 (17 Oct) → v232 (21 Oct). Everything below this line is history.
 
-## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
+## HISTORY — the v205 world of 11 Oct 2026 (superseded by the v232 block at the top)
 
-- **Branch:** `arena/5529f0ec-shivaa-ecom`. Head `03f78e0`, clean, pushed. Local and remote match.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 206 or higher.
+- **Branch:** session branch `arena/09f3c79f-shivaa-ecom` (same tree as `arena/5529f0ec-shivaa-ecom`
+  head `95a2ab5`). Clean and pushed after each release commit.
+- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 208 or higher.
   Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
-  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE.
+  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE →
+  v206 Black card 3D flip rebuilt (BUILT, not deployed) → v207 readability pass, every word legible
+  (BUILT as `shivaa-update-v207.zip`, not deployed).
 - **Key fixes to remember:**
   - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
     `})();` of `cms/js/app.js` after any edit.
   - v193 `.btn-gold` wiped the gold gradient. Fixed in v200.
   - `background-clip:text` on a parent does not reach reveal-split words. Use solid colour.
   - Do not override `position` on elements that earlier CSS already positions (v186 seals).
+  - v206: NEVER put a `filter` on `.bc-card` (the `preserve-3d` flip card) — a non-none filter
+    forces `transform-style:flat` and the reverse never shows. Hover light belongs on the wrap.
+    The card is `div[role=button][data-flip-card]`, not `<button>` (WebKit flattens 3D in form
+    controls). The flip handlers are delegated inside the app IIFE (`data-flip-card`,
+    `data-flip-hint`).
 - **Data policy:** `cms/data/db.json` is not tracked on this branch (commit `fa6cf79`, v191).
   Never commit live data or hand-edit `db.json`.
 - **Open items:**
@@ -38,6 +138,42 @@ site. Production deploys are owner-approved only; a push or merge is not approva
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v207 — readability pass · every word legible (11 Oct 2026)
+
+- v207 BUILT (`shivaa-update-v207.zip`), NOT deployed. Forward-only from 207. Next: 208+.
+- Owner brief task 2: text same colour as background. Audited all 45 routes desktop + phone with
+  `qa/browser/audit-contrast.mjs` (committed). Fixed forward in `cms/css/v207.css` (loaded last):
+  page-hero h1 foil cast (1.11:1 at gradient ends → light cast); `.ink-reveal` maroon sweep +
+  calm-mode on dark heroes → cream sweep; footer fine print/links (3.1–3.8:1) → .84–.93 gold;
+  app-band dismiss × (1.23:1, v200 phantom-white mis-measurement) → light gold + hover; hero
+  breadcrumbs 2.7:1 → cream .88; Black Card fine print 2–3.8:1 → readable; glass panels
+  `.svc-result`/`.shv-val-banner`/`.shv-hud-chip` on light sections (white ₹ amounts 1.03:1) →
+  dark-glass ground; gold-on-light chips/labels/avatars (1.4–2.9:1) → dark gold on light;
+  `.disp-italic` gold-on-gold (1.22:1) → cream-gold + shadow; `.fin-eng` ink deepened.
+- QA: flip ALL PASS; 83/83 index refs + 78/78 SHELL_FILES exist; `?v=` = 207 everywhere (media keeps
+  its own generation); node --check clean. Audit-boundary items (photo-scrim text, footer app-band
+  measured through translucent tints) hand-verified readable in the real render.
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `af75aa85…d9b84`; incl. phone-drawer readability addendum), `DEPLOY-v207.md`,
+  `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
+
+## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)
+
+- v206 BUILT on the session branch, NOT deployed. Forward-only from 206.
+- "Tap the card to see the reverse" never flipped correctly because (1) v184's
+  `.bc-card:hover { filter:brightness(1.04) }` forced `transform-style:flat` on the preserve-3d
+  card the moment it was pointed at (mirrored front instead of the reverse), (2) the card was a
+  `<button>` (WebKit flattens 3D in form controls), (3) the hint was a span, not a button.
+- Fixes: filter removed from the card (hover light lives on the wrap), card is
+  `div[role=button][data-flip-card]`, hint is a real `<button data-flip-hint>` that flips too,
+  Enter/Space supported, delegated handlers inside the IIFE.
+- Motion (`cms/css/v206.css`): 850 ms turn with lift/settle (`translate`/`scale` independent
+  properties — v186 tilt keeps `transform`), floor-reflection breath, one glint on the landed
+  face (`.bc-flip-glint`), spinning ↻ hint, mid-flight re-entry lock, calm-mode + print safe.
+- Stamp 206 everywhere. Artefacts: `shivaa-update-v206.zip`, `DEPLOY-v206.md`,
+  `tools/mega/make-v206-zip.py`, `qa/browser/t-v206-flip.mjs` (jsdom, all pass on
+  `#/black-card` and the home hero).
+- Not done: PHP backend, smoke suite, real phone/desktop animation eyeball.
 
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 

@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v224.css · THE EVERY-CORNER LAYER
+   Added at v224. This is the LAST stylesheet in the bundle, so every rule here
+   is the final say on a tie — nothing needs !important.
+
+   It exists because four corners were checked and found wanting:
+
+   1 · iOS FOCUS ZOOM — a focused field whose font-size is below 16px makes
+       Safari zoom the whole page in, and it does not zoom back out. The floor
+       rules already existed in several layers (v116, v120, v192, v194,
+       mobile.css) but later layers re-declared smaller sizes on top of them.
+       The selectors below are the ones that ended up below 16px on a phone.
+       Every one of them is below 16px EVERYWHERE it appears, so this list can
+       only raise a field, never shrink one (the deliberately large fields —
+       .otp-boxes input 17-22px, .shv-otp input 20-28px, .bbc-wt input 34px —
+       are more specific and are left exactly as designed).
+
+   2 · TAP TARGETS — the quick-view and gallery dots are real <button>s that
+       were 6-8px. On a phone that is not tappable. The dot keeps its size; it
+       gains a 27px hit area and a wider row so the areas do not overlap.
+
+   3 · HOME-INDICATOR CORNERS — the concierge FAB and the two utility buttons
+       sit 22-152px off the bottom edge, which on a notched phone is inside the
+       gesture area. They now clear it.
+
+   4 · LIVE NUMBERS — the per-second numerals (draw countdown, footer rate
+       ticker, "MCX live · Ns ago") had proportional digits, so the strip
+       re-measured every second. Tabular figures end that jitter.
+
+   Nothing here changes a colour, a size above the floors listed, or any
+   animation that was already compositor-only.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · no field may make iOS zoom the page ─────────────────────────────── */
+@media (max-width: 680px) {
+  #shvAuthWrap .shv-body input:not([type]),
+  #shvAuthWrap .shv-body input[type="email"],
+  #shvAuthWrap .shv-body input[type="password"],
+  #shvAuthWrap .shv-body input[type="tel"],
+  #shvAuthWrap .shv-body input[type="text"],
+  .adm-table select,
+  .auth-panel .fld input,
+  .auth-panel input,
+  .auth-panel input[type="email"],
+  .auth-panel input[type="password"],
+  .auth-panel input[type="tel"],
+  .auth-panel input[type="text"],
+  .bd-deals select,
+  .boost-chat .bc-form input,
+  .coupon-row input,
+  .ds-filters select,
+  .dsf-w input,
+  .fl-news .nl-form input,
+  .fn-card .nl-form input,
+  .fv-news .nl-form input,
+  .hdr-search input,
+  .kyc-form .fld input,
+  .kyc-form input,
+  .kyc-form select,
+  .kyc-form textarea,
+  .mc-edit td input,
+  .nl-form input,
+  .pf-f input,
+  .pf-f select,
+  .rv-upload input,
+  .shv-body input,
+  .shv-body select,
+  .v107-sg-find input,
+  .v107-wiz input,
+  .v107-wiz select,
+  .wt-tx input,
+  input,
+  select,
+  textarea { font-size: 16px; }
+}
+
+/* ── 2 · the small round controls get a real finger target ───────────────── */
+@media (max-width: 680px) {
+  .qv-dots, .ds-dots { gap: 20px; }
+  .qv-dot, .ds-dot { position: relative; }
+  .qv-dot::after, .ds-dot::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+  }
+  .hm-app-links a { min-height: 40px; }
+}
+
+/* ── 3 · nothing important lives under the home indicator ────────────────── */
+.boost-chat-fab {
+  left: max(22px, env(safe-area-inset-left, 0px));
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+}
+.boost-chat {
+  left: max(22px, env(safe-area-inset-left, 0px));
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  height: min(560px, calc(100dvh - 120px));   /* dvh: never taller than the visible part on a phone */
+}
+.boost-top { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.boost-theme { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
+
+/* ── 4 · live numerals stop re-measuring themselves every second ─────────── */
+.fc-cell b,
+.fc-cell span,
+.v107-cell b,
+.v107-cell i,
+[data-rate-age] { font-variant-numeric: tabular-nums; }
+
+/* ── 5 · a panel's own scroll must not drag the page behind it ───────────── */
+.boost-chat .bc-body,
+#saathiPanel .sa-body,
+#saathiPanel .sa-list,
+.offline-bar { overscroll-behavior: contain; }
+
+/* ── 6 · reduced motion: the sweeps stay still ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .pl-line i,
+  .fin-bar::after,
+  .qv-dot::after,
+  .ds-dot::after { animation: none; }
+}

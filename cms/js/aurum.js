@@ -272,7 +272,25 @@
   })();
 
   /* parallax media (desktop fine pointers, not low-power) */
-  var pxImgs = [], pxOn = !(reduced || lite || !fine || window.innerWidth <= 1023), pxIO = null;
+  /* v225 — a coarse pointer gets this same single-frame parallax at 11px of
+     travel instead of 26 (v225.css drops its lead-in crop to 1.06 so a 390px
+     banner keeps its edges). Still off under reduced-motion and under the
+     low-power au-lite flag, and still tagged only within 80px of the
+     viewport, so the per-frame work never grows with the page. */
+  var pxAmp = coarse ? 11 : 26;
+  var pxImgs = [], pxOn = !(reduced || lite || (!fine && !coarse)), pxIO = null;
+  var pxVh = 0, pxDocH = -1;
+  function measurePx() {
+    pxVh = window.innerHeight;
+    var y = (window.__shvHub && window.__shvHub.y) || window.scrollY || 0;
+    for (var i = 0; i < pxImgs.length; i++) {
+      var im = pxImgs[i];
+      if (!im.isConnected) { im._auTop = null; im._auH = null; continue; }
+      var r = im.getBoundingClientRect();
+      im._auTop = r.top + y;
+      im._auH = r.height;
+    }
+  }
   function tagParallax() {
     if (!pxOn) return;
     if (!pxIO) {
@@ -280,15 +298,18 @@
         ents.forEach(function (en) { en.target._auV = en.isIntersecting; });
       }, { rootMargin: '80px' });
     }
-    var added = false;
     $$('.banner img, .poster img').forEach(function (im) {
       if (im._auPx) return;
       im._auPx = 1;
       im.classList.add('au-px');
       pxIO.observe(im);
-      added = true;
     });
-    if (added) pxImgs = $$('.au-px');
+    /* v225 — re-collect every time, not only when something new was tagged:
+       a route change removes the old media from the document but left its node
+       in this array, and a detached node measures 0×0 for ever, so the frame
+       kept writing an identical --au-py onto a dead element. */
+    pxImgs = $$('.au-px');
+    measurePx();
   }
   (function parallax() {
     if (!pxOn) return;
@@ -300,18 +321,41 @@
     function frame() {
       q = false;
       if (!bt) bt = $('#backTop');
-      var doc = document.documentElement;
-      var max = Math.max(1, doc.scrollHeight - window.innerHeight);
-      var p = Math.min(1, Math.max(0, window.scrollY / max));
-      if (bt) bt.style.setProperty('--au-p', p.toFixed(3));
+      /* v225 — cms/js/v225.js measures the scroll maximum once and writes both
+         the ring and the top hairline from its single frame. While that hub is
+         on the page this loop keeps only the parallax below: nothing here asks
+         the document for its scroll height while the finger is moving. */
+      var hub = window.__shvHub;
+      if (bt && !hub) {
+        var max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        var p = Math.min(1, Math.max(0, window.scrollY / max));
+        bt.style.setProperty('--au-p', p.toFixed(3));
+      }
       if (pxImgs.length) {
-        var vh = window.innerHeight;
+        /* v225 — no measuring in a scroll frame. Each element's document
+           offset is cached (see measurePx) and only re-taken when the page
+           changes shape, which the hub reports because it already tracks it.
+           A stale cache is one frame old at worst and self-corrects on the
+           next frame; a getBoundingClientRect() per image per frame is a
+           forced layout on every single frame of every scroll. */
+        if (hub) {
+          var hm = hub.max;
+          if (hm !== pxDocH) { pxDocH = hm; measurePx(); }
+        }
+        var vh = pxVh || window.innerHeight;
+        var y = hub ? hub.y : (window.scrollY || 0);
         for (var i = 0; i < pxImgs.length; i++) {
           var im = pxImgs[i];
-          if (!im._auV) continue;
-          var r = im.getBoundingClientRect();
-          var prog = ((r.top + r.height / 2) - vh / 2) / vh;
-          var ty = Math.max(-30, Math.min(30, -prog * 26));
+          if (!im._auV || !im.isConnected) continue;
+          var top = im._auTop;
+          var h2 = im._auH;
+          if (top == null || h2 == null) {           /* cache not taken yet */
+            var r = im.getBoundingClientRect();
+            top = r.top + y; h2 = r.height;
+            im._auTop = top; im._auH = h2;
+          }
+          var prog = (((top - y) + h2 / 2) - vh / 2) / vh;
+          var ty = Math.max(-pxAmp, Math.min(pxAmp, -prog * pxAmp));   /* v225 · 26 fine / 11 coarse */
           im.style.setProperty('--au-py', ty.toFixed(1) + 'px');
         }
       }
@@ -320,9 +364,11 @@
       if (!q) { q = true; rAF(frame); }
     }, { passive: true });
     window.addEventListener('resize', function () {
+      measurePx();                                 /* viewport height changed */
       if (!q) { q = true; rAF(frame); }
     }, { passive: true });
-    setTimeout(frame, 800);
+    setTimeout(function () { measurePx(); frame(); }, 800);
+    setTimeout(measurePx, 3200);                   /* fonts + first images */
   })();
 
   /* ── 5 · scroll reveal tagging ─────────────────────────────────────── */

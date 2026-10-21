@@ -1,3 +1,56 @@
+> ## CURRENT STATE — **v232 IS LIVE** (owner applied every update, 21 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+>
+> - **LIVE: v232 “The Idle Release”.** The owner applied every update and reported *“I have applied
+>   each and every update to the website and it's fine”* on 21 Oct 2026. The package that matches the
+>   live site is `shivaa-update-v232.zip` — **361 files · 37,349,816 B ·
+>   `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**. **Next release number: v233.**
+>   Live chain: v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)**.
+> - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the Arena session is hard-wired to it. Commit and push
+>   there only: `git push origin arena/e8a470c6-shivaa-ecom`. The twin `arena/09f3c79f-shivaa-ecom` stays
+>   at its v220 tip (`4a9e239`); PR #106 on it is open and untouched. **The session branch itself is
+>   proposed upstream as PR #107** (`arena/e8a470c6-shivaa-ecom` → `arena/5529f0ec-shivaa-ecom`) — it is a
+>   review artefact, and nothing is merged without the owner's word.
+> - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
+>   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
+>   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do
+>   not write docs; run the three commands it prints. **Never work on a tree older than the newest
+>   release, and never rebuild a spent number.** On 21 Oct a sandbox came back on the v220 base commit
+>   with a stale worktree — this guard exists because of exactly that.
+> - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). It holds every
+>   release from v221 with commit, file count, byte size, sha256, status, plus `live` and `next_release`.
+>   `python3 qa/check-handoff.py` proves ledger ⟷ stamps in the shipped tree ⟷ zips on disk (and in git)
+>   ⟷ these docs. Run it after any doc edit and before any release.
+> - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
+>   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` now
+>   refuses a spent number whose bytes do not reproduce (a faithful v232 rebuild reproduces the sha256
+>   above byte for byte). Owner approval before anything goes live; a push, a merge, a green gate or a
+>   finished zip is **not** approval. Rollback is the previous ledger row (v231), never an older tree.
+> - **Sandbox resets between turns.** First
+>   `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`, then
+>   `bash qa/where-am-i.sh`. Then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
+>   `python3 qa/build-test-db.py`, `python3 qa/preview_shim.py --port 8090`. The zips are tracked in git,
+>   so the reset restores them. **Check for stray `node` before believing a flaky suite**
+>   (`ps aux | grep "[n]ode"`).
+> - **v232's measured facts (the proof the owner was given):** idle animation frames **123/s → 0/s** on a
+>   silent home page (1264 frames in 12 s, 1148 from `_msTick` + the cursor glow); layout reads for ten
+>   pointer moves over one card **10 → 1**, twenty more **→ 0**; main-thread image decodes **56 of 68 → 0**
+>   (the LCP set keeps its decode); hidden-tab rate polls **1/s → 0**. **The find:** v226's press rules
+>   for `.p-card`/`.cat-card`/the offer banner had been dead on every phone since v226 —
+>   `styles.css:4637` and `v219.css:129` beat them — restored in `cms/css/v232.css` §1.
+> - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
+>   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`,
+>   and the order in `tools/css-bundle-order.txt` is load-bearing (66 positions, `v186.css` twice);
+>   films load only via `wake()`, never put `src`/`preload="auto"` back; never animate a layout property,
+>   a `filter` or `background-position` in a loop; scroll work lives in `v225.js`'s one frame; one ripple
+>   system; **zero idle frames** and **no per-event `getBoundingClientRect()`** in any move listener
+>   (v232); the member percentage is one setting, ships **20**, never hard-coded elsewhere;
+>   `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed and never ships.
+> - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
+>   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
+>   × 14 days), and the private bills folder `.shivaa-private-bills` **beside** `public_html`
+>   (`DEPLOY-v229.md` §2 — without it the admin upload answers 503 by design). Details:
+>   `docs/NEXT-CHAT-HEAD.md` §12.
+
 ## v184 BUILT — Amrita ji's private page + the "off making charges" fix (10 Oct 2026): live stays 181
 
 Two things, both gated behind the owner's yes.

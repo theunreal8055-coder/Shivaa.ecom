@@ -1,0 +1,470 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   v209.css — "The Alive Release" · 2026-10-12
+   Loaded after every other stylesheet. Owner brief: (1) tap-to-flip must
+   work with 5D motion on phone AND laptop · (2) food offer banners (the
+   Amrita menu) graphically advanced + animated · (3) the homepage film
+   case must turn and its four films must play · (4) stop the laptop scroll
+   flicker / banner flash · (5) login & sign-up must not look "the same".
+   Seals respected: no filter on .bc-card or its ancestors · never transform
+   .c-slide boxes or Ken-Burns images · v200 gold button gradient untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · SCROLL CALM — kill the flash & flicker (laptop fix) ───────────
+   Root causes removed here:
+   a) sticky .header used backdrop-filter:blur(14px) — the classic
+      Windows-Chrome "content flashes while scrolling" trigger (the blur
+      must re-sample everything under it every frame).
+   b) v208 promoted 7 large surfaces and wrote parallax transforms every
+      scroll frame — layer pressure + repaints = banner flashing.
+   c) infinite shine sweeps and the page-hero glow pulse ran forever.
+   d) v186 lit the flip-card wrap with filter:drop-shadow (flattens 3D). */
+.header {
+  background: #faf6ef !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.utilbar {
+  background: #1d0509 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.pd-stickybar {
+  background: rgba(250, 246, 239, .98) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* neutralise v208's blanket promotions + per-frame parallax */
+.c-slide, .shv-home-campaign-card, .catbar-outer, .rate-strip, .mega-feat,
+.hero-img, .hero-fade {
+  transform: none;
+  backface-visibility: visible;
+}
+.shv-hcc-art img, .c-slide .c-body {
+  transform: none !important;
+  will-change: auto !important;
+}
+/* offer-card shine: one sweep on hover instead of forever */
+.shv-offer-shine { animation: none !important; transform: translateX(-120%); }
+.shv-offer-card:hover .shv-offer-shine,
+.shv-offer-card:focus-visible .shv-offer-shine {
+  animation: shv-offer-sweep 1.1s ease-out !important;
+}
+/* the page-hero glow pulse read as "banners flashing" — still glow, no pulse */
+.page-hero.ken-on::before { animation: none !important; }
+html { scrollbar-gutter: stable; }
+@media (prefers-reduced-motion: reduce) {
+  .shv-offer-shine { display: none !important; }
+}
+
+/* ── 2 · BLACK CARD FLIP — 5D that always turns ───────────────────────
+   The tap failed on laptops because .is-lit painted filter:drop-shadow on
+   the wrap — filter on ANY ancestor flattens preserve-3d. The light now
+   rides on box-shadow/opacity only. Card keeps its spring flight + glint. */
+.bc-card-wrap[data-black-card-motion].is-lit {
+  filter: none !important;
+  box-shadow: 0 28px 60px rgba(74, 47, 5, .22);
+}
+.bc-card-wrap[data-black-card-motion].bc-card-home.is-lit {
+  filter: none !important;
+  box-shadow: 0 36px 80px rgba(0, 0, 0, .5);
+}
+.bc-card-wrap {
+  -webkit-perspective: 1600px;
+  perspective: 1600px;
+}
+.bc-card {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  -webkit-backface-visibility: hidden;
+  transition: transform .62s cubic-bezier(.22, .92, .24, 1.03), box-shadow .45s ease !important;
+}
+.bc-card.is-flipped {
+  -webkit-transform: rotateY(180deg);
+  transform: rotateY(180deg);
+}
+.bc-face {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+/* flight glow + landing bloom (shadow only — never filter) */
+.bc-card-wrap.is-flipping .bc-card {
+  box-shadow: 0 46px 110px rgba(64, 38, 4, .5), 0 0 60px rgba(233, 196, 106, .28) !important;
+}
+.bc-card-wrap.is-landed .bc-card {
+  box-shadow: 0 34px 80px rgba(64, 38, 4, .42), 0 0 42px rgba(233, 196, 106, .22);
+}
+/* press feedback on touch (wrap-level so the card's rotateY is untouched) */
+@media (hover: none) {
+  .bc-card-wrap:active { transform: scale(.985); transition: transform .18s ease; }
+  .bc-flip-hint {
+    padding: 12px 18px !important;
+    font-size: 13px !important;
+    border-radius: 999px;
+    background: rgba(233, 196, 106, .16);
+    border: 1px solid rgba(212, 175, 90, .5);
+  }
+}
+/* keyboard focus ring that doesn't flatten the scene */
+.bc-card:focus-visible {
+  outline: 3px solid #f1ca69 !important;
+  outline-offset: 8px;
+}
+
+/* ── 3 · FILMS CASE — it must turn, the four films must play ──────────
+   JS (v125.js) now: front film plays on sight, the case auto-turns slowly
+   while visible (pauses the moment you touch it), per-frame filter removed.
+   This layer gives the front card a gold stage and the videos a deep ground
+   so a loading film never reads as a dead card. */
+.sv-case-no {
+  background: linear-gradient(135deg, rgba(233, 196, 106, .92), rgba(184, 134, 11, .92));
+  color: #240609;
+  border-radius: 999px;
+  padding: 3px 10px;
+  letter-spacing: .14em;
+}
+
+/* ── 4 · FOOD OFFER BANNERS — Amrita ji's menu, museum-grade ──────────
+   The three dish cards become animated offer banners: layered warm
+   gradients, gold frames, a slow float on the food photo, one-shot rises
+   on entrance, shine sweep on hover, and a gold bloom when chosen. */
+.am-dish {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(180, 130, 40, .38);
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(255, 220, 150, .35), transparent 55%),
+    linear-gradient(155deg, #fff8ea 0%, #f7e7c4 55%, #f0d9a8 100%);
+  box-shadow: 0 14px 34px rgba(120, 78, 10, .16);
+  transition: transform .5s cubic-bezier(.2, .8, .2, 1), box-shadow .5s ease, border-color .5s ease;
+  animation: amRise .75s cubic-bezier(.2, .8, .2, 1) both;
+}
+.am-dish:nth-child(2) { animation-delay: .12s; }
+.am-dish:nth-child(3) { animation-delay: .24s; }
+@keyframes amRise {
+  from { opacity: 0; transform: translateY(26px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+.am-dish::before {
+  content: '';
+  position: absolute;
+  inset: -30% -60%;
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 246, 214, .55) 50%, transparent 58%);
+  transform: translateX(-120%);
+  pointer-events: none;
+  z-index: 3;
+}
+.am-dish:hover::before, .am-dish:focus-visible::before {
+  animation: shv-offer-sweep 1.1s ease-out;
+}
+.am-dish:hover, .am-dish:focus-visible {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 26px 60px rgba(120, 78, 10, .28);
+  border-color: rgba(184, 134, 11, .7);
+}
+.am-dish.on {
+  transform: translateY(-4px);
+  border-color: #b8860b;
+  box-shadow: 0 22px 54px rgba(184, 134, 11, .38), 0 0 0 2px rgba(233, 196, 106, .55);
+}
+.am-dish-art {
+  display: block;
+  overflow: hidden;
+}
+.am-dish-art img, .am-dish-art picture {
+  transition: transform 1.1s cubic-bezier(.2, .8, .2, 1);
+}
+.am-dish-art img {
+  transform: scale(1.06);
+}
+.am-dish:hover .am-dish-art img, .am-dish.on .am-dish-art img {
+  transform: scale(1.13) translateY(-4px);
+}
+.am-dish-body {
+  position: relative;
+  z-index: 2;
+}
+.am-dish-body b {
+  font-family: var(--ff-disp, Georgia, serif);
+  letter-spacing: .01em;
+}
+.am-dish-body small { opacity: .85; }
+.am-dish-body::after {
+  content: '✦';
+  position: absolute;
+  right: 2px;
+  top: 0;
+  color: #c79a2e;
+  font-size: 13px;
+  opacity: 0;
+  transform: scale(.6) rotate(-20deg);
+  transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1.2);
+}
+.am-dish:hover .am-dish-body::after, .am-dish.on .am-dish-body::after {
+  opacity: .9;
+  transform: scale(1) rotate(8deg);
+}
+.am-dish-tick {
+  background: linear-gradient(135deg, #e9c46a, #b8860b);
+  color: #240609;
+  border: none;
+  box-shadow: 0 10px 24px rgba(184, 134, 11, .45);
+}
+.am-dish.on .am-dish-tick {
+  animation: amTick .5s cubic-bezier(.2, .8, .2, 1.3);
+}
+@keyframes amTick {
+  from { transform: scale(.4); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  to   { transform: scale(1); }
+}
+/* the step cards themselves */
+.am-card {
+  border-radius: 26px;
+  border: 1px solid rgba(180, 130, 40, .3);
+  background:
+    radial-gradient(140% 120% at 90% -10%, rgba(255, 214, 140, .3), transparent 52%),
+    linear-gradient(170deg, #fffaf0, #faedd2);
+  box-shadow: 0 24px 60px rgba(120, 78, 10, .14);
+  animation: amRise .7s cubic-bezier(.2, .8, .2, 1) both;
+}
+.am-kicker {
+  letter-spacing: .22em;
+  color: #9a6b12 !important;
+  font-weight: 800;
+}
+.am-h1 { line-height: 1.12; }
+.am-h1 em {
+  font-style: italic;
+  color: #a97714;
+  text-shadow: 0 2px 12px rgba(120, 78, 10, .18);
+}
+.am-star {
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1.4), opacity .3s ease;
+}
+.am-star:hover { transform: scale(1.22) rotate(-8deg); }
+.am-star.on { animation: amTick .45s cubic-bezier(.2, .8, .2, 1.3); }
+.am-next .btn { min-height: 52px; }
+@media (prefers-reduced-motion: reduce) {
+  .am-dish, .am-card { animation: none; }
+  .am-dish:hover, .am-dish.on { transform: none; }
+  .am-dish-art img { transition: none; }
+}
+
+/* ── 5 · SHIVAA PASSPORT — the sign-in & sign-up sheet, reborn ────────
+   Deep obsidian document + gold foil (the "passport"), gold-trim controls,
+   spring entrance. All ids/handlers untouched — this is pure skin. */
+#shvAuthWrap .shv-card {
+  background:
+    radial-gradient(120% 90% at 85% -5%, rgba(212, 175, 90, .18), transparent 52%),
+    linear-gradient(165deg, #2c0d13 0%, #43101a 52%, #240709 100%) !important;
+  border: 1px solid rgba(212, 175, 90, .42);
+  border-radius: 26px;
+  box-shadow: 0 40px 120px rgba(20, 4, 8, .6), 0 0 0 1px rgba(239, 209, 135, .12);
+}
+#shvAuthWrap .shv-head {
+  background: linear-gradient(112deg, rgba(212, 175, 90, .14), transparent 70%);
+  border-bottom: 1px solid rgba(212, 175, 90, .28);
+}
+#shvAuthWrap .shv-head-tx b {
+  color: #f0d28c;
+  letter-spacing: .04em;
+  font-family: var(--ff-disp, Georgia, serif);
+  font-size: 19px;
+}
+#shvAuthWrap .shv-head-tx small { color: rgba(240, 218, 170, .82); }
+#shvAuthWrap .shv-emblem {
+  position: relative;
+}
+#shvAuthWrap .shv-emblem i {
+  border-color: rgba(233, 196, 106, .75) !important;
+}
+#shvAuthWrap .shv-card { animation: pspIn .55s cubic-bezier(.22, 1, .36, 1) both !important; }
+@keyframes pspIn {
+  from { opacity: 0; transform: translateY(26px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+#shvAuthWrap .shv-body { color: #f5e7c8; }
+#shvAuthWrap .shv-lbl {
+  color: #f0dcae;
+  letter-spacing: .06em;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+#shvAuthWrap .shv-lbl small { text-transform: none; letter-spacing: 0; color: rgba(240, 220, 174, .7); }
+#shvAuthWrap .shv-body input[type="text"],
+#shvAuthWrap .shv-body input[type="email"],
+#shvAuthWrap .shv-body input[type="password"],
+#shvAuthWrap .shv-body input[type="tel"],
+#shvAuthWrap .shv-body input:not([type]) {
+  background: rgba(255, 244, 220, .08);
+  border: 1px solid rgba(212, 175, 90, .38);
+  color: #fff6e6;
+  border-radius: 14px;
+  padding: 13px 15px;
+  font-size: 15px;
+  transition: border-color .25s ease, box-shadow .25s ease, background .25s ease;
+}
+#shvAuthWrap .shv-body input::placeholder { color: rgba(240, 220, 174, .52); }
+#shvAuthWrap .shv-body input:focus {
+  outline: none;
+  border-color: #e9c46a;
+  background: rgba(255, 244, 220, .13);
+  box-shadow: 0 0 0 3px rgba(233, 196, 106, .25);
+}
+#shvAuthWrap .shv-phone-row {
+  gap: 10px;
+}
+#shvAuthWrap .shv-cc {
+  background: linear-gradient(135deg, rgba(233, 196, 106, .25), rgba(212, 175, 90, .12));
+  border: 1px solid rgba(212, 175, 90, .45);
+  color: #ffe9b4;
+  border-radius: 14px;
+  font-weight: 800;
+}
+#shvAuthWrap .shv-aud {
+  gap: 10px;
+}
+#shvAuthWrap .shv-aud-btn {
+  background: rgba(255, 244, 220, .06);
+  border: 1px solid rgba(212, 175, 90, .3);
+  border-radius: 18px;
+  color: #f5e7c8;
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1), background .3s ease, border-color .3s ease, box-shadow .3s ease;
+}
+#shvAuthWrap .shv-aud-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(233, 196, 106, .55);
+}
+#shvAuthWrap .shv-aud-btn.on {
+  background: linear-gradient(135deg, rgba(233, 196, 106, .3), rgba(212, 175, 90, .12));
+  border-color: rgba(233, 196, 106, .8);
+  box-shadow: 0 14px 34px rgba(212, 175, 90, .22);
+}
+#shvAuthWrap .shv-aud-btn .au-tx b { color: #fff2d8; }
+#shvAuthWrap .shv-aud-btn .au-tx small { color: rgba(240, 220, 174, .72); }
+#shvAuthWrap .shv-aud-btn .au-ic {
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1.3);
+}
+#shvAuthWrap .shv-aud-btn.on .au-ic { transform: scale(1.14) rotate(-6deg); }
+#shvAuthWrap .shv-cta {
+  background: linear-gradient(135deg, #e9c46a 0%, #d4af5a 48%, #b8860b 100%);
+  color: #2a0c12;
+  font-weight: 800;
+  letter-spacing: .04em;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 16px 38px rgba(212, 175, 90, .32);
+  transition: transform .28s cubic-bezier(.2, .8, .2, 1), box-shadow .28s ease;
+  position: relative;
+  overflow: hidden;
+}
+#shvAuthWrap .shv-cta::after {
+  content: '';
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .5) 50%, transparent 58%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+#shvAuthWrap .shv-cta:hover::after { animation: shv-offer-sweep 1s ease-out; }
+#shvAuthWrap .shv-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 50px rgba(212, 175, 90, .42);
+}
+#shvAuthWrap .shv-cta:active { transform: translateY(0) scale(.985); }
+#shvAuthWrap .shv-cta-jwl {
+  background: linear-gradient(135deg, #f0d28c 0%, #d4af5a 45%, #8f6516 100%);
+}
+#shvAuthWrap .shv-otp4 input {
+  background: rgba(255, 244, 220, .1);
+  border: 1px solid rgba(212, 175, 90, .45);
+  color: #ffe9b4;
+  border-radius: 14px;
+  font-family: var(--ff-disp, Georgia, serif);
+  font-size: 24px;
+  text-align: center;
+  transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+}
+#shvAuthWrap .shv-otp4 input:focus {
+  border-color: #e9c46a;
+  box-shadow: 0 0 0 3px rgba(233, 196, 106, .3);
+  transform: translateY(-2px);
+}
+#shvAuthWrap .shv-save, #shvAuthWrap .shv-save span { color: rgba(240, 220, 174, .85); }
+#shvAuthWrap .shv-save input[type="checkbox"] {
+  accent-color: #d4af5a;
+  width: 17px;
+  height: 17px;
+}
+#shvAuthWrap .shv-link { color: #e9c46a; }
+#shvAuthWrap .shv-link:hover { color: #ffe9b4; }
+#shvAuthWrap .shv-fine { color: rgba(240, 220, 174, .8); }
+#shvAuthWrap .shv-fine b { color: #ffe9b4; }
+#shvAuthWrap .shv-foot {
+  background: rgba(0, 0, 0, .28);
+  border-top: 1px solid rgba(212, 175, 90, .22);
+  color: rgba(231, 211, 168, .88);
+}
+#shvAuthWrap .shv-foot a { color: #e9c46a; }
+#shvAuthWrap .shv-err {
+  background: rgba(122, 24, 36, .35);
+  border: 1px solid rgba(224, 120, 120, .5);
+  color: #ffd7d7;
+  border-radius: 12px;
+}
+#shvAuthWrap .shv-demo, #shvAuthWrap .shv-preview {
+  background: rgba(233, 196, 106, .12);
+  border: 1px solid rgba(212, 175, 90, .35);
+  color: #f0dcae;
+  border-radius: 12px;
+}
+#shvAuthWrap .shv-saved {
+  background: rgba(255, 244, 220, .08);
+  border: 1px solid rgba(212, 175, 90, .35);
+  border-radius: 16px;
+  transition: transform .3s ease, border-color .3s ease, background .3s ease;
+}
+#shvAuthWrap .shv-saved:hover {
+  transform: translateY(-2px);
+  border-color: rgba(233, 196, 106, .65);
+  background: rgba(255, 244, 220, .12);
+}
+#shvAuthWrap .shv-back { color: #e9c46a; }
+#shvAuthWrap .shv-eye {
+  color: #e9c46a;
+  border-left: 1px solid rgba(212, 175, 90, .3);
+}
+#shvAuthWrap .shv-new-hi, #shvAuthWrap .shv-name-use { color: rgba(240, 220, 174, .85); }
+@media (max-width: 520px) {
+  #shvAuthWrap .shv-card { border-radius: 20px; }
+  #shvAuthWrap .shv-head { padding: 15px 16px 12px; }
+  #shvAuthWrap .shv-body { padding: 16px 16px 8px; }
+}
+
+/* ── 5b · legacy auth-shell fallback — same language ───────────────── */
+.auth-shell .auth-panel input:focus {
+  border-color: #c79a2e;
+  box-shadow: 0 0 0 3px rgba(199, 154, 46, .22);
+}
+.auth-shell .auth-tabs .at-btn.on {
+  background: linear-gradient(135deg, #e9c46a, #d4af5a);
+  color: #2a0c12;
+  box-shadow: 0 10px 26px rgba(212, 175, 90, .3);
+}
+.auth-shell .btn-primary {
+  background: linear-gradient(135deg, #e9c46a 0%, #d4af5a 48%, #b8860b 100%);
+  color: #2a0c12;
+  font-weight: 800;
+  border: none;
+  box-shadow: 0 14px 32px rgba(212, 175, 90, .3);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.auth-shell .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 20px 44px rgba(212, 175, 90, .4); }
+
+/* ── 6 · shared honey-gold sweep keyframes (used above) ────────────── */
+@keyframes shv-offer-sweep {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}

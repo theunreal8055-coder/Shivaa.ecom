@@ -1,0 +1,89 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   v215.css — "The Proof Release" · 2026-10-14
+   Loaded after every other stylesheet. Owner brief (again, after v214):
+   (1) tap-to-flip stays dead · (2) the card should be even more animated
+   and floating · (3) the scroll flicker is STILL there and the site must
+   load smoother · (4) on the phone the case still will not turn: drag does
+   nothing and the four films are not visible.
+   Root causes fixed here:
+   · flicker = motion.css blur-up (every lazy image animated blur(6px)→0 +
+     scale(1.06)→1 while scrolling) — images now fade with opacity ONLY.
+   · phone case = the 3D ring (preserve-3d + parent rotation) that cheap
+     WebViews flatten — v125.js now lays every card out flat in 2D and this
+     file detaches the ring from 3D entirely.
+   Seals: no filter on .bc-card or ancestors · never transform .c-slide or
+   Ken-Burns images · v200 gold button gradient untouched · no flip
+   affordances ever return.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · SCROLL FLICKER — the blur-up dies here ──────────────────────
+   motion.css starts every content image at opacity:0 + scale(1.06) plus a
+   6px blur and eases all three on load. During scroll dozens of
+   lazy images hit that transition at once — the page appears to flicker
+   and to load slowly. v215 keeps the soft fade (opacity only) and removes
+   blur and scale from the equation: compositor-only, no paint spikes. */
+html.js-motion #view .pc-imgwrap img,
+html.js-motion #view .catlog img,html.js-motion #view .cat-card img,
+html.js-motion #view .cat-mini-card img,html.js-motion #view .poster img,
+html.js-motion #view .testi img,html.js-motion #view .acct-tile img,
+html.js-motion #view [class*="gallery"] img,html.js-motion #view [class*="slider"] img,
+html.js-motion #view [class*="thumb"] img,html.js-motion #view .ph-img,
+html.js-motion #view .ds-card img,html.js-motion #view .rv-media img,
+html.js-motion #view .cat-thumb img{
+  opacity:0;
+  transform:none;
+  filter:none;
+  transition:opacity .5s ease}
+html.js-motion #view img.img-ok{
+  opacity:1;
+  transform:none;
+  filter:none;
+  transition:opacity .45s ease}
+
+/* ── 2 · SMOOTHER LOAD — reserve space below the fold ────────────────
+   v214 started this (.sec, grids, offer grid…). v215 covers the remaining
+   late blocks so the page has almost no layout surprise while scrolling.
+   NEVER put content-visibility on .sv-case / .sv-thread — JS measures them. */
+#view footer,.testi-grid{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 560px}
+
+/* ── 3 · THE CASE — flat 2D, drags anywhere on the stage ─────────────
+   The ring is now a plain 0×0 origin (v125.js layoutCards). Kill its 3D
+   styles so no browser can reinterpret the flat layout, and make the whole
+   stage give horizontal drags to the case while keeping page scroll. */
+
+/* ALL FOUR films are always visible: the thumb rail is no longer a phone
+   fallback — every screen size shows the four posters, tap to spin. */
+
+/* ── 4 · THE CARD — more life, more float, still flicker-free ────────
+   Three independent compositor properties (translate, rotate, scale) at
+   different periods make an organic float — like holding the card. The
+   gleam sweeps more often. No filter, no blur, no transform on .c-slide. */
+.bc-card-wrap[data-black-card-motion]{
+  animation:
+    v215Float 5.4s ease-in-out infinite alternate,
+    v215Sway 8.6s ease-in-out infinite alternate,
+    v215Breathe 6.7s ease-in-out infinite alternate;
+  will-change:translate,rotate,scale}
+@keyframes v215Float{
+  from{translate:0 -11px}
+  to{translate:0 11px}}
+@keyframes v215Sway{
+  from{rotate:-1.4deg}
+  to{rotate:1.4deg}}
+@keyframes v215Breathe{
+  from{scale:1}
+  to{scale:1.014}}
+
+.bc-card .bc-flip-glint{
+  animation:v215Gleam 5.2s ease-in-out infinite}
+@keyframes v215Gleam{
+  0%,52%{opacity:0;transform:translateX(58%)}
+  62%{opacity:.8}
+  84%,100%{opacity:0;transform:translateX(-58%)}}
+
+@media (prefers-reduced-motion: reduce){
+  .bc-card-wrap[data-black-card-motion],
+  .bc-card .bc-flip-glint{animation:none}
+}

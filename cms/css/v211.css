@@ -1,0 +1,338 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   v211.css — "The Stillness Release" · 2026-10-13
+   Loaded after every other stylesheet. Owner brief: (1) the Shivaa Black
+   membership hero banner still flickers/flashes and its scrolling effects
+   are bad — make it very smooth · (2) the food offer banners more artistic
+   and graphically advanced · (3) the films case must work perfectly.
+   Seals respected: no filter on .bc-card or its ancestors · never transform
+   .c-slide boxes or Ken-Burns images · v200 gold button gradient untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · SHIVAA BLACK HERO — absolute smoothness (deep flicker pass) ───
+   v209 fixed the header blur and v208 parallax; the banner ITSELF still
+   carried a full repaint kit. Each item below re-rasterised on scroll or
+   mouse-move and read as "flickering and flashing":
+   a) .hero-img::after + .bc-noise — feTurbulence noise in mix-blend soft-light
+   b) .bc-hero-aurora i — filter:blur(2px) rings + glowing line
+   c) .bc-hero-stage::before — filter:blur(70px) giant glow
+   d) .bc-stage-card .bc-card-wrap — filter:drop-shadow (flattens the flip!)
+   e) .bc-card:hover — filter:brightness (repaint on every hover)
+   f) v186 wrap rotateX/rotateY light-follow — per-move transforms that fight
+      the flip and re-render the whole card scene
+   g) .bc-orbit 26s + .bc-micro-grid 14s infinite loops on the card face
+   h) .hero-cue bounce + opacity blink · .shv-pulse-cta pulse ·
+      shimmer/foil-txt moving background-clip gradients (flashing text)
+   i) backdrop-filter on .hero-kicker + .bc-stage-open
+   Everything is now a static, composited painting with one-shot entrance
+   only; motion survives only as the card's own 5D flip. */
+
+/* a) noise layers gone — both use mix-blend soft-light over large areas */
+.black-hero .hero-img::after { display: none !important; }
+.bc-noise { display: none !important; }
+
+/* b) aurora: pure painted rings and a foil line — no blur filters */
+.bc-hero-aurora i { filter: none !important; }
+.bc-hero-aurora i:nth-child(1) {
+  border-color: rgba(214, 175, 87, .26);
+  box-shadow: none;
+  background: radial-gradient(circle at 32% 28%, rgba(220, 178, 84, .1), transparent 58%);
+}
+.bc-hero-aurora i:nth-child(2) {
+  border-color: rgba(214, 175, 87, .12);
+  background: radial-gradient(circle at 60% 40%, rgba(220, 178, 84, .05), transparent 62%);
+}
+.bc-hero-aurora i:nth-child(3) {
+  box-shadow: none;
+  background: linear-gradient(90deg, transparent, rgba(239, 207, 123, .75), transparent);
+  opacity: .55;
+}
+
+/* c) stage glow painted directly — never a 70px blur */
+.bc-hero-stage::before {
+  filter: none !important;
+  background: radial-gradient(circle at 55% 42%, rgba(209, 163, 61, .2), rgba(209, 163, 61, .06) 42%, transparent 68%);
+}
+
+/* d) the card wrap: no filter ever (v206 seal) — shadow lives on the card */
+.bc-stage-card .bc-card-wrap { filter: none !important; box-shadow: none; }
+.bc-stage-card .bc-card {
+  box-shadow: 0 36px 80px rgba(0, 0, 0, .55), 0 6px 22px rgba(0, 0, 0, .4);
+}
+
+/* e) hover: lift + glow through box-shadow only */
+.bc-card:hover { filter: none !important; }
+.bc-card-wrap:hover .bc-card {
+  box-shadow: 0 44px 95px rgba(0, 0, 0, .58), 0 0 54px rgba(233, 196, 106, .16);
+}
+
+/* f) the wrap no longer tilts per pointer-move — the light is a static
+      salon highlight; is-lit only raises its opacity (paint, not motion) */
+.bc-card-wrap[data-black-card-motion] { transform: none !important; transition: none; }
+.bc-card-wrap[data-black-card-motion].is-lit .bc-live-light { opacity: .3; }
+.bc-live-light {
+  background: radial-gradient(circle at 72% 18%, rgba(255, 243, 199, .8) 0, rgba(235, 195, 100, .16) 16%, transparent 38%) !important;
+}
+.bc-face::after,
+.bc-front::after {
+  background-position: 72% 18% !important;
+}
+@media (hover: none) {
+  .bc-card-wrap[data-black-card-motion]:active { transform: scale(.985) !important; }
+}
+
+/* g) the face layers stop their infinite loops — engraved metal does not move */
+.bc-orbit { animation: none !important; }
+.bc-micro-grid { animation: none !important; opacity: .42; }
+
+/* h) every infinite accent animation in the banner stops */
+.black-hero .hero-cue { animation: none !important; opacity: .6; }
+.shv-pulse-cta { animation: none !important; }
+.shimmer, .hero h1 em.shimmer, em.shimmer, .shimmer-text {
+  animation: none !important;
+  background-position: 38% 0 !important;
+}
+.foil-txt, em.foil-txt, .hero h1 em.foil-txt, h1 .foil-txt, h3 .foil-txt {
+  animation: none !important;
+  background-position: 38% 0 !important;
+}
+.black-hero .dust i { animation: none !important; }
+.bc-hero-copy > * { animation: none !important; }
+
+/* i) no backdrop blur inside the banner — solid glass instead */
+.black-hero .hero-kicker {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(14, 12, 8, .82);
+}
+.bc-stage-open {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(3, 3, 3, .9);
+}
+
+/* the entrance can stay: one rise, one time, then stillness */
+.black-hero .hero-in > * { animation: v211Rise .7s cubic-bezier(.2, .8, .2, 1) both; }
+.black-hero .hero-in > *:nth-child(2) { animation-delay: .1s; }
+@keyframes v211Rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .black-hero .hero-in > * { animation: none; }
+}
+
+/* ── 2 · FOOD OFFER BANNERS — museum-grade plates (graphically advanced) ──
+   The three dish cards keep their ids/classes/markup; this layer paints a
+   full scene behind each photo: a tinned copper charger, spice-bloom
+   ground, gold double frame, printed rule ornaments and a wax-seal tick.
+   Per-dish colour stories: idli = dawn cream & copper · dosa = butter
+   gold & turmeric · paneer = saffron cream & deep tomato. */
+.am-menu {
+  position: relative;
+  border-radius: 28px;
+  border: 1px solid rgba(180, 130, 40, .35);
+  background:
+    radial-gradient(130% 100% at 92% -8%, rgba(255, 206, 128, .28), transparent 50%),
+    radial-gradient(110% 90% at -6% 108%, rgba(178, 96, 20, .12), transparent 46%),
+    linear-gradient(168deg, #fffaf0 0%, #fbefd6 58%, #f6e2b8 100%);
+  box-shadow: 0 34px 90px rgba(120, 78, 10, .18), inset 0 0 0 1px rgba(255, 244, 210, .5);
+}
+.am-menu::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(184, 134, 11, .28);
+  pointer-events: none;
+}
+.am-menu::after {
+  content: '';
+  position: absolute;
+  inset: 22px;
+  border-radius: 14px;
+  border: 1px dashed rgba(184, 134, 11, .18);
+  pointer-events: none;
+}
+.am-menu .am-h1 em {
+  background: linear-gradient(105deg, #a97714, #e3b45c 42%, #a97714);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: #a97714;
+  animation: none !important;
+}
+.am-menu > * { position: relative; z-index: 1; }
+
+.am-dish {
+  border-radius: 24px;
+  border: 1.5px solid rgba(184, 134, 11, .5);
+  background:
+    radial-gradient(120% 88% at 10% 0%, rgba(255, 224, 160, .5), transparent 52%),
+    linear-gradient(158deg, #fff9ec 0%, #f8e8c6 52%, #f0d5a0 100%);
+  box-shadow:
+    0 18px 44px rgba(120, 78, 10, .2),
+    inset 0 0 0 1px rgba(255, 246, 214, .6),
+    inset 0 0 34px rgba(196, 140, 30, .12);
+}
+/* engraved inner double-frame on every dish panel */
+.am-dish .am-dish-body::before {
+  content: '';
+  position: absolute;
+  left: -10px; right: -10px; top: -12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(184, 134, 11, .5), transparent);
+}
+
+/* the painted scene behind each photo */
+.am-dish-art {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.am-dish-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+/* the charger plate ring the photo sits on */
+.am-dish-art.has-photo picture {
+  position: relative;
+  z-index: 1;
+  display: block;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(184, 134, 11, .55);
+  box-shadow:
+    0 14px 30px rgba(110, 70, 8, .3),
+    0 0 0 6px rgba(255, 240, 200, .5),
+    0 0 0 7px rgba(184, 134, 11, .35);
+}
+.am-dish-art picture img {
+  aspect-ratio: 1;
+  object-fit: cover;
+  width: 100%;
+  transform: none;
+  transition: transform .8s cubic-bezier(.2, .8, .2, 1);
+}
+.am-dish:hover .am-dish-art picture img,
+.am-dish.on .am-dish-art picture img { transform: scale(1.07); }
+
+/* per-dish colour stories: spice-bloom grounds + garnish dots (painted) */
+.am-d-idli::before {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(214, 154, 92, .5) 0 5px, transparent 6px),
+    radial-gradient(circle at 84% 30%, rgba(176, 96, 32, .42) 0 4px, transparent 5px),
+    radial-gradient(circle at 26% 82%, rgba(196, 120, 46, .38) 0 6px, transparent 7px),
+    radial-gradient(circle at 76% 78%, rgba(222, 168, 104, .45) 0 5px, transparent 6px),
+    radial-gradient(circle at 50% 12%, rgba(120, 60, 18, .25) 0 3px, transparent 4px),
+    radial-gradient(120% 110% at 50% 50%, rgba(255, 232, 190, .55), rgba(214, 154, 92, .28) 58%, rgba(150, 84, 28, .18));
+}
+.am-d-dosa::before {
+  background:
+    radial-gradient(circle at 20% 26%, rgba(226, 176, 64, .55) 0 5px, transparent 6px),
+    radial-gradient(circle at 82% 22%, rgba(240, 200, 96, .5) 0 4px, transparent 5px),
+    radial-gradient(circle at 30% 80%, rgba(184, 128, 24, .45) 0 6px, transparent 7px),
+    radial-gradient(circle at 78% 76%, rgba(226, 176, 64, .45) 0 5px, transparent 6px),
+    radial-gradient(circle at 52% 90%, rgba(255, 226, 150, .5) 0 4px, transparent 5px),
+    radial-gradient(120% 110% at 50% 50%, rgba(255, 240, 200, .6), rgba(232, 182, 82, .3) 58%, rgba(166, 108, 22, .2));
+}
+.am-d-paneer::before {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(198, 72, 32, .42) 0 5px, transparent 6px),
+    radial-gradient(circle at 84% 26%, rgba(214, 110, 48, .4) 0 4px, transparent 5px),
+    radial-gradient(circle at 28% 82%, rgba(176, 58, 24, .36) 0 6px, transparent 7px),
+    radial-gradient(circle at 76% 80%, rgba(232, 160, 96, .42) 0 5px, transparent 6px),
+    radial-gradient(circle at 50% 10%, rgba(120, 36, 14, .22) 0 3px, transparent 4px),
+    radial-gradient(120% 110% at 50% 50%, rgba(255, 234, 196, .55), rgba(212, 118, 58, .28) 58%, rgba(130, 44, 18, .2));
+}
+
+/* the chosen dish: gold bloom + its plate ring lights */
+.am-dish.on {
+  border-color: #b8860b;
+  box-shadow:
+    0 26px 64px rgba(150, 100, 12, .34),
+    0 0 0 2px rgba(233, 196, 106, .65),
+    inset 0 0 40px rgba(233, 196, 106, .18);
+}
+.am-dish.on .am-dish-art.has-photo picture {
+  border-color: #e9c46a;
+  box-shadow:
+    0 18px 40px rgba(110, 70, 8, .36),
+    0 0 0 6px rgba(255, 236, 190, .65),
+    0 0 0 8px rgba(233, 196, 106, .6),
+    0 0 34px rgba(233, 196, 106, .4);
+}
+
+/* the tick becomes a struck wax seal */
+.am-dish-tick {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 232, 178, .55), transparent 46%),
+    linear-gradient(150deg, #e9c46a 0%, #c79a2e 52%, #8f6516 100%);
+  color: #3a2405;
+  box-shadow: 0 8px 18px rgba(143, 101, 22, .45), inset 0 -2px 5px rgba(90, 56, 4, .35);
+}
+.am-dish.on .am-dish-tick {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 244, 214, .7), transparent 46%),
+    linear-gradient(150deg, #f0d28c 0%, #d4af5a 52%, #a97714 100%);
+}
+
+/* dish body type: engraved catalogue labels */
+.am-dish-body b {
+  color: #4a2c06;
+  letter-spacing: .015em;
+}
+.am-dish-body small {
+  color: #8a5a14;
+  opacity: 1;
+}
+.am-dish:hover {
+  border-color: rgba(184, 134, 11, .8);
+  box-shadow:
+    0 26px 62px rgba(120, 78, 10, .3),
+    inset 0 0 0 1px rgba(255, 246, 214, .7),
+    inset 0 0 40px rgba(196, 140, 30, .16);
+}
+@media (prefers-reduced-motion: reduce) {
+  .am-dish-art picture img { transition: none; }
+}
+
+/* ── 3 · FILMS CASE — perfect even on a bad day ────────────────────────
+   filmMedia now paints the poster photo UNDER the video and keeps it if
+   the video errors, so every card always shows its art and the case always
+   turns — a missing/blocked file degrades to a gallery still, never a
+   dead black card. */
+.sv-film-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.sv-thread-film .sv-film-wrap video {
+  position: relative;
+  z-index: 1;
+}
+.sv-film-wrap.sv-film-poster-only video { display: none !important; }
+.sv-film-wrap.sv-film-poster-only::after {
+  content: '✦ still frame';
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(20, 6, 8, .78);
+  border: 1px solid rgba(233, 196, 106, .5);
+  color: #ffe9b4;
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}

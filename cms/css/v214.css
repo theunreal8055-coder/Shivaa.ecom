@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   v214.css — "The Smooth Release" · 2026-10-14
+   Loaded after every other stylesheet. Owner brief: (1) completely remove
+   the tap-to-flip card feature · (2) the card should be more animated and
+   floating · (3) website must load smoother — scroll flicker still there ·
+   (4) the films case must work on the phone: drag-to-spin dead and the
+   four films not visible.
+   Seals: no filter on .bc-card or ancestors · never transform .c-slide or
+   Ken-Burns images · v200 gold button gradient untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · THE CARD — no flip, a float instead ──────────────────────────
+   The flip feature is gone (markup + JS removed). What remains is a card
+   that gently floats and gleams — all compositor-only motion
+   (translate/rotate/opacity, never filter/blur) so the v211 stillness
+   guarantee against flicker holds. */
+.bc-card-wrap .bc-flip-hint { display: none !important; }
+
+.bc-card-wrap[data-black-card-motion] {
+  animation: v214Float 6.8s ease-in-out infinite alternate;
+  will-change: translate, rotate;
+}
+@keyframes v214Float {
+  from { translate: 0 -8px; rotate: -0.8deg; }
+  to   { translate: 0 8px;  rotate: 0.8deg; }
+}
+
+/* one slow gleam across the face every few seconds (transform + opacity) */
+.bc-card .bc-flip-glint {
+  opacity: 0;
+  background: linear-gradient(100deg, transparent 42%, rgba(255, 250, 228, .3) 50%, transparent 58%);
+  background-size: 240% 100%;
+  background-position: 50% 0;
+  animation: v214Gleam 7.5s ease-in-out infinite;
+}
+@keyframes v214Gleam {
+  0%, 58%   { opacity: 0; transform: translateX(55%); }
+  68%       { opacity: .75; }
+  86%, 100% { opacity: 0; transform: translateX(-55%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-card-wrap[data-black-card-motion],
+  .bc-card .bc-flip-glint { animation: none; }
+}
+
+/* ── 2 · THE CASE ON PHONES — drag that cannot fail, four films shown ──
+   v213 regression: touch-action:manipulation on the CARDS let the browser
+   claim horizontal swipes again (manipulation = pan-x pan-y), so the
+   touch spin never got the gesture. Cards return to pan-y: vertical page
+   scroll stays free, sideways belongs to the case. */
+
+/* the thumb rail: ALL FOUR films, always visible on phones */
+
+/* ── 3 · SCROLL FLICKER + LOAD SMOOTHNESS — the deep pass ─────────────
+   What was still flashing while scrolling:
+   a) motion.css "blur-up" — every product/category image carried
+      filter:blur(6px) and transitioned to blur(0) on load; blur on dozens
+      of images re-rasterises during scroll = the flicker the owner keeps
+      seeing, and it also made loading feel slow. Keep the fade+scale,
+      drop the filter entirely.
+   b) aurum.css js-aurum layer — infinite shimText on hero words
+      (animated background-clip text = flashing words), a blur(24px) glow
+      PULSE behind the hero stage (overrides v211's static glow), infinite
+      CTA halos, shine sweeps and pulses — all paint-loop work on scroll.
+   c) .bc-home-final img carried a saturate/brightness filter.
+   d) big below-fold sections render fully even when off-screen. */
+html.js-motion #view .pc-imgwrap img,
+html.js-motion #view .catlog img,
+html.js-motion #view .cat-card img,
+html.js-motion #view .cat-mini-card img,
+html.js-motion #view .poster img,
+html.js-motion #view .testi img,
+html.js-motion #view .acct-tile img,
+html.js-motion #view [class*="gallery"] img,
+html.js-motion #view [class*="slider"] img,
+html.js-motion #view [class*="thumb"] img,
+html.js-motion #view .ph-img,
+html.js-motion #view .ds-card img,
+html.js-motion #view .rv-media img,
+html.js-motion #view .cat-thumb img {
+  filter: none !important;
+  transition: opacity .55s ease, transform .9s ease !important;
+}
+html.js-motion #view img.img-ok {
+  filter: none !important;
+}
+
+/* aurum: keep the entrance, stop every paint loop */
+html.js-aurum .hero h1 em.shimmer .au-w,
+html.js-aurum .hero h1 em.foil-txt .au-w {
+  animation: auWord .78s var(--au-out, ease-out) both !important;
+}
+html.js-aurum:not(.au-lite) .hero-stage::before {
+  filter: none !important;
+  animation: none !important;
+  background: radial-gradient(circle, rgba(212, 175, 90, .22), rgba(212, 175, 90, .06) 55%, transparent 70%) !important;
+}
+html.js-aurum:not(.au-lite) .hero-cta .btn-gold {
+  animation: none !important;
+}
+html.js-aurum .p-card:hover::after {
+  animation: none !important;
+}
+
+/* home final banner: no image filter — the .b-fade overlay already shades it */
+.bc-home-final img {
+  filter: none !important;
+}
+
+/* freeze the remaining infinite paint loops (pulses, shine sweeps) —
+   loader spinners and skeleton shimmer stay (they are transient) */
+.live-dot,
+.ugc-score,
+.rev-glow {
+  animation: none !important;
+}
+
+/* smoother loading + scrolling: off-screen sections skip rendering */
+.sec,
+.cat-mini,
+.p-grid,
+.ugc-wall,
+.pillars,
+.shv-offer-wrap,
+.catbar-outer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-card-wrap[data-black-card-motion] { animation: none; }
+}

@@ -1,16 +1,18 @@
 /* ══════════════════════════════════════════════════════════════════════════
    SHIVAA v125 — the four films, owner-selected showcases (16 Sep 2026):
-     · THE REVOLVING CASE (preview Way 17) — draggable 3D ring, inertia +
-       magnetic snap, rapid clicks queue, only the front film plays.
+     · v221: the revolving case CODE is gone. The case itself was retired at
+       v218 (its markup is never mounted), so the dead case mount routine and
+       its scaffolding were removed here. CASE_FILMS stays — it is still the
+       default list the reel opens with (reel.list = list || CASE_FILMS).
      · THE GOLD THREAD (preview Way 12) — a scroll-drawn gold thread weaving
        through four chapters; each film ignites as the tip passes it.
      · THE REEL — full-screen player (sound, swipe, auto-advance) with a
        zoom-from-origin transition.
    House rules honoured:
      · poster-first, muted, playsinline; films play ONLY while on screen
-     · au-lite / Save-Data: films never autoplay and never even mount a
-       <video> — posters only, the reel still loads on an explicit tap
-       (the same tap-to-load contract as the PDP 360° films)
+     · v213 (owner): the films run on phones too — save-data / au-lite only
+       changes the hint words, never the mounting; a blocked or missing film
+       falls back to its still frame (v211)
      · prefers-reduced-motion: no autoplay, no zoom transition
      · self-guarding + additive: any failure here cannot take the page down
      · v125 SUPERSEDES the v46 boost films row ("The house in motion") on
@@ -185,7 +187,6 @@
   function pauseAllFilms() { mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; }); mountedFilms.forEach(shut); }
   function resumeVisibleFilms() {
     mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; });
-    if (REDUCED) return;
     mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && v.getAttribute('src')) splay(v); });
   }
 
@@ -194,174 +195,97 @@
     /* playGate: a function that returns true when this film may play */
     var wrap = doc.createElement('div');
     wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden';
+    wrap.className = 'sv-film-wrap';
     if (liteMode) {
-      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover">';
+      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"><span class="sv-film-tap" aria-hidden="true">▶ Tap to play</span>';
       return wrap;
     }
+    /* v211 — the poster is a real <img> UNDER the video, always. If the film
+       file is missing, blocked or corrupt, the card keeps its still frame and
+       the case still turns: the feature can never show a dead black card. */
+    var posterImg = doc.createElement('img');
+    posterImg.className = 'sv-film-poster';
+    posterImg.src = fl.p;
+    posterImg.alt = fl.title;
+    posterImg.loading = 'lazy';
+    posterImg.decoding = 'async';
+    wrap.appendChild(posterImg);
     var v = doc.createElement('video');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
+    /* v223 — THE FILMS ARE NO LONGER EAGER.
+       v210 autoplayed every film, so each mounted <video> set preload=auto AND
+       its src at mount time. Five thread films is ~4.5 MB, all of it requested
+       the moment the home page rendered — before the shopper had scrolled
+       anywhere near the films — and every one of them kept decoding off-screen
+       frames while the reader scrolled past. That is the hitching.
+       Now the poster below stands alone until the film is actually near the
+       viewport; only then is the file requested. Scroll well past it and the
+       buffer is handed back. Nothing here can show a dead card: the poster is
+       under the video the whole time (v211). */
+    v.muted = true; v.loop = true; v.playsInline = true;
+    v.preload = 'none';
     v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+    v.setAttribute('loop', '');
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
-    v.src = fl.f;
     v.style.cssText = 'width:100%;height:100%;object-fit:cover';
     v.dataset.svVis = '0';
     wrap.appendChild(v);
     mountedFilms.push(v);
+    /* wake — request the file the first time it is actually wanted */
+    function wake() {
+      if (v.getAttribute('src')) return;
+      v.preload = 'auto';
+      v.src = fl.f;
+    }
+    /* rest — give the bytes and the decoder back once the reader is past it */
+    function rest() {
+      shut(v);
+      v.dataset.svVis = '0';
+      if (v.getAttribute('src')) {
+        try { v.removeAttribute('src'); v.load(); } catch (e) {}
+      }
+    }
+    /* retry-paint: if play() was blocked or the file was still arriving, try
+       again the moment the video can actually run (never leave a dead card) */
+    v.addEventListener('canplay', function () { if (playGate()) splay(v); });
+    v.addEventListener('loadeddata', function () { if (playGate()) splay(v); });
+    /* v211 — a broken/missing file degrades to the still frame, loudly marked,
+       instead of a black rectangle.
+       v223 — but a film we deliberately released is NOT a broken film: without
+       this guard, handing the buffer back at `rest()` would mark the card
+       poster-only for the rest of the session. */
+    v.addEventListener('error', function () {
+      if (!v.getAttribute('src')) return;
+      v.style.display = 'none';
+      wrap.classList.add('sv-film-poster-only');
+    });
     if ('IntersectionObserver' in win) {
+      /* one observer, two jobs. The 1200px margin means "within about a screen
+         and a half", so approaching a film starts its download early enough to
+         be ready, and leaving that whole zone releases it. */
       new IntersectionObserver(function (es) {
         es.forEach(function (e) {
-          v.dataset.svVis = e.intersectionRatio >= .15 ? '1' : '0';
-          if (e.intersectionRatio >= .15) { if (playGate()) splay(v); }
-          else { shut(v); }
+          var shown = e.intersectionRatio >= .15;
+          v.dataset.svVis = shown ? '1' : '0';
+          if (shown) {
+            if (!REDUCED) wake();          /* reduced motion: posters only, zero video bytes */
+            if (playGate()) splay(v);
+          } else if (e.isIntersecting) {
+            shut(v);                       /* still near: keep the buffer, just stop playing */
+          } else {
+            rest();                        /* well past: release it */
+          }
         });
-      }, { threshold: [0, .15, .35, .6] }).observe(v);
+      }, { rootMargin: '1200px 0px 1200px 0px', threshold: [0, .15, .35, .6, 1] }).observe(v);
     }
     return wrap;
-  }
-
-  /* ═══ 3 · THE REVOLVING CASE ═══════════════════════════════════════ */
-  var caseApi = null;
-  /* v167 — live re-placers for the revolving case. Every home render mounts a
-     fresh case; the old code registered a NEW window resize listener per mount,
-     so each return to the home page left another closure — and its detached
-     stage — pinned to the window for the life of the tab. One listener now
-     serves them all and drops the dead stages on the first resize. */
-  var casePlaces = [];
-  var caseResizeBound = false;
-  function mountCase(mount) {
-    mount.dataset.mnt = '1';
-    var liteMode = lite();
-    mount.innerHTML =
-      '<div class="sv-case">' +
-        '<div class="sv-case-head">' +
-          '<span class="label" style="color:var(--gold-2,#d4af5a)">Now showing</span>' +
-          '<h3>Shivaa Films — turn the <em style="font-style:italic">case</em></h3>' +
-          '<p>' + (liteMode ? 'Tap a film to play it with sound.' : 'Drag the case to spin it — it settles on your film. Tap the front film for full screen.') + '</p>' +
-        '</div>' +
-        '<div class="sv-case-stage" id="svCaseStage"><div class="sv-case-ring" id="svCaseRing"></div><div class="sv-case-glow"></div></div>' +
-        '<div class="sv-case-ui">' +
-          '<button class="sv-case-arrow" id="svCasePrev" aria-label="Previous film">‹</button>' +
-          '<div class="sv-case-count" id="svCaseCount"></div>' +
-          '<button class="sv-case-arrow" id="svCaseNext" aria-label="Next film">›</button>' +
-        '</div>' +
-        '<div class="sv-case-hint">' + (liteMode ? 'SAVE-DATA MODE · FILMS LOAD ONLY WHEN TAPPED' : 'DRAG TO SPIN · ONLY THE FRONT FILM PLAYS') + '</div>' +
-      '</div>';
-    var stage = $('#svCaseStage'), ring = $('#svCaseRing');
-    var cards = [];
-    CASE_FILMS.forEach(function (fl, i) {
-      var c = doc.createElement('button');
-      c.className = 'sv-case-card'; c.type = 'button';
-      c.setAttribute('aria-label', 'Play ' + fl.title);
-      c.innerHTML = '<span class="sv-case-no">FILM ' + fl.no + '</span><span class="sv-case-name">' + fl.title + '</span>';
-      c.insertBefore(filmMedia(fl, liteMode, function () { return !REDUCED && caseVisible() && !reelOpen() && front() === i; }), c.firstChild.nextSibling);
-      ring.appendChild(c); cards.push(c);
-    });
-    var rot = 0, vel = 0, R = 200, dragging = false, lastX = 0, movedPx = 0, snapTo = null, raf = null, visible = false, lastFront = -1, lastMoveT = 0;
-    function place() {
-      if (!stage.isConnected) return;
-      var cw = cards[0] ? cards[0].offsetWidth : 230;
-      R = Math.max(120, Math.round(cw * .95));
-      cards.forEach(function (c, i) { c.style.transform = 'translate(-50%,-50%) rotateY(' + (i * STEP) + 'deg) translateZ(' + R + 'px)'; });
-    }
-    function front() { return ((Math.round(-rot / STEP) % CASE_FILMS.length) + CASE_FILMS.length) % CASE_FILMS.length; }
-    function caseVisible() { return visible && stage.isConnected; }
-    function setCount() { $('#svCaseCount').textContent = CASE_FILMS[front()].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[front()].title.toUpperCase(); }
-    function loop() {
-      if (!stage.isConnected) { raf = null; return; }
-      if (!dragging) {
-        if (Math.abs(vel) > .06) { rot += vel; vel *= .94; }
-        else if (snapTo != null) {
-          rot += (snapTo - rot) * .14;
-          if (Math.abs(snapTo - rot) < .12) { rot = snapTo; snapTo = null; }
-        } else { vel = 0; }
-      }
-      ring.style.transform = 'rotateY(' + rot + 'deg)';
-      cards.forEach(function (c, i) {
-        var ang = ((i * STEP + rot) % 360 + 360) % 360;
-        var d = Math.min(ang, 360 - ang);
-        var f = Math.max(0, 1 - d / 180);
-        c.style.opacity = (.32 + .68 * f).toFixed(3);
-        c.style.filter = 'brightness(' + (.42 + .58 * f).toFixed(3) + ')';
-      });
-      var fi = front();
-      if (fi !== lastFront) {
-        lastFront = fi; setCount();
-        cards.forEach(function (c, i) {
-          var v = c.querySelector('video');
-          if (!v) return;
-          if (i === fi) { if (caseVisible() && !reelOpen()) splay(v); } else { shut(v); }
-        });
-      }
-      /* settle: stop the frame loop once nothing is in flight */
-      if (!dragging && snapTo == null && Math.abs(vel) <= .06) { raf = null; return; }
-      raf = requestAnimationFrame(loop);
-    }
-    function kick() { if (!raf && stage.isConnected) raf = requestAnimationFrame(loop); }
-    function stepBy(d) {
-      var base = (snapTo != null) ? snapTo : Math.round(rot / STEP) * STEP;   /* queue rapid clicks */
-      snapTo = base - d * STEP; vel = 0; kick();   /* front = −rot/STEP, so 'next' spins the ring minus-wise */
-    }
-    stage.addEventListener('pointerdown', function (e) {
-      dragging = true; lastX = e.clientX; movedPx = 0; vel = 0; snapTo = null;
-      try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-    });
-    stage.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
-      var dx = e.clientX - lastX; lastX = e.clientX;
-      movedPx += Math.abs(dx); lastMoveT = Date.now();
-      rot += dx * .32; vel = dx * .32; kick();
-    });
-    function endDrag() {
-      if (!dragging) return;
-      dragging = false;
-      if (movedPx > 7) snapTo = Math.round(rot / STEP) * STEP;
-      kick();
-    }
-    stage.addEventListener('pointerup', endDrag);
-    stage.addEventListener('pointercancel', endDrag);
-    cards.forEach(function (c, i) {
-      c.addEventListener('click', function () {
-        if (Date.now() - lastMoveT < 240) return;
-        if (i === front()) openReel(i, c, CASE_FILMS);
-        else {
-          var cur = (snapTo != null) ? snapTo : rot;
-          var delta = (((-i * STEP - cur) % 360) + 360) % 360; if (delta > 180) delta -= 360;
-          snapTo = cur + delta; vel = 0; kick();
-        }
-      });
-    });
-    $('#svCasePrev').addEventListener('click', function () { stepBy(-1); });
-    $('#svCaseNext').addEventListener('click', function () { stepBy(1); });
-    if ('IntersectionObserver' in win) {
-      new IntersectionObserver(function (es) {
-        visible = es[0].intersectionRatio > .15;
-        if (!visible) cards.forEach(function (c) { var v = c.querySelector('video'); if (v) shut(v); });
-        else kick();
-      }, { threshold: [0, .15, .5] }).observe(stage);
-    } else { visible = true; }
-    place();
-    if ('ResizeObserver' in win) new ResizeObserver(place).observe(stage);
-    casePlaces.push(function () { place(); return stage.isConnected; });
-    if (!caseResizeBound) {
-      caseResizeBound = true;
-      win.addEventListener('resize', function () { casePlaces = casePlaces.filter(function (f) { return f(); }); });
-    }
-    setCount();
-    caseApi = {
-      next: function () { stepBy(1); },
-      prev: function () { stepBy(-1); },
-      front: front,
-      rot: function () { return Math.round(rot); },
-      count: function () { return cards.length; }
-    };
   }
 
   /* ═══ 4 · THE GOLD THREAD ══════════════════════════════════════════ */
   var thread = null;
   function mountThread(mount) {
     mount.dataset.mnt = '1';
-    var liteMode = lite();
+    var liteMode = false;   /* v213 — thread films run everywhere too */
     mount.innerHTML =
       '<div class="sv-thread" id="svThreadBox">' +
         '<svg class="sv-thread-svg" viewBox="0 0 400 1700" preserveAspectRatio="none" aria-hidden="true">' +
@@ -443,8 +367,7 @@
     var view = doc.getElementById('view');
     if (!view) return;
     supersedeBoostFilms(view);
-    var c = doc.getElementById('svCaseMount');
-    if (c && !c.dataset.mnt) { try { mountCase(c); } catch (e) { c.dataset.mnt = 'err'; } }
+    /* v218 — the revolving case was removed permanently (owner order). */
     var t = doc.getElementById('svThreadMount');
     if (t && !t.dataset.mnt) { try { mountThread(t); } catch (e) { t.dataset.mnt = 'err'; } }
   }
@@ -464,11 +387,7 @@
     open: function (i, el) { openReel(i, el); },
     close: reelClose,
     isOpen: reelOpen,
-    caseNext: function () { if (caseApi) caseApi.next(); },
-    caseFront: function () { return caseApi ? caseApi.front() : -1; },
-    caseCount: function () { return caseApi ? caseApi.count() : 0; },
     films: CASE_FILMS.length + THREAD_FILMS.length,
-    caseFilms: CASE_FILMS.length,
     threadFilms: THREAD_FILMS.length,
     openThread: function (i, el) { openReel(i, el, THREAD_FILMS); },
     lite: lite

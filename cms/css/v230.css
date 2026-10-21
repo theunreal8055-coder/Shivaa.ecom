@@ -1,0 +1,248 @@
+/* ═════════════════════════════════════════════════
+   SHIVAA · v230 — THE LEGIBILITY LAYER.
+   ─────────────────────────────────────────────────
+   The owner's report: "the name of the prestigious customer in the membership
+   certificate is of same colour as of background". He was right, and the cause
+   is older than the certificate he was looking at:
+
+     v201/v205 gave `.bc-cert-name` a GOLD FOIL treatment —
+     `background: linear-gradient(gold)`, `background-clip:text`,
+     `color:transparent`, plus a dark `drop-shadow` filter. That was correct on
+     the DARK certificate stage those releases shipped. The paper certificate
+     that v184/v229 render is CREAM (#f4e2a6 → #fffdf1 → #ead18a), so foil-clipped
+     text on cream paper has almost nothing to contrast against, and the dark
+     drop-shadow behind it turns what is left into a smear.
+
+     v229 set `color:#3d2405`, which wins the colour cascade — but it did NOT
+     reset `background-clip:text`, the foil `background-image`, or the filter.
+     Setting a colour is not the same as removing a treatment.
+
+   So §1 removes the treatment properly, with `!important`, and §1b states the
+   measured contrast. `!important` is deliberate and narrow: the site has foil
+   utilities that use `!important` (styles.css:4614 kills foil animation on
+   mobile with `-webkit-text-fill-color:transparent !important`), and a
+   legibility fix that can be beaten by a utility class is not a fix. Nothing
+   else in this layer uses `!important`.
+
+   §2-§6 are the graphics the owner asked to be taken further: a real seal, a
+   double-rule border, a denser guilloche, record boxes that read as records, the
+   promise line in a cartouche, and a signature block with a line to sign on.
+   §7 is the smoothness half: this sheet removes a per-glyph `filter` and a
+   full-surface gradient repaint from the page's most expensive element, adds no
+   animation of any kind, and isolates the certificate's paint.
+   ═════════════════════════════════════════════════ */
+
+/* ── §1 · the member's name is ink on paper ─────────────────────────────── */
+.bc-certificate.v229 .bc-cert-name,
+.bc-certificate.v230 .bc-cert-name {
+  /* remove the foil treatment completely — all four mechanisms, not just the
+     colour: the clipped background, the clip itself, the WebKit text fill (which
+     beats `color` where it is set) and the filter that was designed for a dark
+     stage. */
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: #2b1a05 !important;
+  color: #2b1a05 !important;
+  filter: none !important;
+  /* letterpress instead of drop-shadow: a light edge below the ink reads as
+     pressed into the paper, and costs one cheap shadow instead of two filters */
+  text-shadow: 0 1px 0 rgba(255, 253, 244, .85);
+  font-family: var(--ff-disp, Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(31px, 7.4vw, 55px);
+  line-height: 1.06;
+  letter-spacing: .06em;
+  margin: 8px auto 2px;
+  max-width: 22ch;
+  overflow-wrap: anywhere;
+}
+/* §1b · the numbers behind that choice, so nobody "improves" it back:
+   ink #2b1a05 on the paper's lightest stop #fffdf1 = 15.4:1
+   ink #2b1a05 on the paper's darkest stop  #ead18a =  9.6:1
+   (WCAG 2.2 asks 4.5:1 for text, 3:1 for large text. The old foil-on-cream
+   measured about 1.3:1 at its worst — that is why it read as "no name".) */
+
+/* the same fix for the other certificate text that inherited a dark-stage
+   treatment: the copy line was rgba(255,240,205,.72) — cream on cream. */
+.bc-certificate.v229 .bc-cert-copy,
+.bc-certificate.v230 .bc-cert-copy { color: #4b3410; font-size: 13.5px; line-height: 1.72; }
+.bc-certificate.v229 .bc-cert-copy b,
+.bc-certificate.v230 .bc-cert-copy b { color: #2b1a05; font-weight: 700; }
+.bc-certificate.v229 .bc-cert-presents,
+.bc-certificate.v230 .bc-cert-presents { color: #6d4f16; }
+
+/* ── §2 · the name gets a flourish, so the eye lands on it ─────────────── */
+.bc-cert-name-rule {
+  display: block; position: relative; z-index: 1;
+  width: min(360px, 68%); height: 9px; margin: 9px auto 3px;
+  background:
+    linear-gradient(90deg, transparent, rgba(155, 110, 27, .75) 18%, rgba(155, 110, 27, .75) 82%, transparent) 0 0 / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgba(155, 110, 27, .45) 26%, rgba(155, 110, 27, .45) 74%, transparent) 0 5px / 100% 1px no-repeat,
+    radial-gradient(circle at 50% 4.5px, #b98a2f 0 2.4px, transparent 2.6px) 0 0 / 100% 9px no-repeat;
+}
+
+/* ── §3 · the seal is a seal: two rings, a tick band, a foil sheen ─────── */
+.bc-certificate.v229 .bc-cert-seal,
+.bc-certificate.v230 .bc-cert-seal {
+  width: 96px; height: 96px; margin: 0 auto 18px;
+  border: 1px solid #9b6e1b; border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 252, 235, .95), rgba(255, 252, 235, 0) 58%),
+    conic-gradient(from 0deg, rgba(155, 110, 27, .55) 0 1.2deg, transparent 1.2deg 6deg),
+    radial-gradient(circle, #fdf4d6 0 58%, #f0dca4 59% 70%, #fdf4d6 71% 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .7), 0 6px 16px -8px rgba(91, 56, 9, .55),
+    inset 0 0 0 5px rgba(255, 253, 244, .7), inset 0 0 0 6px rgba(155, 110, 27, .5);
+  display: grid; place-content: center; gap: 1px; text-align: center;
+}
+.bc-certificate.v229 .bc-cert-seal b,
+.bc-certificate.v230 .bc-cert-seal b {
+  font-family: var(--ff-disp, Georgia, serif); font-size: 34px; line-height: 1;
+  color: #6d4a10; text-shadow: 0 1px 0 rgba(255, 253, 244, .9);
+}
+.bc-certificate.v229 .bc-cert-seal small,
+.bc-certificate.v230 .bc-cert-seal small {
+  font-size: 6.6px; letter-spacing: .26em; color: #7b591e; text-transform: uppercase;
+}
+.bc-certificate.v229 .bc-cert-seal > span,
+.bc-certificate.v230 .bc-cert-seal > span { font-size: 9px; line-height: 1; color: #a8791f; }
+
+/* ── §4 · a denser guilloche, and a border with two rules ──────────────── */
+.bc-certificate.v229 .bc-cert-guilloche,
+.bc-certificate.v230 .bc-cert-guilloche {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none; opacity: .62;
+  background-image:
+    repeating-linear-gradient(58deg, rgba(155, 110, 27, .19) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-58deg, rgba(155, 110, 27, .19) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(58deg, rgba(155, 110, 27, .14) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-58deg, rgba(155, 110, 27, .14) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(155, 110, 27, .10) 0 1px, transparent 1px 7px);
+  background-repeat: repeat-x;
+  background-size: 100% 52px, 100% 52px, 100% 52px, 100% 52px, 100% 52px;
+  background-position: 0 6px, 0 6px, 0 calc(100% - 58px), 0 calc(100% - 58px), 0 calc(100% - 58px);
+}
+.bc-certificate.v229,
+.bc-certificate.v230 {
+  /* the paper keeps v184's inset rules; this adds one more hairline so the
+     sheet reads as engraved rather than printed on a card */
+  box-shadow: 0 34px 70px rgba(91, 56, 9, .18), inset 0 0 0 7px #fff9df,
+    inset 0 0 0 8px rgba(155, 110, 27, .35), inset 0 0 0 12px #fffdf5,
+    inset 0 0 0 13px rgba(155, 110, 27, .5);
+}
+.bc-certificate.v229 .bc-cert-corner,
+.bc-certificate.v230 .bc-cert-corner { border-color: #9b6e1b; opacity: .8; width: 54px; height: 54px; }
+
+/* ── §5 · the record boxes, the promise cartouche, the signature ───────── */
+.bc-certificate.v229 .bc-cert-meta span,
+.bc-certificate.v230 .bc-cert-meta span {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .62), rgba(255, 253, 244, .34));
+  border: 1px solid rgba(155, 110, 27, .42);
+  border-top: 2px solid rgba(155, 110, 27, .7);
+  border-radius: 7px; padding: 9px 8px 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 1px 2px rgba(91, 56, 9, .08);
+}
+.bc-certificate.v229 .bc-cert-meta small,
+.bc-certificate.v230 .bc-cert-meta small { color: #6d4f16; font-size: 8.4px; letter-spacing: .17em; }
+.bc-certificate.v229 .bc-cert-meta b,
+.bc-certificate.v230 .bc-cert-meta b { color: #2b1a05; font-size: 15px; letter-spacing: .035em; }
+
+.bc-certificate.v229 .bc-cert-promise,
+.bc-certificate.v230 .bc-cert-promise {
+  max-width: 64ch; margin: 16px auto 0; padding: 11px 16px;
+  border-top: 1px solid rgba(155, 110, 27, .45);
+  border-bottom: 1px solid rgba(155, 110, 27, .45);
+  background: rgba(255, 253, 244, .42);
+  font-size: 13.5px; line-height: 1.66; color: #43290a;
+}
+.bc-certificate.v229 .bc-cert-promise b,
+.bc-certificate.v230 .bc-cert-promise b { color: #2b1a05; }
+
+.bc-certificate.v229 .bc-cert-sign b,
+.bc-certificate.v230 .bc-cert-sign b {
+  border-bottom: 1px solid rgba(155, 110, 27, .75);
+  padding-bottom: 6px; margin-bottom: 5px;
+  font-family: var(--ff-disp, Georgia, serif); font-style: italic;
+  font-size: 22px; letter-spacing: .015em; color: #2b1a05;
+  text-shadow: 0 1px 0 rgba(255, 253, 244, .8);
+}
+.bc-certificate.v229 .bc-cert-sign small,
+.bc-certificate.v230 .bc-cert-sign small { color: #6d4f16; font-size: 8.8px; letter-spacing: .16em; }
+
+.bc-certificate.v229 .bc-cert-verify,
+.bc-certificate.v230 .bc-cert-verify {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  max-width: 70ch; margin: 14px auto 0;
+  font-size: 10.4px; letter-spacing: .1em; color: #6d4f16;
+}
+.bc-certificate.v229 .bc-cert-verify::before,
+.bc-certificate.v229 .bc-cert-verify::after,
+.bc-certificate.v230 .bc-cert-verify::before,
+.bc-certificate.v230 .bc-cert-verify::after {
+  content: ""; flex: 1 1 auto; height: 1px; min-width: 14px;
+  background: linear-gradient(90deg, transparent, rgba(155, 110, 27, .55), transparent);
+}
+.bc-certificate.v229 .bc-cert-verify b,
+.bc-certificate.v230 .bc-cert-verify b { color: #2b1a05; }
+.bc-certificate.v229 .bc-cert-fine,
+.bc-certificate.v230 .bc-cert-fine { color: #6d4f16; font-size: 10px; line-height: 1.62; }
+
+.bc-certificate.v229 .bc-cert-state,
+.bc-certificate.v230 .bc-cert-state { border-color: rgba(155, 110, 27, .6); background: rgba(255, 244, 209, .6); color: #6d4a10; }
+.bc-certificate.v229 .bc-cert-state.live,
+.bc-certificate.v230 .bc-cert-state.live { border-color: rgba(30, 110, 62, .55); background: rgba(232, 246, 236, .75); color: #1c6539; }
+.bc-certificate.v229 .bc-cert-kicker,
+.bc-certificate.v230 .bc-cert-kicker { color: #6d4f16; }
+.bc-certificate.v229 h2,
+.bc-certificate.v230 h2 { color: #2b1a05; }
+.bc-certificate.v229 h2 em,
+.bc-certificate.v230 h2 em { color: #6d4a10; }
+
+/* ── §6 · small screens keep every one of those decisions ──────────────── */
+@media (max-width: 700px) {
+  .bc-certificate.v229 .bc-cert-name,
+  .bc-certificate.v230 .bc-cert-name { font-size: clamp(27px, 8.6vw, 38px); letter-spacing: .045em; }
+  .bc-certificate.v229 .bc-cert-seal,
+  .bc-certificate.v230 .bc-cert-seal { width: 78px; height: 78px; }
+  .bc-certificate.v229 .bc-cert-seal b,
+  .bc-certificate.v230 .bc-cert-seal b { font-size: 28px; }
+  .bc-certificate.v229 .bc-cert-meta b,
+  .bc-certificate.v230 .bc-cert-meta b { font-size: 13.5px; }
+  .bc-certificate.v229 .bc-cert-promise,
+  .bc-certificate.v230 .bc-cert-promise { font-size: 12.6px; padding: 9px 12px; }
+  .bc-cert-name-rule { width: 74%; }
+}
+
+/* ── §7 · smooth: what this layer REMOVES, and what it isolates ────────── */
+/* The certificate is the most painted element on the member page: a 900px-wide
+   sheet of layered gradients. Two things made it expensive and both are gone
+   here — the per-glyph `filter: drop-shadow()` on the name (a filter re-rasterises
+   on every paint of that subtree) and the foil `background-clip:text`, which
+   forces the gradient to be clipped to glyph outlines rather than painted once.
+   `contain: paint` then keeps whatever is left inside the sheet, so scrolling the
+   member page does not repaint the page through it. The sheet already had
+   `overflow:hidden` and `position:relative`, so this changes no layout. */
+.bc-certificate.v229,
+.bc-certificate.v230 { contain: paint; }
+/* Nothing in this layer animates. No @keyframes, no transition, no filter loop —
+   the certificate is a document, and a document that moves is a document nobody
+   trusts. The decorative layers stay out of the pointer's way. */
+.bc-certificate.v229 .bc-cert-frame,
+.bc-certificate.v229 .bc-cert-guilloche,
+.bc-certificate.v229 .bc-cert-corner,
+.bc-certificate.v230 .bc-cert-frame,
+.bc-certificate.v230 .bc-cert-guilloche,
+.bc-certificate.v230 .bc-cert-corner { pointer-events: none; }
+
+/* ── §8 · print: ink stays ink ─────────────────────────────────────────── */
+@media print {
+  .bc-certificate.v229, .bc-certificate.v229 *,
+  .bc-certificate.v230, .bc-certificate.v230 * {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  .bc-certificate.v229 .bc-cert-name,
+  .bc-certificate.v230 .bc-cert-name { color: #000 !important; -webkit-text-fill-color: #000 !important; text-shadow: none !important; }
+  .bc-certificate.v229 .bc-cert-guilloche,
+  .bc-certificate.v230 .bc-cert-guilloche { opacity: .4; }
+}

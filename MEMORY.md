@@ -1,3 +1,56 @@
+> ## CURRENT STATE — **v232 IS LIVE** (owner applied every update, 21 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+>
+> - **LIVE: v232 “The Idle Release”.** The owner applied every update and reported *“I have applied
+>   each and every update to the website and it's fine”* on 21 Oct 2026. The package that matches the
+>   live site is `shivaa-update-v232.zip` — **361 files · 37,349,816 B ·
+>   `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**. **Next release number: v233.**
+>   Live chain: v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)**.
+> - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the Arena session is hard-wired to it. Commit and push
+>   there only: `git push origin arena/e8a470c6-shivaa-ecom`. The twin `arena/09f3c79f-shivaa-ecom` stays
+>   at its v220 tip (`4a9e239`); PR #106 on it is open and untouched. **The session branch itself is
+>   proposed upstream as PR #107** (`arena/e8a470c6-shivaa-ecom` → `arena/5529f0ec-shivaa-ecom`) — it is a
+>   review artefact, and nothing is merged without the owner's word.
+> - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
+>   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
+>   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do
+>   not write docs; run the three commands it prints. **Never work on a tree older than the newest
+>   release, and never rebuild a spent number.** On 21 Oct a sandbox came back on the v220 base commit
+>   with a stale worktree — this guard exists because of exactly that.
+> - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). It holds every
+>   release from v221 with commit, file count, byte size, sha256, status, plus `live` and `next_release`.
+>   `python3 qa/check-handoff.py` proves ledger ⟷ stamps in the shipped tree ⟷ zips on disk (and in git)
+>   ⟷ these docs. Run it after any doc edit and before any release.
+> - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
+>   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` now
+>   refuses a spent number whose bytes do not reproduce (a faithful v232 rebuild reproduces the sha256
+>   above byte for byte). Owner approval before anything goes live; a push, a merge, a green gate or a
+>   finished zip is **not** approval. Rollback is the previous ledger row (v231), never an older tree.
+> - **Sandbox resets between turns.** First
+>   `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`, then
+>   `bash qa/where-am-i.sh`. Then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
+>   `python3 qa/build-test-db.py`, `python3 qa/preview_shim.py --port 8090`. The zips are tracked in git,
+>   so the reset restores them. **Check for stray `node` before believing a flaky suite**
+>   (`ps aux | grep "[n]ode"`).
+> - **v232's measured facts (the proof the owner was given):** idle animation frames **123/s → 0/s** on a
+>   silent home page (1264 frames in 12 s, 1148 from `_msTick` + the cursor glow); layout reads for ten
+>   pointer moves over one card **10 → 1**, twenty more **→ 0**; main-thread image decodes **56 of 68 → 0**
+>   (the LCP set keeps its decode); hidden-tab rate polls **1/s → 0**. **The find:** v226's press rules
+>   for `.p-card`/`.cat-card`/the offer banner had been dead on every phone since v226 —
+>   `styles.css:4637` and `v219.css:129` beat them — restored in `cms/css/v232.css` §1.
+> - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
+>   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`,
+>   and the order in `tools/css-bundle-order.txt` is load-bearing (66 positions, `v186.css` twice);
+>   films load only via `wake()`, never put `src`/`preload="auto"` back; never animate a layout property,
+>   a `filter` or `background-position` in a loop; scroll work lives in `v225.js`'s one frame; one ripple
+>   system; **zero idle frames** and **no per-event `getBoundingClientRect()`** in any move listener
+>   (v232); the member percentage is one setting, ships **20**, never hard-coded elsewhere;
+>   `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed and never ships.
+> - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
+>   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
+>   × 14 days), and the private bills folder `.shivaa-private-bills` **beside** `public_html`
+>   (`DEPLOY-v229.md` §2 — without it the admin upload answers 503 by design). Details:
+>   `docs/NEXT-CHAT-HEAD.md` §12.
+
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 ## STANDING RULE — FORWARD ONLY (restated by the owner; absolute)
@@ -9,25 +62,86 @@
   live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
 - Production deploys are owner-approved only. A push or merge is not approval.
 
-- **LIVE: v205 is deployed to the live site (owner confirmed, 11 Oct 2026).** The owner reports it works.
-  Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
-  Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
+- **LIVE: v232** — the owner applied every update and confirmed on 21 Oct 2026
+  (*“I have applied each and every update to the website and it's fine”*). Machine truth:
+  `docs/release-ledger.json`; guard: `bash qa/where-am-i.sh`; next release: **v233**.
+  Live chain: v205 (11 Oct) → v228 (17 Oct) → v232 (21 Oct). Everything below this line is history.
 
-## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
+## The v232 baseline — what the live release is (the detail behind the top block)
 
-- **Branch:** `arena/5529f0ec-shivaa-ecom`. Head `03f78e0`, clean, pushed. Local and remote match.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 206 or higher.
-  Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
-- **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
-  delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
-  v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
-  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE.
+- **Branch:** the Arena session branch `arena/e8a470c6-shivaa-ecom` (the owner was told the session is
+  hard-wired to it and said "Isi pe kaam kr"). `arena/09f3c79f-shivaa-ecom` is untouched. Commit and push
+  after every coherent stage — a sandbox reset in this release wiped several hours of uncommitted work
+  and the whole v229 build had to be redone from its own written contract.
+- **Live:** **v232**, applied by the owner on 21 Oct 2026 ("each and every update … it's fine").
+  v229, v230 and v231 ride inside it (the packages are cumulative, which is why the table told the owner
+  to deploy v232 only). **The next release is v233.** Forward-only from 232: never reuse or renumber a
+  shipped release, never deploy an older tree over a newer live site, never rebuild a spent zip with
+  different bytes. The chain of truth is `docs/release-ledger.json`; `bash qa/where-am-i.sh` decides
+  whether the tree you are standing in is allowed to be worked on.
+- **v232's measured facts (keep them; they are the proof the owner was given):** idle animation frames
+  **123/s → 0/s** on a silent home page (1264 frames in 12 s, 1148 of them from `_msTick` and the cursor
+  glow, both of which ran from parse to tab-close); layout reads for ten pointer moves over one card
+  **10 → 1**, and 20 more on a settled card **20 → 0**; images decoding on the main thread **56 of 68 → 0**
+  (the LCP set is skipped on purpose); a hidden tab asks the server for the gold rate **0** times (it asked
+  once a second). **The press answer v226 wrote for `.p-card`/`.cat-card` and the offer banner has been
+  dead on every phone since it shipped** — `styles.css:4637` and `v219.css:129` neutralise it with
+  `transform:none !important`; v232 restores it with v226's own values, important, `no-preference`-gated.
+- **Release history:** do not keep a second copy of it here. `docs/release-ledger.json` (readable:
+  `docs/RELEASE-LEDGER.md`) carries v221 → v232 with commit, bytes and sha256; `DEPLOY-vNNN.md` carries
+  the story of each of those releases. The pre-v221 history below (v199 → v207 bullets and sessions) is
+  kept for its lessons only — some of it says "not deployed", which was true then and is not true now.
+## 21 Oct 2026 — the handoff was rebuilt around a ledger (no code changed)
+
+The owner applied every update and said it was fine. That made **v232 the live release**, and it
+exposed a documentation debt: four root docs still opened with a 112-line block claiming v205 was
+live, and a new chat could plausibly have opened on an old branch and continued from the wrong tree.
+
+What was added this turn — **docs and tooling only; not one byte of `cms/` changed**, so the live
+site still matches `shivaa-update-v232.zip` exactly:
+
+- **`docs/release-ledger.json`** — every release from v221 with commit, file count, bytes, sha256,
+  status, `live` and `next_release` (233). **`docs/RELEASE-LEDGER.md`** is the readable twin and the
+  ritual for adding the next row.
+- **`qa/where-am-i.sh`** — the forward-only guard. It fetches origin, reads `APP_REL` out of
+  `cms/js/app.js` on **every** remote branch (not the file on disk, not the branch name), and prints
+  FORWARD / BEHIND / AHEAD / WRONG BRANCH with the exact commands to move forward. Exit 3 = stop.
+  It was written because this turn's sandbox actually came back on the **v220 base commit** with a
+  stale v221/v222 worktree while wearing the right branch name.
+- **`qa/check-handoff.py`** — proves ledger ⟷ stamps (`index.html`, `sw.js`, `app.js`, `api.php`)
+  ⟷ every zip's sha256/bytes/file count ⟷ all seven docs, and fails on a stale "live is v…" sentence
+  near a doc's top.
+- **`qa/make-update-zip.py` gained the ledger guard**: rebuilding a spent number is allowed only if
+  the bytes reproduce; otherwise it deletes the file and refuses. A v232 rebuild reproduces
+  `14b9e9ca…b4023` exactly, which is the proof the package on the site is this tree.
+- **The four root docs** (`MEMORY.md`, `AGENTS.md`, `ARENA-STATE.md`, `docs/AGENT-HANDOFF.md`) got
+  one identical CURRENT STATE block, and `docs/NEXT-CHAT-HEAD.md` was rewritten as the paste-first
+  handoff: §0 paste block, §1 branch, §3 the three guards, §13 what v233 actually is.
+
+**Lesson:** a doc that says "live is X" is a cache of a fact that lives in the release zip. Cache it
+once, in one block, and let a script compare it to the artefacts — otherwise four copies drift and
+the fifth chat starts from the wrong release.
+
+## History from the v207 era — kept for its lessons
+
+> Everything in this block was true on 11 Oct 2026. The "not deployed" lines are true of
+> that time only; every one of those releases is now inside the live v232.
+
 - **Key fixes to remember:**
   - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
     `})();` of `cms/js/app.js` after any edit.
   - v193 `.btn-gold` wiped the gold gradient. Fixed in v200.
   - `background-clip:text` on a parent does not reach reveal-split words. Use solid colour.
   - Do not override `position` on elements that earlier CSS already positions (v186 seals).
+  - v206: NEVER put a `filter` on `.bc-card` (the `preserve-3d` flip card) — a non-none filter
+    forces `transform-style:flat` and the reverse never shows. Hover light belongs on the wrap.
+    The card is `div[role=button][data-flip-card]`, not `<button>` (WebKit flattens 3D in form
+    controls). The flip handlers are delegated inside the app IIFE (`data-flip-card`,
+    `data-flip-hint`).
+  - v207: contrast audits must walk translucent layers down to the first OPAQUE ancestor
+    (compositing over white produced phantom "cream on cream" everywhere) and must treat
+    absolutely-positioned inset-0 children / filling media elements as unknown backdrops
+    (photo scrims). Worst-case multi-gradient stops are the right bias for hero shafts.
 - **Data policy:** `cms/data/db.json` is not tracked on this branch (commit `fa6cf79`, v191).
   Never commit live data or hand-edit `db.json`.
 - **Open items:**
@@ -40,6 +154,271 @@
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v232 — the Idle Release (18 Oct 2026) · **LIVE since 21 Oct 2026**
+
+Prompt: *"App is not feeling smooth, it should feel like buttery smooth and ultra smooth, without
+decreasing the quality."* Nothing was added. The app was measured, the work nobody needs was removed, and
+every effect that stayed is the same effect.
+
+1. **Two loops that never slept.** `_msTick` (the bullion interpolator) and the cursor glow ran at 60 fps
+   from the moment `app.js` parsed until the tab closed — 1264 `requestAnimationFrame` calls in the first
+   twelve seconds of a silent home page, 1148 of them from those two. `_msTick` also ran **two
+   `document.querySelector` calls inside every frame**; the glow wrote **`style.left`/`style.top`**, a
+   forced layout of a 340 px `mix-blend-mode:screen` layer per frame, with the mouse parked. Now: the
+   interpolator keeps its nodes, wakes on a `rates` event, lands **exactly** on the last frame
+   (`lastIndexOf`, not `indexOf` — the assignment appears twice in the function) and sleeps in a hidden
+   tab; the glow sits at a `0,0` origin (`#cursorGlow{left:0;top:0}` in `css/v232.css`), moves on
+   `translate3d`, wakes on a real `mousemove`, and ends when it catches up. Hot-target growth uses the
+   `scale` property (`460/340 = 1.3529`) inside `@supports (scale:1)`, so the old width/height rule stays
+   as the fallback. The rates poll stops in a hidden tab too.
+2. **One tilt engine.** `bindTilt()` hung a `mousemove` on every card and read a rect **per event**;
+   `init3DCardTilts()` hung a `touchmove` on four families (a layout read per touch event *while
+   scrolling*); `bindMagnetic()` did the same on every button and glare card. One delegated listener per
+   engine, one cached rect per element visit, one write per frame, a scroll stands a touch tilt down, and
+   the maths is byte-identical (7°/9°/900px/4px; 5°/-2px on touch; 7px/5px magnetic). Windows:
+   `window.__shvTilt`, `window.__shvMagnetic`, `window.__shvGlow`, `window.__shvDecode`.
+3. **The press restore** (the real find): v226's `.p-card:active`/`.cat-card:active` and the offer card's
+   own press rule lose to **`!important` neutralisers** — `styles.css:4637` under `@media (max-width:820px)`
+   and `v219.css:129` under `(hover:none),(pointer:coarse)`. An `!important` declaration beats a normal one
+   whatever the order, so those three surfaces never answered a finger on a phone. `css/v232.css` §1
+   restores them with v226's values, `!important`, **both phone guards written as separate blocks** (a
+   nested media list inside an `and` is MQ4 and a rule that fails to parse is how the press went missing),
+   inside `prefers-reduced-motion: no-preference`, with a §6 block that turns it back off.
+4. **Layers, blur, decode.** Nine families carried a permanent `will-change:transform`
+   (`styles.css:1532`); only `.p-card` had ever been reset. §2 releases all nine, promotes on `:hover`/
+   `:focus-within` under `(hover:hover) and (pointer:fine)`, flattens on touch. §3: on a phone every
+   product card's `.pc-quick` pill is permanently visible **and** carried `backdrop-filter:blur(6px)`
+   behind `rgba(255,252,244,.96)` — the blur cannot be seen, the GPU pays for it per card per frame; the
+   blur is off on coarse pointers and the fill closes to `.98` (so it reads *more* solid). **The fixed bars
+   were measured and keep their glass** (`.header` .92, `.pd-stickybar` .97, `.mnav` .97, `.mcta-bar` .97,
+   `#pdpBuybar` .96, `.kyc-bar` .97, `.shop-bar` .94, `.shv-scheme-stepper` .95) — two on screen at once
+   is not a hundred. `app.js` sweeps + observes `decoding="async"` on every image except `#preloader`,
+   `.hero`, `.page-hero`, `.poster`, `.c-slide`, `.gal-track`, `[data-lcp]`, `loading="eager"` and
+   `fetchpriority="high"`.
+5. **`content-visibility` deliberately untouched.** v117/v121/v122/v214/v215 guessed fixed intrinsic
+   heights; the page height changed while scrolling and the page jumped toward the top (owner-reported),
+   and v217 sealed it (`#view *` is `visible !important`). Off-screen skipping is not worth that. **Do not
+   reopen it.**
+6. **No new request.** The governors live in `app.js`; `css/v232.css` is the only new file (the 66th
+   cascade position). Bundle **910,723 B raw / 179,425 B gzipped, 66 layers / 66 blocks** (Python counts
+   910,662 *characters* — `wc -c` counts bytes; say which you mean). Gate `bash qa/v232-gate.sh` → **23
+   checks, 0 red**: t-v232-idle 87/0, v231-ink 53/0, v230-cert 61/0, v229 bills 102/0, black 88/0, routes
+   61/0, and the sixteen historic suites unchanged. Package `shivaa-update-v232.zip`: **361 files ·
+   37,349,816 B · `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**; rollback is
+   `shivaa-update-v228.zip`.
+
+**Lessons this release added (all cost a red line first):**
+- **A frame-cost assertion needs a settle longer than the last late mount.** The new suite tallied eight
+  unrelated rect reads because it measured immediately after the grid rendered. Settle 5 s (shop) / 11 s
+  (home) before counting.
+- **Do not mix normalised and raw text in one `&&`.** `WS(SHIPPED)` matched while
+  `SHIPPED.match(/\.pc-quick \{/)` did not, because the shipped rule is written across lines.
+- **`indexOf` on an assignment that appears twice in a function finds the initialiser.** Use `lastIndexOf`
+  and say why in the comment.
+- **Don't anchor on a comment in a `stripJs`'d string** (again — the v231 lesson, repeated here).
+- **A per-event `getBoundingClientRect()` is the tell.** Grep `addEventListener('mousemove'` and
+  `('touchmove'` and look inside the handler; `bindMagnetic` hid behind a comment that praised itself.
+
+## v231 — the Engraved Layer (18 Oct 2026) · shipped inside v232
+
+
+
+The owner sent the same two-bug report twice — the second time after v230 had already fixed both. Nothing
+was wrong with v230. What the second message actually asked for was "graphics even more" and "make the app
+smooth", so v231 does the three things v230 left open, and the reply handed him the newest zip with the
+measured proof rather than asking him to re-check.
+
+- **Make a fix structural, not selector-deep.** v230 reset the certificate name under
+  `.bc-certificate.v230 .bc-cert-name` — correct, and one class-list edit away from dead. v231 states the
+  same four-mechanism reset on the **bare** `.bc-cert-name` (`background`, `background-image`,
+  `background-clip`, `-webkit-text-fill-color` + `color`, `filter`, each `!important`), and gives every other
+  line of the document `-webkit-text-fill-color: currentColor` + `background-clip: border-box`. That guard
+  deliberately **restates no colours**: a legibility layer that also picks the palette is a layer nobody can
+  restyle without a fight. The suite asserts the absence of hex values in the guard, which is the rare case
+  of testing what a rule does *not* say.
+- **Microtext, from an attribute.** The banknote cue the design research asks for and the HTML sheet never
+  had (the canvas download has carried it since v229): one 9px band of 5.5px letterspaced text under the top
+  border, `content: attr(data-microtext)` so there is **no text node** for a screen reader to read out and
+  nothing duplicated in markup, and `display:none` in print. **One band, not two** — a pseudo-element of a
+  9px-tall parent cannot be positioned at the foot of a 600px sheet, and decorative layers positioned by
+  guesswork are how a certificate ends up with a stray line through the signature. The first draft did
+  exactly that (`bottom:-100%; transform:translateY(...)`) and was replaced before it shipped.
+- **"Less paint" is a number.** The guilloche was a full-sheet element whose gradients were merely
+  *positioned* as bands, so the browser rasterised ~900×600. It is now two **58px** elements (44px on a
+  phone) with a `.bc-guilloche-foot` modifier: same artwork, about a fifth of the area — and the suite
+  asserts the height, because otherwise the claim is a feeling. Still no `@keyframes`, no `transition`, no
+  `will-change`, no `filter`; `contain:paint` from v230 still isolates the sheet.
+- **Two red lines on the first gate, both the same family as v229's and v230's — an anchor that is not what
+  it thinks it is.** (a) A stamp pin written as a **regex** (`/__SHIVAA_REL\s*=\s*230/`) survived a roll
+  that only replaces literal spellings, and then demanded a release that no longer exists: *when you roll
+  stamps, grep for the regex spellings too.* (b) A slice ended on `indexOf('/* ── §2')` over a string whose
+  comments had already been stripped, so `indexOf` returned **-1** and `slice(start, -1)` became "everything
+  except the last character" — swallowing a later section's colours and failing a check about an earlier one.
+  *A -1 from indexOf is never a position*; end slices on tokens that survive the stripping you did, and
+  assert the slice is real (`group.length > 200`) before trusting it.
+- **A stale comment is a live bug with a delay.** `blackPct()`'s own header comment still said "default 25"
+  after the default moved to 20 — found only because the release ritual greps the shipped tree for the
+  rejected claim rather than trusting the diff. It ships inside the zip, and a comment that contradicts its
+  function is how the next agent restores the wrong number.
+- **QA:** `bash qa/v231-gate.sh` → **22 checks, 0 red**; new `qa/browser/t-v231-ink.mjs` **53/0** (recomputes
+  both WCAG ratios — ink now clears AAA on *both* paper stops — proves the bare-selector reset is in the
+  shipped bundle *after* the foil rule, and proves 20 is a default by moving the setting to 21); v230 61/0,
+  v229 bills 102/0, black 88/0, routes 61/0.
+- **Package:** `shivaa-update-v231.zip` — **360 files · 37,333,506 B · sha256
+  `114394131d4033ca8e18dea9bf139bb8495b3691529f0b2fcb13c42647fb937c`**. Rollback stays
+  `shivaa-update-v228.zip` (what is live) — never v229 or v230.
+
+## v230 — the Legibility Release (18 Oct 2026) · shipped inside v232 (v231 refined it)
+
+Two owner reports the same day v229 was handed over, both real, both worth more than the fix:
+
+- **A colour is not a treatment.** "The name of the prestigious customer in the membership certificate is
+  of same colour as of background." `v201`/`v205` had given `.bc-cert-name` a **gold foil**: a gradient
+  `background` clipped to the glyphs with `color:transparent`, plus a dark `drop-shadow` filter — correct
+  on the **dark** certificate stage those releases shipped, and the paper certificate is **cream**. The
+  foil's mid-stop measures **~1.4:1** on it (WCAG asks 4.5:1; large text 3:1). **v229 set a colour, which
+  won the cascade and changed nothing visible**, because `background-clip:text`, the foil
+  `background-image` and the dark-stage filter all still applied. The lesson is the part worth keeping:
+  when a previous release styled an element for a different stage, *setting one property is not removing
+  a treatment* — reset every mechanism (background, clip, `-webkit-text-fill-color`, which beats `color`
+  where set, and `filter`). `css/v230.css` does that with `!important`, narrowly, because `styles.css`
+  itself has foil utilities using `-webkit-text-fill-color:transparent !important` and a legibility fix a
+  utility can beat is not a fix. Ink `#2b1a05` on paper: **15.4:1** lightest stop, **9.6:1** darkest
+  (AAA); the copy line was cream-on-cream and is ink now; the A4 download draws the same ink; print forces
+  black. The suite **computes** both ratios — the failing one and the fixed one — so the bug is proved and
+  nobody can restore the foil without a red line explaining what it costs.
+- **The number that ships is a promise.** "On the card you have mention the 25% … this is a false claim …
+  should be only at 20% off making charges for the customers of prestigious members." Because v229 made the
+  rate ONE setting, this was a **default** change in four places (`api.php black_pct_setting()`, `app.js
+  blackPct()`, the Admin field + its save, the dev mirror) and nothing else moved: the 0-40 clamp and the
+  owner's control stayed, no card was reissued, and the fixture's stored `discountPct` flipped **20 → 25**
+  so the suite still proves the server overrides whatever a card carries. The consequence is now recorded
+  rather than hidden: a member and a guest with public `MAKING20` get the same 20%, and that is the owner's
+  decision — the membership's difference is the card, the certificate, the free physical card and the
+  account. **The v229 zip is pushed and must not be deployed**; the release table says so, because a green
+  gate on a wrong number is still a wrong number.
+- **Graphics further, smoothness as subtraction.** Seal with a conic tick band and two rings; engraved
+  double-rule border; denser guilloche plus a vertical band; record boxes with an accent edge; the promise
+  line in a cartouche (it is the legal line); a signature rule; a hairlined verify strip; a flourish under
+  the name. For smoothness the release **removed** work instead of adding tricks: a per-glyph `filter`
+  (re-rasterises its subtree on every paint) and a gradient clipped to glyph outlines are gone from the
+  most painted element on the member page, and `contain:paint` keeps the rest inside the sheet. No
+  `@keyframes`, no `transition`, no `will-change` — a document that moves is a document nobody trusts.
+- **Three red lines on the first v230 gate were all assertion faults, and two were worse than none**: a
+  check ending in `|| true` (cannot fail, reports green while proving nothing), and
+  `!/filter:\s*(?!none)/` where `\s*` matches zero characters so the lookahead is tested at the space and
+  passes on `filter: none`. Also a cascade check that compared `lastIndexOf('.bc-cert-name {')` — which the
+  layer's own **print** rule ends with, so it compared the fix against itself and lost. And a doc anchor
+  missed by two characters (a bullet, not two spaces), which aborted that file's patch silently while the
+  next command in the chain built the zip anyway — so for one minute the package carried a document that
+  still promised members 25%. **A doc that ships inside the zip gets grepped for the claim afterwards.**
+- **QA:** `bash qa/v230-gate.sh` → **21 checks, 0 red**; new `qa/browser/t-v230-cert.mjs` **61/0** (it also
+  proves 20 is a default, not a new literal, by moving the setting to 22 and watching the certificate
+  follow, then restoring 20); v229 still green — bills 102/0, black 88/0, routes 61/0.
+- **Package:** `shivaa-update-v230.zip` — **359 files · 37,326,620 B · sha256
+  `371084903c4359ce069e08dfee63149f44475786c36a76b1fb7ba743342a4dfe`**. Rollback stays
+  `shivaa-update-v228.zip` (what is live) — **never** "roll back" to v229.
+
+## v229 — the Paperwork Release (18 Oct 2026) · shipped inside v232
+
+Five things the owner asked for in one update, plus the paperwork that makes them safe to deploy.
+
+- **The member percentage is ONE setting.** It was a literal `20` in nine places — exactly what the public
+  `MAKING20` coupon gives a guest who never signed in, so a KYC-verified card bought nothing. Now
+  `settings.blackDiscountPct` (default **25**, clamped 0-40, `0` = benefit off *without deleting anybody's
+  card*), resolved once per request into `$GLOBALS['shv_black_pct']` **before the router**, read on the client
+  through `blackPct()`. No coupon row is stored per member, so one number moves every member and **no card
+  number ever changes**. Two rules fell out of this and both matter more than the feature:
+  **a receipt never follows a setting** (`blackOrderPct(o)` derives an old order's rate from that order's own
+  two numbers), and **each surviving literal must name its own programme** — Premium's lifetime 20%, Amrita
+  ji's ticket and the public banner offer kept theirs, asserted with a ±4-line proximity window because markup
+  splits a card across lines and a single-line marker match gives false failures.
+  **Deploying raises every existing member 20% → 25% automatically.** That is the intended fix and
+  `DEPLOY-v229.md` §3 says so in terms the owner can act on.
+- **Renewal.** `POST /api/black-card/renew` — last 30 days of validity or after expiry, else **409** naming the
+  days left; rate-blocked 6/h; **six calendar months** via `black_add_months()` (a 31st lands on the last day of
+  a shorter month, never rolls over); `memberId`/`cardNumber`/`certificateNo` unchanged. The owner's route takes
+  1-36 months and **extends a live card from its own expiry**. The strip is drawn only from `card.renewable` —
+  the server's answer, never a date the client computed itself.
+- **In-store bills.** Owner-side upload only. `.shivaa-private-bills` **beside** the docroot (env
+  `SHIVAA_PRIVATE_BILLS_DIR`, 0700/0600, refuses a symlink or an in-docroot path), type from magic bytes **in and
+  out**, ≤6 files × 8 MB, streamed **by index** (`/file/{i}`) with `no-store`/`nosniff`/`SAMEORIGIN`.
+  `#/my-bills` has **exactly two verbs — View and Download**; the negative is asserted on the source, the API
+  payload *and* the rendered DOM. `bill_public($b, $admin)` is one serialiser whose flag decides whether the
+  owner's note, the mobile and the stored `ref` leave the server at all — a shared serialiser that leaks one
+  field is how a private note ends up on a customer's screen. Unavailable storage is a **503 that says nothing
+  was saved** plus an amber box with both fixes, never a save button that appears to work. Erasure
+  **anonymizes** bills at both routes because a bill is a GST/tax record: the paper stays, the person leaves it.
+- **The certificate is a document.** Four record boxes (certificate no and member ID are different identifiers
+  and used to share one), valid-through, the name in caps as the largest element after the title, a promise line
+  with the percentage + both dates + scope, a **signatory with a title**, a **verify line** naming `shivaa.in`
+  and the certificate number, `RENEWED n×`, one guilloche band, four corner ornaments (the old markup shipped
+  `c4` twice), an archived pill that turns **gold** not grey, and an **A4 landscape 3508×2480 @300 dpi**
+  download — the same drawing scaled by `BK = 3508/1800`, so the seal is rendered at print resolution instead
+  of upscaled.
+- **QA.** `bash qa/v229-gate.sh` → **20 checks, 0 red**: the bundle proof, `qa/phpbal.py` (there is no `php`
+  binary here), `node --check` ×3, sixteen historic suites on the plain fixture, `qa/v229-routes.py` **61/0**
+  (real multipart, byte-identical stream, the 401/403/409 boundaries between three people), `t-v229-bills`
+  **102/0**, `t-v229-black` **88/0**, `playstore/verify.mjs` exit 2 by design. `qa/build-test-db.py
+  --with-staff` adds the owner (the plain fixture has ZERO users, so no admin token exists at all), a member
+  expiring in 18 days with a `to-ship` free card and a stored `discountPct` of **20** — so the suite proves the
+  setting overrides a card created under the old number — and a stranger who must get 403.
+- **Package.** `shivaa-update-v229.zip` — **358 files · 37,317,163 B · sha256
+  `c9c54cf09476be53f07b6a21eb3ed9f60852918177fe68cb4beb5f71a8a62d23`**, built by `qa/make-update-zip.py 229`
+  (the previous zip's exact list plus `css/v229.css`). Rollback stays `shivaa-update-v228.zip`.
+- **Lessons that cost the most.** A dev mirror must be as strict as the server it stands in for — the shim's
+  `dev_file_kind` originally fell back to the uploaded filename, so a text file named `lie.png` passed locally
+  and would have failed in production. A stateful preview must **refuse** to run rather than fake-fail:
+  `qa/v229-routes.py` exits 3 + SKIP on a dirty shim. A suite you cannot re-run is a suite nobody re-runs, so
+  the bills suite signs in with the preview password instead of the 30-second-cooldown OTP. And a slice has a
+  direction: the bill buttons live in `billFileRowHTML`, **above** `pages['my-bills']`, so slicing from the page
+  excluded the markup under test — assert the slice's own contents first.
+
+## v207 — readability pass · every word legible (11 Oct 2026)
+
+- v207 BUILT on the session branch (`shivaa-update-v207.zip`), NOT deployed. Forward-only from 207.
+- Task 2 of the owner's brief: text same colour as background on some pages. Audited all 45 routes
+  desktop + phone with `qa/browser/audit-contrast.mjs` (committed; boots each route in jsdom,
+  resolves cascade + custom properties + alpha compositing, flags every text node under WCAG AA).
+- Real bugs found & fixed forward in `cms/css/v207.css` (loaded last): page-hero h1 foil cast ended
+  with the hero's own colour at both ends (1.11:1) → light cream/gold cast; `.ink-reveal` maroon
+  sweep + calm-mode maroon-deep on dark heroes → cream sweep; footer fine print/links at 50–62%
+  gold (3.1–3.8:1) → .84–.93; app-band dismiss × (#5e1520 against a phantom white band, 1.23:1)
+  → light gold with hover (forward correction of a v200 mis-measurement); hero breadcrumbs .46
+  white (2.7:1) → cream .88; Black Card fine print (rgba white .27, 2–3.8:1) → readable greys/golds;
+  glass panels `.svc-result`/`.shv-val-banner`/`.shv-hud-chip` assumed dark posters but some sit on
+  light sections (white ₹ amounts at 1.03:1) → solid dark-glass ground; gold-on-light chips/labels/
+  avatars (1.4–2.9:1) → dark gold on light, light gold stays on dark contexts; `.disp-italic`
+  gold-on-gold hero words (1.22:1) → cream-gold + shadow; `.fin-eng` foil engraving ink deepened.
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `af75aa85…d9b84`; incl. phone-drawer readability addendum), `DEPLOY-v207.md`,
+  `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
+- QA: flip test still ALL PASS; 83/83 index asset refs + 78/78 SHELL_FILES exist; every `?v=` is 207
+  (media keeps its own generation number); node --check clean. t7-audit's product-walk failures are
+  the synthetic dev fixture (db.json has 6 demo products), pre-existing. No PHP in sandbox.
+- Known audited-boundary (not bugs): text over photo scrims (mega-feat cards, UGC captions —
+  readable over their `::after` scrims in the real render; audit skips them as image-backed) and the
+  footer app-band copy which the auditor measures through a translucent tint chain against a phantom
+  cream ground (real ground is the dark maroon footer, ~7:1 — hand-verified).
+- Not done: real phone/desktop visual eyeball (no browser binaries in sandbox).
+
+## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)
+
+- v206 BUILT on the session branch, NOT deployed. Forward-only from 206.
+- "Tap the card to see the reverse" never flipped correctly because (1) v184's
+  `.bc-card:hover { filter:brightness(1.04) }` forced `transform-style:flat` on the preserve-3d
+  card the moment it was pointed at (mirrored front instead of the reverse), (2) the card was a
+  `<button>` (WebKit flattens 3D in form controls), (3) the hint was a span, not a button.
+- Fixes: filter removed from the card (hover light lives on the wrap), card is
+  `div[role=button][data-flip-card]`, hint is a real `<button data-flip-hint>` that flips too,
+  Enter/Space supported, delegated handlers inside the IIFE.
+- Motion (`cms/css/v206.css`): 850 ms turn with lift/settle (`translate`/`scale` independent
+  properties — v186 tilt keeps `transform`), floor-reflection breath, one glint on the landed
+  face (`.bc-flip-glint`), spinning ↻ hint, mid-flight re-entry lock, calm-mode + print safe.
+- Stamp 206 everywhere. Artefacts: `shivaa-update-v206.zip`, `DEPLOY-v206.md`,
+  `tools/mega/make-v206-zip.py`, `qa/browser/t-v206-flip.mjs` (jsdom, all pass on
+  `#/black-card` and the home hero).
+- Not done: PHP backend, smoke suite, real phone/desktop animation eyeball.
 
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 

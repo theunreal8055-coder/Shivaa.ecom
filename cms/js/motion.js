@@ -53,6 +53,17 @@
   }
   function playPage() {
     if (reduced || !view) return;
+    /* v226 — a view transition owns the motion for this navigation. The
+       entrance would run inside the snapshot as well and the two motions
+       would fight, so the `.pg` replay stands down (the staggers and rises
+       are still tagged: anything arriving later behaves as before). The class
+       is live for one navigation only, set and cleared by js/v226.js. */
+    if (root.classList.contains('vt-run')) {
+      tagStaggers(view);
+      tagRises(view);
+      requestAnimationFrame(() => { sweepCounts(); sweepImages(); });
+      return;
+    }
     view.classList.remove('pg');
     void view.offsetWidth;                 // restart the entrance reliably
     view.classList.add('pg');

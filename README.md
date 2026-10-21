@@ -1,5 +1,9 @@
 # Shivaa — Jewellery CMS + AI Design Pipeline (v37)
 
+> **Release state lives elsewhere.** This README describes the repository as it was at v37.
+> For the current state read **`docs/NEXT-CHAT-HEAD.md`** (live **v232**, next **v233**) and
+> **`docs/release-ledger.json`**; run **`bash qa/where-am-i.sh`** before working on any branch.
+
 **shivaa.in** — gold & silver jewellery CMS with Jaipur-rate pricing.
 This repository packages the website (v37) and the end-to-end automation that
 photographs, describes, prices and uploads jewellery designs.

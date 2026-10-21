@@ -3,6 +3,9 @@
 Tick these in order. Steps marked **[GATE]** can stop the launch dead — do not
 skip them because "it's just a form".
 
+**Just want the exact commands, in order?** `playstore/UPLOAD-STEPS.md` is the
+linear walkthrough; this page is the checklist you tick off beside it.
+
 ## A · Before anything else (the two gates that decide whether today is possible)
 
 - [ ] **[GATE] What kind of Play Console account is this?**
@@ -20,11 +23,12 @@ skip them because "it's just a form".
       (`playstore/twa-manifest.json`, `playstore/assetlinks.json`,
       `cms/.well-known/assetlinks.json`) before the keystore exists.
 
-## B · The web side (done in this repository — v183)
+## B · The web side (the newest release is v228 — never deploy v183 over it)
 
-- [ ] Deploy **v183** to Hostinger (see `DEPLOY-v183.md`): backup → extract the
-      ZIP → confirm `https://shivaa.in/api/version` reports `rel: 183` with
-      `stamp.matched: true`.
+- [ ] Deploy **`shivaa-update-v228.zip`** (see `DEPLOY-v228.md` §7): backup →
+      extract → confirm `https://shivaa.in/api/version` reports `rel: 228` with
+      `stamp.matched: true`. **Forward-only:** the old text here said v183; that
+      tree is 45 releases behind and deploying it would be a revert.
 - [ ] Confirm `https://shivaa.in/.well-known/assetlinks.json` returns the JSON
       (not a 403, not your site's HTML). This is the file Google fetches.
 - [ ] Confirm `https://shivaa.in/#/delete-account` opens the erasure page.
@@ -51,9 +55,10 @@ skip them because "it's just a form".
 - [ ] Copy the kit in: `cp <repo>/playstore/twa-manifest.json .`
 - [ ] Put the keystore next to it as `shivaa-upload-key.keystore`.
 - [ ] `bubblewrap fingerprint` → copy the SHA-256 it prints.
-- [ ] Paste that fingerprint into `playstore/assetlinks.json` **and**
-      `cms/.well-known/assetlinks.json` (both slots: upload key + Play App
-      Signing key), deploy v183 again, then verify the URL returns it.
+- [ ] Paste **both** fingerprints (upload key + Play App Signing key) with
+      `node playstore/set-fingerprint.mjs "<upload>" "<play-signing>"` — it writes
+      `playstore/assetlinks.json` **and** `cms/.well-known/assetlinks.json`
+      identically — then redeploy and verify the URL returns it.
 - [ ] `bubblewrap build` → produces `app-release-bundle.aab`.
 - [ ] `node <repo>/playstore/verify.mjs` → must exit 0.
 

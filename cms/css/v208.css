@@ -1,0 +1,583 @@
+/* ═════════════════════════════════════════════════════════════════════
+   SHIVAA · v208 — POLISH & USABILITY RELEASE · "everything smooth, everything legible"
+
+   Owner brief (12 Oct 2026) — every item mapped:
+   · E1 mobile revolving case not turning        → §12 (touch-action + case fixes)
+   · E2 gold-biscuit banner mobile + readability → §6
+   · live rates under category slider + motion   → §7
+   · drawer offer buttons unreadable             → §4
+   · sliders not app-smooth (Zomato feel)        → §8
+   · search unresponsive / not sliding           → §9
+   · login / account forms polish                → §10
+   · 20% tab = Black members, no coupon code     → (copy in app.js) + §5 grid
+   · laptop: promo boxes over the logo           → §1  (ROOT: .shv-offer-side leaked
+       from the mobile drawer into the desktop header — hidden at desktop widths)
+   · laptop: banners blink/flicker on scroll     → §2 (layer promotion + calm reveal)
+   · laptop header messy                         → §1 (nav one-line scroll)
+   · 3 offer tabs → 4 boxes (+certificate)       → §5
+   · B2B application form luxury                 → §11
+   · site-wide mobile responsiveness             → §3 + §13
+   Load LAST, after v207. Forward-only — nothing shipped is renumbered.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · DESKTOP HEADER ROOT-FIX ───────────────────────────────────────
+   The mobile drawer (nav-scroll) is the SAME element as the desktop nav
+   row. Its drawer blocks are hidden for desktop at styles.css — but
+   .shv-offer-side (the offer minis) was forgotten, so the two promo boxes
+   rendered inline in the header and landed ON the logo (screenshot 1).
+   They belong to the drawer only. */
+@media (min-width: 861px) {
+  .shv-offer-side { display: none !important; }
+  /* one tidy nav line: never wrap mid-word, scroll if tight */
+  .nav .nav-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav .nav-scroll::-webkit-scrollbar { display: none; }
+  .nav .nav-scroll > a,
+  .nav .nav-scroll > button {
+    white-space: nowrap;
+    flex: none;
+  }
+}
+
+/* ── 2 · SCROLL CALM — no blink, promoted layers, 5D depth ─────────────
+   Laptop scroll flicker came from unpromoted banner layers repainting
+   during scroll and reveal transitions that changed layout. Reveal now
+   animates only opacity + translate3d on promoted layers; banners get a
+   soft depth shadow instead of backdrop thrash. */
+.rv {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+  transition: opacity .8s cubic-bezier(.22,.61,.36,1), transform .8s cubic-bezier(.22,.61,.36,1);
+  backface-visibility: hidden;
+}
+.rv.in, .rv.seen {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv { opacity: 1; transform: none; transition: none; }
+}
+.c-slide, .shv-home-campaign-card, .catbar-outer, .rate-strip, .mega-feat, .hero-img, .hero-fade {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+.shv-hcc-art, .c-slide { overflow: hidden; }
+.shv-hcc-art img, .c-slide .c-body { will-change: transform; }
+/* soft depth on scroll (the "5D" feel) — inner layers only (the boxes stay
+   put; .c-slide img belongs to the Ken Burns animation and is never touched) */
+.shv-hcc-art img {
+  transform: translate3d(0, var(--v208-ty, 0px), 0) scale(1.07);
+}
+.c-slide .c-body {
+  transform: translate3d(0, var(--v208-ty, 0px), 0);
+}
+
+/* ── 3 · GLOBAL MOBILE COMFORT ───────────────────────────────────────── */
+html { -webkit-text-size-adjust: 100%; }
+button, .btn, a.btn { touch-action: manipulation; }
+@media (max-width: 640px) {
+  .btn-lg { min-height: 50px; padding: 13px 22px; }
+  .btn { min-height: 44px; }
+  .sec { padding: 42px 0; }
+  .sec-head h2 { font-size: clamp(24px, 7vw, 32px); }
+  .grid2, .grid3 { gap: 14px; }
+  .icon-btn { min-width: 42px; min-height: 42px; }
+}
+
+/* ── 4 · DRAWER OFFER MINIS — readable on the dark drawer ──────────────
+   Owner's E4: the two minis were unreadable and their lines ran into each
+   other. The real mini markup is .shv-offer-mini-code/.-badge/.-note/.-cta
+   (the older -pct/-txt pair is gone from app.js). Compact 2-line card:
+   line 1 = code + badge, line 2 = CTA; the long note lives in the tooltip. */
+.shv-offer-side .shv-offer-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 90, .34);
+  background: linear-gradient(120deg, rgba(212, 175, 90, .16), rgba(212, 175, 90, .05));
+  margin: 8px 10px 10px;
+  text-decoration: none;
+  flex-wrap: wrap;
+}
+.shv-offer-side .shv-offer-mini:hover,
+.shv-offer-side .shv-offer-mini:focus-visible {
+  background: linear-gradient(120deg, rgba(212, 175, 90, .3), rgba(212, 175, 90, .12));
+}
+.shv-offer-side .shv-offer-mini-code {
+  font-family: var(--ff-disp, Georgia, serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: #ffe9b4;
+}
+.shv-offer-side .shv-offer-mini-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: #240609;
+  background: linear-gradient(135deg, #e9c46a, #f0d28c);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.shv-offer-side .shv-offer-mini-note {
+  display: none;   /* v208: this long line forced a squeezed 3rd row — the tooltip carries it */
+}
+.shv-offer-side .shv-offer-mini-cta {
+  flex-basis: 100%;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: #f0d28c;
+}
+/* footer copies sit on the maroon footer */
+.shv-offer-foot .shv-offer-mini {
+  border-color: rgba(212, 175, 90, .3);
+  background: rgba(255, 255, 255, .03);
+}
+.shv-offer-foot .shv-offer-mini-code { color: #e9c46a; }
+.shv-offer-foot .shv-offer-mini-note { color: rgba(243, 223, 182, .9); }
+.shv-offer-foot .shv-offer-mini-cta { color: #e9c46a; }
+
+/* ── 5 · HOME OFFERS — four boxes, new hierarchy ───────────────────────
+   Box 1 making charges (Black members · no code) · Box 2 free delivery
+   (code FREEDEL kept) · Box 3 Premium for life · Box 4 the Prestigious
+   Member Certificate. */
+.shv-offer-wrap {
+  padding: 26px 0 6px;
+}
+.shv-offer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1024px) { .shv-offer-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px)  { .shv-offer-grid { grid-template-columns: 1fr; gap: 12px; } }
+.shv-offer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shv-offer-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 196px;
+  text-decoration: none;
+  isolation: isolate;
+  transition: transform .35s cubic-bezier(.22,.61,.36,1), box-shadow .35s;
+}
+.shv-offer-card:hover, .shv-offer-card:focus-visible {
+  transform: translateY(-5px);
+  box-shadow: 0 24px 48px rgba(31, 4, 9, .22);
+}
+.shv-offer-badge {
+  align-self: flex-start;
+  font-family: var(--ff-label, sans-serif);
+  font-size: 9.5px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: rgba(20, 3, 7, .16);
+  color: #2b1a05;
+}
+.shv-offer-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.shv-offer-pct {
+  font-family: var(--ff-disp, Georgia, serif);
+  font-size: clamp(34px, 4vw, 44px);
+  font-weight: 700;
+  line-height: 1;
+}
+.shv-offer-off { font-size: 15.5px; font-weight: 600; line-height: 1.25; }
+.shv-offer-sub { font-size: 12.5px; line-height: 1.6; opacity: .94; }
+.shv-offer-code {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 7px;
+  border: 1px dashed currentColor;
+  letter-spacing: .08em;
+  font-size: 11.5px;
+}
+.shv-offer-go {
+  margin-top: auto;
+  align-self: flex-start;
+  font-family: var(--ff-label, sans-serif);
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+.shv-offer-shine {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .22) 50%, transparent 62%);
+  background-size: 260% 100%;
+  animation: v208Shine 7.5s ease-in-out infinite;
+}
+@keyframes v208Shine { 0%, 55% { background-position: 120% 0; } 85%, 100% { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .shv-offer-shine { animation: none; }
+  .shv-offer-card:hover { transform: none; }
+}
+/* card palettes (light-on-tint text chosen for AA on each ground) */
+.shv-offer-making   { background: linear-gradient(135deg, #d4a94a, #b0822c 55%, #d9b45e); color: #2b1a05; }
+.shv-offer-delivery { background: linear-gradient(135deg, #2f9e6f, #1c7a52 55%, #35a878); color: #062417; }
+.shv-offer-premium  { background: linear-gradient(135deg, #35206b, #241245 55%, #45297e); color: #f2ebff; }
+.shv-offer-premium .shv-offer-badge { background: rgba(255, 255, 255, .14); color: #f2ebff; }
+.shv-offer-cert     { background: linear-gradient(135deg, #5c1822, #3d0e15 55%, #74242e); color: #fdf3dd; }
+.shv-offer-cert .shv-offer-badge { background: rgba(255, 255, 255, .12); color: #ffe9b4; }
+.shv-offer-cert .shv-offer-pct { color: #f0d28c; font-size: clamp(24px, 3vw, 30px); }
+
+/* ── 6 · GOLD-BISCUIT CAMPAIGN BANNER (.shv-home-campaign-card) ────────
+   Owner's E2: the banner was not mobile-optimised and its gold text fused
+   with the ground. Root: .gold-txt uses background-clip:text — on several
+   mobile browsers the clip fails and the line renders invisible. Solid
+   cream-gold now (always readable), art tamed on phones. */
+.shv-hcc-title .gold-txt {
+  background: none !important;
+  -webkit-text-fill-color: #f0d28c;
+  color: #f0d28c;
+  text-shadow: 0 2px 16px rgba(20, 8, 2, .55);
+}
+@media (max-width: 860px) {
+  .shv-home-campaign-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 18px 16px 22px;
+  }
+  .shv-hcc-art {
+    aspect-ratio: 16 / 10;
+    order: -1;
+  }
+  .shv-hcc-art img { object-position: center 30%; }
+  .shv-hcc-title { font-size: clamp(23px, 6.4vw, 32px); }
+  .shv-hcc-kicker { font-size: 10px; letter-spacing: .2em; }
+  .shv-hcc-sub { font-size: 13.5px; margin-bottom: 16px; }
+  .shv-hcc-cta-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .shv-hcc-cta-row .btn { width: 100%; justify-content: center; }
+}
+
+/* ── 7 · LIVE-RATE STRIP — motion upgrade ──────────────────────────────
+   The strip under the category bar comes alive: gold sweep on the borders,
+   live pulse dot, value flash already exists (flashMove) — now with a
+   shimmer bar per cell and a calmed hover. */
+.rate-strip { overflow: hidden; }
+.rate-strip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(233, 196, 106, .1) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: v208RateSweep 9s linear infinite;
+}
+@keyframes v208RateSweep { 0% { background-position: 140% 0; } 100% { background-position: -80% 0; } }
+.rate-strip-in .rscell {
+  position: relative;
+  transition: background .3s;
+}
+.rate-strip-in .rscell:hover { background: rgba(212, 175, 90, .07); }
+.rate-strip-in .rscell small {
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.rscell .live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #55f392;
+  margin-right: 6px;
+  animation: v208LivePulse 1.6s ease-in-out infinite;
+}
+@keyframes v208LivePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(85, 243, 146, .5); }
+  55%      { box-shadow: 0 0 0 7px rgba(85, 243, 146, 0); }
+}
+.rscell .chg.up { color: #6fe7a6; }
+.rscell .chg.down { color: #f2938c; }
+[data-rsh] { font-variant-numeric: tabular-nums; }
+.rs-flash-up { animation: v208FlashUp .9s ease; }
+.rs-flash-down { animation: v208FlashDown .9s ease; }
+[data-rsh].m-flash-up { animation: v208FlashUp .9s ease; }
+[data-rsh].m-flash-down { animation: v208FlashDown .9s ease; }
+@keyframes v208FlashUp { 0% { color: #8dffbf; transform: translateY(-3px); } 100% { color: inherit; transform: none; } }
+@keyframes v208FlashDown { 0% { color: #ffb3ad; transform: translateY(3px); } 100% { color: inherit; transform: none; } }
+/* scrolling ticker line above the rate cells */
+.rs-ticker {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  padding: 9px 0 8px;
+  background: rgba(0, 0, 0, .22);
+  border-bottom: 1px solid rgba(212, 175, 90, .16);
+}
+.rs-ticker-track {
+  display: inline-flex;
+  gap: 46px;
+  white-space: nowrap;
+  min-width: 200%;
+  animation: v208Ticker 36s linear infinite;
+  font-family: var(--ff-label, sans-serif);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(243, 223, 182, .9);
+}
+.rs-ticker-track b { color: #f0d28c; font-weight: 600; }
+@keyframes v208Ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .rate-strip::after { animation: none; }
+  .rscell .live-dot { animation: none; }
+  .rs-ticker-track { animation: none; }
+}
+
+/* ── 8 · SLIDERS — app-grade feel ────────────────────────────────────── */
+.catbar2, .c-dots + .catbar2, .shv-rail {
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.catbar2 > *, .shv-rail > * { scroll-snap-align: center; }
+.cb-wrap .cb-arrow {
+  transition: transform .25s, background .25s, color .25s;
+}
+.cb-wrap .cb-arrow:hover { transform: scale(1.08); }
+.catbar2 { cursor: grab; }
+.catbar2.dragging { cursor: grabbing; scroll-behavior: auto; }
+@media (max-width: 640px) {
+  .catbar2 { gap: 10px; padding: 2px 16px 6px; }
+  .catbar2 .cat-tile { width: 108px; flex: none; }
+}
+
+/* ── 9 · SEARCH — slides open, answers instantly ─────────────────────── */
+.search-drawer {
+  transition: transform .38s cubic-bezier(.22,.61,.36,1), opacity .3s ease;
+}
+.search-drawer:not(.open) {
+  transform: translateY(-14px);
+  opacity: 0;
+  pointer-events: none;
+}
+.search-drawer.open {
+  transform: translateY(0);
+  opacity: 1;
+}
+#searchInput {
+  transition: box-shadow .25s, border-color .25s;
+}
+#searchInput:focus {
+  border-color: var(--gold, #b98a2f);
+  box-shadow: 0 0 0 4px rgba(212, 175, 90, .18), 0 18px 40px rgba(31, 4, 9, .12);
+}
+.search-sugg {
+  max-height: min(58vh, 520px);
+  overflow: auto;
+}
+@media (max-width: 640px) {
+  .search-drawer { inset: 0; height: 100%; max-height: none; border-radius: 0; }
+  .search-sugg { max-height: calc(100vh - 132px); }
+}
+
+/* ── 10 · AUTH — login & account creation, polished ──────────────────── */
+.auth-shell {
+  border-radius: 22px;
+  overflow: hidden;
+}
+.auth-brand {
+  padding: 40px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background:
+    radial-gradient(520px 320px at 18% 0%, rgba(212, 175, 90, .22), transparent 62%),
+    linear-gradient(165deg, #2a0a11, #4b0d12 52%, #240609);
+}
+.auth-brand::before {
+  content: '✦';
+  font-size: 30px;
+  color: #f0d28c;
+  opacity: .9;
+}
+.at-btn, .am, .am2 {
+  cursor: pointer;
+  border-radius: 999px;
+  transition: background .25s, color .25s, border-color .25s, box-shadow .25s;
+}
+.at-btn:hover, .am:hover, .am2:hover { border-color: var(--gold, #b98a2f); }
+.at-btn.on, .am.on, .am2.on {
+  box-shadow: 0 10px 24px rgba(110, 30, 42, .28);
+}
+.auth-panel input, .auth-panel .fld input, .auth-panel input[type="password"],
+.auth-panel input[type="tel"], .auth-panel input[type="email"], .auth-panel input[type="text"] {
+  border-radius: 13px;
+  border: 1px solid rgba(110, 30, 42, .18);
+  padding: 13px 15px;
+  font-size: 15px;
+  background: #fffdf8;
+  transition: border-color .25s, box-shadow .25s;
+  width: 100%;
+}
+.auth-panel input:focus {
+  outline: none;
+  border-color: var(--gold, #b98a2f);
+  box-shadow: 0 0 0 4px rgba(212, 175, 90, .16);
+}
+.auth-err {
+  border-radius: 11px;
+  padding: 10px 13px;
+  font-size: 13px;
+}
+.auth-help { font-size: 12.5px; line-height: 1.6; }
+@media (max-width: 860px) {
+  .auth-shell { grid-template-columns: 1fr; min-height: 0; }
+  .auth-brand { padding: 26px 22px; }
+  .modal.auth-modal { width: calc(100vw - 24px); }
+}
+
+/* ── 11 · B2B APPLICATION — a luxury ledger ──────────────────────────── */
+.bf-crest {
+  width: 54px; height: 54px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  color: #fff8ea;
+  background: linear-gradient(135deg, var(--gold, #b98a2f), #8f6516);
+  box-shadow: 0 14px 30px rgba(185, 138, 47, .35);
+  margin-bottom: 6px;
+}
+.bf-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 12px 0 2px;
+  font-family: var(--ff-label, sans-serif);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #6b4c14;
+}
+.b2b-form-card {
+  border-radius: 24px;
+  border: 1px solid rgba(212, 175, 90, .3);
+  background:
+    radial-gradient(900px 380px at 85% -10%, rgba(212, 175, 90, .12), transparent 60%),
+    linear-gradient(180deg, #fffdf8, #faf4e8);
+  box-shadow: 0 30px 80px rgba(61, 14, 21, .1);
+  padding: 34px 32px 28px;
+}
+.bf-head h2 {
+  font-family: var(--ff-disp, Georgia, serif);
+  font-size: clamp(26px, 4vw, 36px);
+  color: var(--maroon-deep, #4b0d12);
+  margin: 6px 0 8px;
+}
+.bf-head p { color: var(--ink-2, #4b3c32); font-size: 14.5px; line-height: 1.7; }
+.b2b-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 6px;
+}
+.b2b-step span {
+  flex: 1 1 180px;
+  padding: 11px 15px;
+  border-radius: 12px;
+  font-family: var(--ff-label, sans-serif);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #6b4c14;
+  background: linear-gradient(120deg, rgba(212, 175, 90, .18), rgba(212, 175, 90, .07));
+  border: 1px solid rgba(212, 175, 90, .35);
+}
+.b2b-step span:first-child {
+  color: #fff8ea;
+  background: linear-gradient(120deg, var(--gold, #b98a2f), #8f6516);
+}
+.kyc-form .fld {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.kyc-form .fld label {
+  font-family: var(--ff-label, sans-serif);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-2, #4b3c32);
+}
+.kyc-form input, .kyc-form select, .kyc-form textarea {
+  border-radius: 13px;
+  border: 1px solid rgba(110, 30, 42, .16);
+  background: #fffdf8;
+  padding: 13px 15px;
+  font-size: 15px;
+  transition: border-color .25s, box-shadow .25s;
+}
+.kyc-form input:focus, .kyc-form select:focus, .kyc-form textarea:focus {
+  outline: none;
+  border-color: var(--gold, #b98a2f);
+  box-shadow: 0 0 0 4px rgba(212, 175, 90, .15);
+}
+.kyc-verify-btn { flex: none; }
+@media (max-width: 640px) {
+  .b2b-form-card { padding: 22px 16px; border-radius: 18px; }
+  .kyc-inline { flex-wrap: wrap; }
+  .kyc-verify-btn { width: 100%; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+/* ── 12 · REVOLVING CASE — it must turn on phones ──────────────────────
+   Without touch-action the browser claims the horizontal drag for
+   scroll/back-swipe and the case never spins (owner's E1). pan-y keeps
+   vertical page scroll while the case takes the horizontal turn. */
+
+/* ── 13 · HEADERS & TYPE ON SMALL SCREENS ────────────────────────────── */
+@media (max-width: 860px) {
+  .topbar { overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .topbar::-webkit-scrollbar { display: none; }
+  .hero-cta { flex-direction: column; align-items: stretch; }
+  .hero-cta .btn { justify-content: center; }
+  .bc-hero-copy h1 { font-size: clamp(30px, 8.6vw, 44px); }
+  .bc-hero-promise { flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 640px) {
+  .hero-stats { gap: 12px; }
+  .page-hero h1 { font-size: clamp(28px, 8vw, 38px); }
+  .modal { width: calc(100vw - 20px); max-height: calc(100vh - 24px); overflow: auto; }
+}
+
+/* ── 14 · FLIP CARD ON iOS — webkit 3D spellings ───────────────────────
+   v184.css writes unprefixed perspective/transform-style only; iOS Safari
+   still wants the -webkit- spellings or the flip renders flat (E8). Pure
+   additive override — identical computed values everywhere else. */
+.bc-card-wrap {
+  -webkit-perspective: 1500px;
+  perspective: 1500px;
+}
+.bc-card {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  -webkit-backface-visibility: hidden;
+}
+.bc-card.is-flipped {
+  -webkit-transform: rotateY(180deg);
+  transform: rotateY(180deg);
+}
