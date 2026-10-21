@@ -6,10 +6,12 @@
 >   `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**. **Next release number: v233.**
 >   Live chain: v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)**.
 > - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the Arena session is hard-wired to it. Commit and push
->   there only: `git push origin arena/e8a470c6-shivaa-ecom`. The twin `arena/09f3c79f-shivaa-ecom` stays
->   at its v220 tip (`4a9e239`); PR #106 on it is open and untouched. **The session branch itself is
->   proposed upstream as PR #107** (`arena/e8a470c6-shivaa-ecom` → `arena/5529f0ec-shivaa-ecom`) — it is a
->   review artefact, and nothing is merged without the owner's word.
+>   there only: `git push origin arena/e8a470c6-shivaa-ecom`. **PR #107 is MERGED** (21 Oct 2026, owner's
+>   word) — `arena/e8a470c6-shivaa-ecom` → `arena/5529f0ec-shivaa-ecom`, merge commit **`c6337db`**, so the
+>   shared base now carries v232. PR #106 (twin branch) closed itself as merged because #107 carried its
+>   commits. **`main` is untouched (`7d23eea`, v184) and nothing was deployed** — the Hostinger workflow is
+>   `workflow_dispatch` only, so a merge has never deployed anything. Live is still **v232**, deployed by
+>   the owner from `shivaa-update-v232.zip`.
 > - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
 >   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
 >   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do

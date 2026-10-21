@@ -358,14 +358,17 @@ is the injected hint only.
 
 ## 11 · PR, handoff and the memory set
 
-- **PR for the session branch: #107 is open** — `arena/e8a470c6-shivaa-ecom` → base
-  `arena/5529f0ec-shivaa-ecom`, titled *“v221–v232 … v232 is LIVE; merge only on the owner's word”*.
-  It is a **review artefact**: **never merge or close a PR unless the owner says so.** Because this
-  branch was cut from the twin (`4a9e239`, the head of #106), #107's diff also shows #106's
-  `v206–v220` until #106 lands, after which it reduces to exactly the `v221 → v232` work.
-- PR #106 (on `arena/09f3c79f-shivaa-ecom`) is open and untouched. Leave it alone.
-- If a release ships after this, the PR needs no reopening — it follows the branch; but say in the
-  reply that #107 now includes the newer release.
+- **PR #107 is MERGED** (21 Oct 2026, on the owner's explicit word): `arena/e8a470c6-shivaa-ecom` →
+  `arena/5529f0ec-shivaa-ecom`, merge commit **`c6337db`**. The shared base now carries **v232**.
+  **`main` is still `7d23eea` (v184) and untouched** — the release line has never been `main`.
+- **PR #106** (twin `arena/09f3c79f-shivaa-ecom`) closed itself as **merged** at the same moment:
+  #107 carried the twin's commits, so GitHub saw #106's head (`4a9e239`) become an ancestor of its own
+  base. Nothing was lost and nothing extra was merged — it is the same tree.
+- **A merge deploys nothing.** `.github/workflows/hostinger-deploy.yml` is `workflow_dispatch` only:
+  a post-merge / push trigger does not exist, and a live sync needs the exact phrase
+  `DEPLOY SHIVAA LIVE` and must run from `main`. Live is v232 because the owner uploaded the zip.
+- **Next PR:** open a fresh one from this branch when the owner asks to review a new release.
+  Never merge or close a PR without his explicit word, and never delete the branch.
 - **The memory set, updated together every release:** this file, `MEMORY.md`, `AGENTS.md`,
   `ARENA-STATE.md`, `HANDOFF.md`, `docs/AGENT-HANDOFF.md`, `docs/RELEASE-LEDGER.md` +
   `docs/release-ledger.json`. After editing any of them run `python3 qa/check-handoff.py`.
