@@ -21,12 +21,22 @@ The zip is deliberately NOT the whole cms/ tree. It omits, as v228 did:
 """
 import hashlib
 import io
+import json
 import os
 import sys
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CMS = os.path.join(ROOT, 'cms')
+LEDGER = os.path.join(ROOT, 'docs', 'release-ledger.json')
+
+
+def ledger():
+    """the forward-only ledger, or None if it is not there (an old branch)"""
+    try:
+        return json.load(io.open(LEDGER, encoding='utf-8'))
+    except Exception:
+        return None
 
 
 def previous_list(rel):
@@ -82,11 +92,51 @@ def build(rel, list_only=False):
             zi.compress_type = zipfile.ZIP_DEFLATED
             z.writestr(zi, b)
     digest = hashlib.sha256(io.open(out, 'rb').read()).hexdigest()
+    size = os.path.getsize(out)
+
+    # ── forward-only guard ───────────────────────────────────────────────────
+    # A release number in docs/release-ledger.json is spent. Rebuilding it is only
+    # allowed when the bytes come out identical — that is a reproduction (useful after
+    # a sandbox reset), not a release. Different bytes under a spent number is exactly
+    # the mistake this guard exists to stop, so the file is deleted and the run fails.
+    led = ledger()
+    if led:
+        rows = led.get('releases') or []
+        newest = max([r['release'] for r in rows], default=0)
+        row = next((r for r in rows if r['release'] == rel), None)
+        if row:
+            same = (digest == row.get('sha256') and size == row.get('bytes')
+                    and len(names) == row.get('files'))
+            if not same:
+                os.remove(out)
+                raise SystemExit(
+                    'REFUSING: v%d is already in the ledger (%s…, %s B, %d files) and this tree\n'
+                    'rebuilds different bytes (%s…, %s B, %d files).\n'
+                    'A spent release number is never rebuilt for shipping. Bump the release\n'
+                    'number, or check out the tree the package was actually built from.'
+                    % (rel, (row.get('sha256') or '')[:16], row.get('bytes'), row.get('files'),
+                       digest[:16], size, len(names)))
+            verdict = ('  ledger    : matches the shipped v%d — faithful rebuild, '
+                       'not a new release' % rel)
+        else:
+            if rel <= newest:
+                os.remove(out)
+                raise SystemExit('REFUSING: v%d is not in the ledger and is not newer than v%d.\n'
+                                 'Never reuse a release number.' % (rel, newest))
+            verdict = '  ledger    : new release v%d' % rel
+            if led.get('next_release') != rel:
+                verdict += ('\n  WARNING   : the ledger says the next release is v%s — '
+                            'update the ledger in the same commit' % led.get('next_release'))
+    else:
+        verdict = ('  ledger    : NOT FOUND — this is an old tree; the build cannot prove '
+                   'it is a new release')
+
     print('shivaa-update-v%d.zip' % rel)
     print('  files     : %d  (v%d had %d)' % (len(names), rel - 1, len(previous_list(rel - 1))))
     print('  raw bytes : %s' % format(raw, ','))
-    print('  zip bytes : %s' % format(os.path.getsize(out), ','))
+    print('  zip bytes : %s' % format(size, ','))
     print('  sha256    : %s' % digest)
+    print(verdict)
 
 
 if __name__ == '__main__':

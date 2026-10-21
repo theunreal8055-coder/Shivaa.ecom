@@ -1,119 +1,57 @@
-> ## CURRENT STATE — read first (updated at v228, 17 Oct 2026)
+> ## CURRENT STATE — **v232 IS LIVE** (owner applied every update, 21 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **Branch reality:** work continues on the Arena session branch
->   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
->   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
->   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
-> - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v228. Newest is **v228** ("The Play Store Gate"): the owner asked to
->   launch on Google Play. The kit in `playstore/` (written at v183) was already consistent; what was
->   missing was **real**, not paperwork: (1) **the account-erasure page did not exist.**
->   `POST /api/auth/delete-account` shipped at v183 but **nothing ever called it** — every document
->   pointed at `https://shivaa.in/#/delete-account`, and that hash fell through the router to Home, so
->   the URL Play would have been given opened the shop. `#/delete-account` (alias `#/erase-account`) is
->   now a page in `app.js`: signed out it proves the number with a fresh SMS code (no sign-in first —
->   nobody should log in in order to leave), signed in the session is proof; both demand the word
->   DELETE; the server refuses the owner's account and B2B partners, anonymises the row, burns the code
->   and drops every device token; the page then repeats the server's own message and, if signed in,
->   signs itself out. The account screen carries a **Privacy & my data** tile. (2) **the TWA shortcut
->   "Ring size guide" pointed at `#/size-guide`, which never existed** — the sizer has always been
->   `#/sizer`; it is an alias now and all three shortcuts are proven to render. (3) **t7-audit's route
->   walk found a real bug**: `holdRepeat` kept stepping a page that had been left (a removed button
->   never receives `pointerup`), so the ring-size page's `paint()` threw `Cannot read properties of
->   null`; the repeat now stops when its element leaves the page and `paint`/`paintCal` are guarded.
->   v228 adds **no new css/js layer** (the page lives in `app.js`), so the bundle is unchanged: 62
->   layers / 62 blocks. Stamps: index 32 × `?v=228`, sw 31, `shivaa-shell-v228`, `REL = 228`,
->   `APP_REL = 228`, `'rel' => 228`. New suite `t-v228-play.mjs` (51 assertions — the source, the
->   server's refusals, the TWA/asset-links/manifest links, the live signed-out erase, the signed-in
->   erase, and the three shortcut pages). Whole gate green. Next release number: **v229**.
-> - **Google Play — where the launch stands.** Kit verified by `node playstore/verify.mjs`: 15 pass,
->   0 fail, **2 warnings that are still the owner's to clear** — (a) **both signing fingerprints are
->   still placeholders** in `playstore/assetlinks.json` and `cms/.well-known/assetlinks.json` (run
->   `bubblewrap fingerprint`, paste upload-key + Play-app-signing SHA-256 into BOTH files, redeploy);
->   (b) **zero screenshots** (capture on a phone, see `playstore/screenshots/CAPTURE.md`). Also gated
->   on the owner: the Play account type (a personal account created after 13 Nov 2023 needs 12 testers
->   opted in for 14 continuous days before production), identity verification, the keystore (never in
->   git), a real UPI payment inside the TWA, and the **UGC declaration** — the app has customer reviews
->   and no in-app report button, so it is either "reviews off in the app" or build
->   `POST /api/reviews/report`. Nothing can be built or signed in this sandbox (no JDK/Android SDK, no
->   route to dl.google.com, no `shivaa.in`).
-> - One release back is **v227** ("The Reading Layer"): the black-card "Verify & create" works from
->   every product page (the reader demanded a form that only exists on `#/black-card`), forgot-password
->   is mobile-first (4-digit SMS code → new password + repeat, real 30 s resend; `api.php` takes
->   `{phone}` or `{email}` and always texts the registered mobile), the rate ribbon stopped printing
->   `₹₹`, the legacy hero hint became a real button, `--shv-mnav-h` is measured rather than guessed, the
->   rail centres its chip with `scrollLeft` arithmetic, and the deepest gold is readable.
-> - Earlier: **v226** ("The Butter Release"): every press answers. 265 of 1058 visible controls
->   had no `:active` rule; `cms/css/v226.css` gives each family a transform press under the **union** of
->   `(pointer: coarse)` and `(hover: none)` (the union matters: a touchscreen laptop is both), and
->   `cms/js/v226.js` adds the v89 gold ripple (tap-only on big surfaces), one 5 ms haptic per real tap,
->   rail centring, wish/compare badge pops, `html.route-jump`, a 180 ms pace bar, and `startViewTransition`
->   cross-fades. Suite `qa/browser/t-v226-butter.mjs` 61/0.
-> - Earlier: **v225** ("The App-Feel Release"): the chrome's scroll work moved into ONE
->   passive listener + ONE rAF (`cms/js/v225.js`, `window.__shvHub`) — `app.js` and `aurum.js` used to
->   read `scrollHeight`/`clientHeight` on every frame, and a six-event scroll burst now reads the
->   document **zero** times; writes are quantised (bar 0.1%, ring 1/120 turn) and the two infinite
->   `background-position` loops (`mSkeleton`, `auProg`) became composited `translate` sweeps. **v224**
->   ("The Every-Corner Release") took the layout animations and provided four DOM-rebuilding timers off
->   the critical path (**~35 → ~2 DOM writes/sec**). **v223** ("The Smooth Release") made the films lazy
->   — a fresh home page fetched **0 video bytes**; **v222** ("The Load Release") bundled 58
->   render-blocking stylesheets into one.
-> - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
-> - Sandbox resets between turns: `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`
->   first (`arena/09f3c79f-shivaa-ecom` is the twin branch and works the same way).
->   **v222 stylesheet rule:** never hand-edit `cms/css/shivaa.css` and never re-derive its order from
->   `index.html` (that file links ONLY the bundle, so a script reading it would bundle the bundle
->   into itself). Edit the layer under `cms/css/`, then `python3 tools/build-css-bundle.py --write`.
->   The cascade order lives in `tools/css-bundle-order.txt` — it is load-bearing, do not reorder it.
->   A new layer is only live once it is appended to that file AND the bundle is rebuilt.
->   **v223 media rule:** films load only via `wake()` in `cms/js/v125.js` — never put `src` or
->   `preload="auto"` back on those `<video>` tags, and never treat a released film as broken.
->   **v224 animation rule:** never animate a layout property (`margin`, `left`, `width`, `top`, …) or a
->   `filter`/`blur` in a loop — use `translate`/`transform`/`opacity`; never put a per-second `innerHTML`
->   rebuild back into a timer. `qa/browser/t-v224-corners.mjs` fails if either returns.
->   **v225 scroll-frame rule:** the chrome's scroll work lives in `cms/js/v225.js` (`window.__shvHub`) —
->   never add a second scroll listener that reads `scrollHeight`/`clientHeight` per frame, never call
->   `getBoundingClientRect()` inside a frame, and never animate `background-position` (a repaint loop no
->   browser can composite — use a `translate` sweep on a pseudo-element). `app.js` and `aurum.js`
->   feature-detect the hub and stand down; `qa/browser/t-v225-appfeel.mjs` spies the getters and fails if
->   a scroll burst reads them.
->   **v226 click-feel rule:** one ripple system only — `motion.js` owns `.rip` on `.btn`, `js/v226.js`
->   owns every other surface with the *same* span class. A tap is down+up with <8px of movement: never
->   ripple or buzz a drag, and never ripple a rail child on the down of a flick. A host is clipped
->   (`.rip-live`) only while its ripple is alive and gets `position:relative` (`.rip-pos`) only if it was
->   `static` — never add a permanent `overflow:hidden`/`position:relative` to a card. A finger press
->   needs `@media (pointer: coarse), (hover: none)` **and** `!important` (mobile.css's neutraliser is
->   `!important`); never touch `transition` as a shorthand on a family you do not own. One navigation has
->   one motion owner: `html.route-jump` + `html.vt-run` live for one navigation, `motion.js` checks
->   `vt-run` before replaying `.pg`, and the pace bar is armed after 180 ms and created lazily so a fast
->   route leaves no DOM behind. `qa/browser/t-v226-butter.mjs` fails a drag that ripples and a fast route
->   that leaves a spinner.
->   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py` (v221: it now emits `makingCharges`
->   too — the shim serves that route and 500s without the key); reinstall jsdom to /tmp.
->   **Before blaming the code for a flaky suite, check for stray `node` processes.** A single stuck
->   probe at ~60% CPU on this 2-core box slowed every jsdom boot from ~2.6 s to ~36 s and made the
->   timing-based suites fail. Killing it returned the whole gate to green.
-> - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
->   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
->   **v228 carries:** the erasure flow is proven end to end in jsdom against the shim, but **no
->   real phone, SMS, PHP, JDK/Android SDK or Play Console has run this**
->   — that is the 3-minute checklist in `DEPLOY-v228.md` §9 (the claim from any product page, signed out
->   and in / a reset by mobile, then a new password / the ribbon reads `₹6,998/g` / the last footer
->   line clear of the bottom nav on a notched iPhone). `touch-action:
->   manipulation` in 8 older rules is still left alone (a tap-latency choice; changing it alters
->   double-tap behaviour the owner has not asked about), and the six designed sheen loops
->   (`posterShine`, `phSheen`, `auShine`, `shimText`, `mPlShimmer`, `rateShim`) still animate
->   `background-position` — one is `background-clip: text`, so a composited sweep needs a wrapper element
->   first. JS bundling stays a future option (deferred scripts already parallelise; `app.js` holds 308
->   top-level declarations) and `content-visibility: auto` is a future candidate **only** in its
->   `contain-intrinsic-size: auto` form — see `docs/NEXT-CHAT-HEAD.md`. `cms/css/bot.css` and
->   `cms/css/v108.css` are dead (never linked, no loader for `bot.js`/`v108.js`) — cleanup candidates.
->   The passive-listener hunt is a dead end (23 of 25 listeners are already passive; the one blocker is
->   the deliberate gallery drag).
+> - **LIVE: v232 “The Idle Release”.** The owner applied every update and reported *“I have applied
+>   each and every update to the website and it's fine”* on 21 Oct 2026. The package that matches the
+>   live site is `shivaa-update-v232.zip` — **361 files · 37,349,816 B ·
+>   `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**. **Next release number: v233.**
+>   Live chain: v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)**.
+> - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the Arena session is hard-wired to it. Commit and push
+>   there only: `git push origin arena/e8a470c6-shivaa-ecom`. The twin `arena/09f3c79f-shivaa-ecom` stays
+>   at its v220 tip (`4a9e239`); PR #106 on it is open and untouched.
+> - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
+>   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
+>   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do
+>   not write docs; run the three commands it prints. **Never work on a tree older than the newest
+>   release, and never rebuild a spent number.** On 21 Oct a sandbox came back on the v220 base commit
+>   with a stale worktree — this guard exists because of exactly that.
+> - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). It holds every
+>   release from v221 with commit, file count, byte size, sha256, status, plus `live` and `next_release`.
+>   `python3 qa/check-handoff.py` proves ledger ⟷ stamps in the shipped tree ⟷ zips on disk (and in git)
+>   ⟷ these docs. Run it after any doc edit and before any release.
+> - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
+>   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` now
+>   refuses a spent number whose bytes do not reproduce (a faithful v232 rebuild reproduces the sha256
+>   above byte for byte). Owner approval before anything goes live; a push, a merge, a green gate or a
+>   finished zip is **not** approval. Rollback is the previous ledger row (v231), never an older tree.
+> - **Sandbox resets between turns.** First
+>   `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`, then
+>   `bash qa/where-am-i.sh`. Then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
+>   `python3 qa/build-test-db.py`, `python3 qa/preview_shim.py --port 8090`. The zips are tracked in git,
+>   so the reset restores them. **Check for stray `node` before believing a flaky suite**
+>   (`ps aux | grep "[n]ode"`).
+> - **v232's measured facts (the proof the owner was given):** idle animation frames **123/s → 0/s** on a
+>   silent home page (1264 frames in 12 s, 1148 from `_msTick` + the cursor glow); layout reads for ten
+>   pointer moves over one card **10 → 1**, twenty more **→ 0**; main-thread image decodes **56 of 68 → 0**
+>   (the LCP set keeps its decode); hidden-tab rate polls **1/s → 0**. **The find:** v226's press rules
+>   for `.p-card`/`.cat-card`/the offer banner had been dead on every phone since v226 —
+>   `styles.css:4637` and `v219.css:129` beat them — restored in `cms/css/v232.css` §1.
+> - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
+>   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`,
+>   and the order in `tools/css-bundle-order.txt` is load-bearing (66 positions, `v186.css` twice);
+>   films load only via `wake()`, never put `src`/`preload="auto"` back; never animate a layout property,
+>   a `filter` or `background-position` in a loop; scroll work lives in `v225.js`'s one frame; one ripple
+>   system; **zero idle frames** and **no per-event `getBoundingClientRect()`** in any move listener
+>   (v232); the member percentage is one setting, ships **20**, never hard-coded elsewhere;
+>   `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed and never ships.
+> - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
+>   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
+>   × 14 days), and the private bills folder `.shivaa-private-bills` **beside** `public_html`
+>   (`DEPLOY-v229.md` §2 — without it the admin upload answers 503 by design). Details:
+>   `docs/NEXT-CHAT-HEAD.md` §12.
 
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
-## Current Build & Live Status — v184 built (Amrita ji's page + making-charge coupon fix); v181 live on Hostinger (25 Sep 2026)
+## [HISTORY — superseded by the v232 block at the top] Build & live status as of v184 / v181 (25 Sep 2026)
 
 - **LIVE SITE IS 181 (VERIFIED 25 Sep 2026).** v182, v183 and v184 are all
   **BUILT, GATED and NEVER DEPLOYED.** Forward-only from **184**. **Nothing here

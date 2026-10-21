@@ -13,8 +13,16 @@ needs, and removed it. Nothing was made plainer: every effect that stayed is the
 effect, and the two places where something was switched off are places where the
 effect could not be seen in the first place (both proved with numbers, below).
 
-**Status: built, gate green (23 checks, 0 red), pushed — NOT LIVE.** Live is still
-**v228**. Nothing deploys without your haan.
+**Status: LIVE since 21 Oct 2026.** The owner applied every update and reported *"I have
+applied each and every update to the website and it's fine"*. Gate: **23 checks, 0 red**. The
+package on the site is exactly `shivaa-update-v232.zip` — a rebuild from this tree reproduces
+sha256 `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023` byte for byte, and
+`python3 qa/check-handoff.py` proves tree ⟷ zip ⟷ docs agree.
+
+**Deployment record:** applied by the owner on 21 Oct 2026. Live version is readable at
+`https://shivaa.in/api/version` (`rel` must be **232**). **Next release: v233.** Rollback is
+v231 — the previous row in `docs/release-ledger.json`; a full rollback past v229 must also
+account for the private bills folder (`DEPLOY-v229.md` §2).
 
 ---
 
