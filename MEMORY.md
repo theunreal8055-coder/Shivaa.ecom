@@ -107,7 +107,7 @@ site still matches `shivaa-update-v232.zip` exactly:
   It was written because this turn's sandbox actually came back on the **v220 base commit** with a
   stale v221/v222 worktree while wearing the right branch name.
 - **`qa/check-handoff.py`** — proves ledger ⟷ stamps (`index.html`, `sw.js`, `app.js`, `api.php`)
-  ⟷ every zip's sha256/bytes/file count ⟷ the six docs, and fails on a stale "live is v…" sentence
+  ⟷ every zip's sha256/bytes/file count ⟷ all seven docs, and fails on a stale "live is v…" sentence
   near a doc's top.
 - **`qa/make-update-zip.py` gained the ledger guard**: rebuilding a spent number is allowed only if
   the bytes reproduce; otherwise it deletes the file and refuses. A v232 rebuild reproduces

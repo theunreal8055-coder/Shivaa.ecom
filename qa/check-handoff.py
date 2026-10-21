@@ -5,7 +5,7 @@
   2. the SHIPPED TREE (index.html, sw.js, app.js, api.php) carries that number;
   3. every ZIP in the ledger exists, is committed, and has the recorded sha256 —
      so the raw GitHub download links can never rot;
-  4. every HANDOFF DOC states the same live number and the same next number, and
+  4. every HANDOFF DOC (seven of them) states the same live number and the same next number, and
      none of them still claims an older release is live.
 
     python3 qa/check-handoff.py            # human lines

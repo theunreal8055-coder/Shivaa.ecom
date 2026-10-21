@@ -95,7 +95,7 @@ The guards, all committed and runnable:
 | Guard | What it proves |
 |---|---|
 | `bash qa/where-am-i.sh` | fetches origin, reads `APP_REL` on **every** branch, and says whether this tree is forward (0), behind (3), ahead (5) or the wrong branch (2). Never edits anything. |
-| `python3 qa/check-handoff.py` | ledger ⟷ stamps in the shipped tree ⟷ zips on disk (sha256 + bytes + file count, committed in git) ⟷ the six docs. Fails on any stale “live is v…” sentence near a doc's top. |
+| `python3 qa/check-handoff.py` | ledger ⟷ stamps in the shipped tree ⟷ zips on disk (sha256 + bytes + file count, committed in git) ⟷ all seven docs. Fails on any stale “live is v…” sentence near a doc's top. |
 | `python3 qa/make-update-zip.py NNN` | refuses a spent number whose bytes do not reproduce, deletes the file and exits non-zero. A faithful rebuild of v232 reproduces `14b9e9ca…b4023` exactly. |
 
 A push, a merge, a green gate or a finished zip is **not** approval.
