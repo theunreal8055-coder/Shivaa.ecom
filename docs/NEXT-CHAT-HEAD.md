@@ -358,10 +358,14 @@ is the injected hint only.
 
 ## 11 · PR, handoff and the memory set
 
-- **PR for the session branch:** only when the owner wants it reviewed, from
-  `arena/e8a470c6-shivaa-ecom` → base `arena/5529f0ec-shivaa-ecom`. **Never merge or close a PR
-  unless the owner says so.**
+- **PR for the session branch: #107 is open** — `arena/e8a470c6-shivaa-ecom` → base
+  `arena/5529f0ec-shivaa-ecom`, titled *“v221–v232 … v232 is LIVE; merge only on the owner's word”*.
+  It is a **review artefact**: **never merge or close a PR unless the owner says so.** Because this
+  branch was cut from the twin (`4a9e239`, the head of #106), #107's diff also shows #106's
+  `v206–v220` until #106 lands, after which it reduces to exactly the `v221 → v232` work.
 - PR #106 (on `arena/09f3c79f-shivaa-ecom`) is open and untouched. Leave it alone.
+- If a release ships after this, the PR needs no reopening — it follows the branch; but say in the
+  reply that #107 now includes the newer release.
 - **The memory set, updated together every release:** this file, `MEMORY.md`, `AGENTS.md`,
   `ARENA-STATE.md`, `HANDOFF.md`, `docs/AGENT-HANDOFF.md`, `docs/RELEASE-LEDGER.md` +
   `docs/release-ledger.json`. After editing any of them run `python3 qa/check-handoff.py`.
