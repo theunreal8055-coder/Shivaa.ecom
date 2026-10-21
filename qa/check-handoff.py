@@ -176,8 +176,8 @@ def main():
         ok('v%d zip size is %s' % (r['release'], format(r.get('bytes', -1), ',')),
            os.path.getsize(path) == r.get('bytes'),
            'on disk %s' % format(os.path.getsize(path), ','))
-        if r['release'] == newest or not QUIET:
-            ok('v%d zip sha256 matches' % r['release'], sha256(path) == r.get('sha256'))
+        ok('v%d zip sha256 matches' % r['release'], sha256(path) == r.get('sha256'),
+           'ledger %s' % (r.get('sha256') or '')[:16])
         with zipfile.ZipFile(path) as z:
             files = [n for n in z.namelist() if not n.endswith('/')]
         ok('v%d zip has %s files' % (r['release'], r.get('files')),
