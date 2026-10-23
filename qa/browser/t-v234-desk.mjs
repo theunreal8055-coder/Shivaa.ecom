@@ -98,12 +98,12 @@ const jpost = async (p, body, tok) => {
     (MANIFEST.shortcuts || []).length === 4 && (MANIFEST.shortcuts || []).every(s => /#\/partner\?view=bullion/.test(s.url)));
   T('manifest: it ships the maskable icon Android needs', (MANIFEST.icons || []).some(i => i.purpose === 'maskable'));
 
-  T('sw: the new shell is v234', /shivaa-shell-v234/.test(SW) && /REL = 234/.test(SW));
+  T('sw: the new shell is v234', /shivaa-shell-v235/.test(SW) && /REL = 235/.test(SW));
   T('sw: desk.html, its manifest and its runtime are precached',
-    /'\/desk\.html'/.test(SW) && /'\/desk\.webmanifest'/.test(SW) && /'\/js\/v234\.js\?v=234'/.test(SW));
+    /'\/desk\.html'/.test(SW) && /'\/desk\.webmanifest'/.test(SW) && /'\/js\/v234\.js\?v=235'/.test(SW));
 
-  T('bundle: v234.css is the last layer', ORDER[ORDER.length - 1] === 'v234.css' && ORDER[ORDER.length - 2] === 'v233.css');
-  T('bundle: it is inside the one stylesheet', BUNDLE.lastIndexOf('/* v234.css */') > BUNDLE.lastIndexOf('/* v233.css */'));
+  T('bundle: v235.css is the last layer', ORDER[ORDER.length - 1] === 'v235.css' && ORDER[ORDER.length - 2] === 'v234.css');
+  T('bundle: it is inside the one stylesheet', BUNDLE.lastIndexOf('/* v235.css */') > BUNDLE.lastIndexOf('/* v234.css */'));
   T('css: the desk chrome is scoped to the desk, never the shop',
     /html\.shv-desk/.test(V234_CSS) && /\.shv-desk-body/.test(V234_CSS));
   T('css: the storefront chrome is removed on the desk',
@@ -256,7 +256,7 @@ const seed = w => { try { w.localStorage.setItem('shv_token', JSON.stringify(TOK
   const $$ = s => [...d.querySelectorAll(s)];
   const errs = () => b.errors.filter(e => !NOISE.test(e));
 
-  T('desk: the release stamp is the one the server serves', b.window.__SHIVAA_REL === 234, String(b.window.__SHIVAA_REL));
+  T('desk: the release stamp is the one the server serves', b.window.__SHIVAA_REL === 235, String(b.window.__SHIVAA_REL));
   const mounted = await until(() => $('#bullionBoard .bd-tabs'), 20000);
   T('desk: the board mounts inside the desk app', !!mounted);
   T('desk: the shop around it is gone — no utility strip',

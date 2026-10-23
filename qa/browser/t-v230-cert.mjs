@@ -235,10 +235,10 @@ T('bundle: the v230 layer is in the shipped bundle, exactly once, after v229',
   (BUNDLE.match(/^\/\* v230\.css \*\/$/gm) || []).length === 1 &&
   BUNDLE.lastIndexOf('/* v230.css */') > BUNDLE.lastIndexOf('/* v229.css */'),
   BUNDLE.lastIndexOf('/* v230.css */') + ' vs ' + BUNDLE.lastIndexOf('/* v229.css */'));
-T('stamps: every carrier is at 234',
-  (INDEX.match(/\?v=234/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*234/.test(INDEX) &&
-  /shivaa-shell-v234/.test(SW) && /const REL = 234/.test(SW) && (SW.match(/\?v=234/g) || []).length === 32 &&
-  /APP_REL = 234/.test(APP) && /'rel' => 234/.test(API));
+T('stamps: every carrier is at 235',
+  (INDEX.match(/\?v=235/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*235/.test(INDEX) &&
+  /shivaa-shell-v235/.test(SW) && /const REL = 235/.test(SW) && (SW.match(/\?v=235/g) || []).length === 32 &&
+  /APP_REL = 235/.test(APP) && /'rel' => 235/.test(API));
 
 /* ── 6 · live: what the member actually sees ───────────────────────────── */
 const login = await jpost('/api/auth/login', { email: 'aarti@example.com', password: 'shivaa123' });

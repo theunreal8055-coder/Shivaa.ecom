@@ -7304,7 +7304,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 234,
+      'rel' => 235,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8310,6 +8310,30 @@ try {
     $t['spot'] = spot_tick($db, $t);
     if (!isset($t['ageMs']) && !empty($t['ts'])) $t['ageMs'] = (int)round((microtime(true) - (float)$t['ts']) * 1000);  // v90 feed latency
     $t['marketHours'] = mcx_hours_open();
+    /* v235 — THE MILLISECOND DESK. The desk now shows, to the millisecond,
+       how old the numbers on screen are, and how fast they are arriving. For
+       that it needs three things the tick never carried:
+         · nowMs      — the server's own clock, so a phone with a wrong clock
+                        cannot advertise a freshness it does not have;
+         · cacheAgeMs — age of the snapshot actually served (not of the fetch);
+         · poll       — how often THIS snapshot is worth asking for. The desk
+                        was polling every 800 ms against a 1 s cache, so one
+                        request in five returned identical bytes. The hint is
+                        derived from what the server can actually produce:
+                        a push relay writes ~10 frames/s (250 ms is honest),
+                        the Angel micro-cache turns over at 1 s, and a stale
+                        snapshot must not be hammered at all. */
+    $t['nowMs'] = (int)round(microtime(true) * 1000);
+    $t['cacheAgeMs'] = isset($t['ageMs']) ? (int)$t['ageMs'] : (isset($t['ts']) ? max(0, (int)round((microtime(true) - (float)$t['ts']) * 1000)) : null);
+    $served = (string)($t['servedFrom'] ?? '');
+    $isStale = !empty($t['stale']);
+    $pollMin = $served === 'relay-cache' || $served === 'relay-http' ? 250 : ($isStale ? 5000 : 1000);
+    $pollMax = $isStale ? max(10000, (int)($t['delayMs'] ?? 0)) : 8000;
+    $t['poll'] = ['minMs' => $pollMin, 'maxMs' => $pollMax,
+      'why' => $isStale ? 'stale snapshot — backing off'
+        : ($served === 'relay-cache' || $served === 'relay-http'
+          ? 'push relay writes about ten frames a second'
+          : 'exchange micro-cache turns over once a second')];
     jout(200, $t);
   }
   if ($route === 'bullion/cash' && $method === 'PUT') {

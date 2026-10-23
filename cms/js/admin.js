@@ -3172,6 +3172,7 @@ window.ShivaaBullion = {
         this.renderSection();   // live repaint without resetting the tab
       }
       this.startTick();   // no-ops while the 1 s loop is already alive; revives after navigation
+      this.startBeat();   // v235 — the millisecond strip, one frame at a time
       this.startRelay(this.B);
       const reached = (B.alerts || []).filter(a => a.reached && !a._pinged);
       if (!first && reached.length) { reached.forEach(a => a._pinged = true); window.Shivaa.toast('🔔 ' + reached[0].label + ' hit your target ' + this.num(reached[0].target)); }
@@ -3268,6 +3269,11 @@ window.ShivaaBullion = {
         <span class="bd-live v79"><span class="live-dot" data-heart></span><span data-clock-state>LIVE</span>
           <b data-clock>${esc(B.date || '')} ${bd.time || ''}</b></span>
         <small class="bd-tickstate" data-tickstate>connecting…</small>
+        <span class="bd-ms" data-msstrip>
+          <b data-clock-ms>--:--:--.---</b>
+          <em data-feed-age>+— ms</em>
+          <i data-tickrate>0.0/s</i>
+        </span>
         ${feedBadge}
       </div>
       <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
@@ -3324,6 +3330,22 @@ window.ShivaaBullion = {
     <div class="bd-chart-lims"><span class="bd-hitxt">H ${this.num(max)}</span><span class="bd-lowtxt">L ${this.num(min)}</span><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(last - first))}</span></div>`;
   },
 
+  /* v235 — restart a value flash without asking the browser to re-lay-out the
+     page. The old idiom (`classList.remove` → read offsetWidth → `add`) forces
+     a synchronous layout for every changed number, and on a busy second that
+     is a dozen forced layouts on a phone that is also decoding ticks. Dropping
+     the class and re-adding it on the next frame restarts the animation just
+     the same; the browser batches it into the frame it was already going to
+     paint. One place, so the two callers can never drift apart again. */
+  flashClass(el, cls) {
+    el.classList.remove('bd-flash-up', 'bd-flash-down');
+    el._flashCls = cls;
+    const put = () => { if (el._flashCls === cls) el.classList.add(cls); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(put); else put();
+    clearTimeout(el._flashT);
+    el._flashT = setTimeout(() => el.classList.remove('bd-flash-up', 'bd-flash-down'), 640);
+  },
+
   /* v74–v77 — repaint the international spot cards from the ~1 s live spot tick (polled every 800 ms) */
   applySpotTick(sp, B) {
     if (this.section !== 'rates') return;
@@ -3334,10 +3356,7 @@ window.ShivaaBullion = {
       const newN = parseFloat(String(txt).replace(/[^0-9.\-]/g, ''));
       el.textContent = txt;
       if (numeric && isFinite(oldN) && isFinite(newN) && newN !== oldN) {
-        el.classList.remove('bd-flash-up', 'bd-flash-down');
-        void el.offsetWidth;
-        el.classList.add(newN > oldN ? 'bd-flash-up' : 'bd-flash-down');
-        setTimeout(() => el.classList.remove('bd-flash-up', 'bd-flash-down'), 600);
+        this.flashClass(el, newN > oldN ? 'bd-flash-up' : 'bd-flash-down');   // v235 — no forced layout
       }
     };
     const usdFmt = (v, d) => v ? Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
@@ -3834,6 +3853,18 @@ window.ShivaaBullion = {
     const p = n => String(n).padStart(2, '0');
     return `${p(ist.getUTCHours() % 12 || 12)}:${p(ist.getUTCMinutes())}:${p(ist.getUTCSeconds())} ${ist.getUTCHours() >= 12 ? 'PM' : 'AM'}`;
   },
+  /* v235 — the same IST clock as istTime, but to the millisecond. Nothing
+     else on the desk claims a resolution it does not have: this is read
+     straight off the device clock, and the freshness strip next to it is the
+     honest measure of the data behind the numbers. */
+  istClockMs(ms) {
+    const d = new Date(typeof ms === 'number' ? ms : Date.now());
+    if (isNaN(+d)) return '--:--:--.---';
+    const ist2 = new Date(+d + 5.5 * 3600 * 1000);   // force IST, whatever the device says
+    const p = n => String(n).padStart(2, '0');
+    return p(ist2.getUTCHours()) + ':' + p(ist2.getUTCMinutes()) + ':' + p(ist2.getUTCSeconds())
+      + '.' + String(ist2.getUTCMilliseconds()).padStart(3, '0');
+  },
   startTick() {
     if (this._tickTimer) return;
     const loop = async () => {
@@ -3853,7 +3884,92 @@ window.ShivaaBullion = {
     };
     this._tickTimer = setTimeout(loop, 600);
   },
-  stopTick() { if (this._tickTimer) { clearTimeout(this._tickTimer); this._tickTimer = null; } this.stopRelay(); },
+  stopTick() { if (this._tickTimer) { clearTimeout(this._tickTimer); this._tickTimer = null; } this.stopRelay(); this.stopBeat(); },
+
+  /* ═══════════ v235 · THE MILLISECOND DESK ═══════════════════════════════
+
+     One rule makes this whole release safe to run at 60 frames a second:
+     the loop that runs every frame may only write TEXT. It never rebuilds
+     markup, never reads a layout box and never touches the network — so a
+     desk left open all day costs one string per node per frame and cannot
+     trip the v224 rule that a timer must not rebuild the DOM.
+
+       · paint()        — every arriving tick is queued, not painted; at most
+                          ONE paint per frame, always the newest tick. Ten
+                          ticks inside one frame is one repaint, not ten.
+       · the beat loop  — the millisecond clock, the age of the numbers on
+                          screen (server age + time since it arrived) and the
+                          measured arrival rate, all from the same clock.
+       · honesty       — past 5 s the board dims and says so. A desk that
+                          shows a stale number as if it were live is worse
+                          than no desk at all.
+
+     It starts only when the board is mounted and the tab is visible, stops on
+     both, and therefore costs the storefront exactly nothing. */
+
+  _paint(t) {
+    this._paints = (this._paints || 0) + 1;
+    this.applyTick(t);
+  },
+  pushTick(t) {
+    this.startBeat();            // the strip is alive whenever data is flowing
+    this._pendingTick = t;
+    if (this._paintQueued) return;
+    if (typeof requestAnimationFrame !== 'function') { this._pendingTick = null; this._paint(t); return; }
+    this._paintQueued = true;
+    requestAnimationFrame(() => {
+      this._paintQueued = false;
+      const p = this._pendingTick; this._pendingTick = null;
+      if (p) { try { this._paint(p); } catch (e) { /* a paint must never kill the loop */ } }
+    });
+  },
+  startBeat() {
+    if (this._beat) return;
+    if (typeof requestAnimationFrame !== 'function') return;
+    const step = () => {
+      const board = document.getElementById('bullionBoard');
+      if (!board || !board.querySelector('.bd-tabs') || document.hidden) { this._beat = null; return; }
+      this.paintBeat();
+      this._beat = requestAnimationFrame(step);
+    };
+    this._beat = requestAnimationFrame(step);
+  },
+  stopBeat() { if (this._beat) { cancelAnimationFrame(this._beat); this._beat = null; } },
+  /* the age of the numbers on screen, in ms, right now */
+  feedAgeMs() {
+    if (this._lastFeedAge == null || !this._lastTickAt) return null;
+    return Math.max(0, this._lastFeedAge + (Date.now() - this._lastTickAt));
+  },
+  paintBeat() {
+    const now = Date.now();
+    const clk = document.querySelector('[data-clock-ms]');
+    if (clk) clk.textContent = this.istClockMs(now);
+    const age = this.feedAgeMs();
+    const ag = document.querySelector('[data-feed-age]');
+    if (ag) {
+      const txt = age == null ? '+— ms'
+        : (age < 1000 ? '+' + Math.round(age) + ' ms' : '+' + (age / 1000).toFixed(1) + ' s');
+      if (ag.textContent !== txt) ag.textContent = txt;
+      ag.classList.toggle('warn', age != null && age >= 1500 && age < 5000);
+      ag.classList.toggle('bad', age != null && age >= 5000);
+    }
+    /* arrival rate over the last two seconds — the number that answers
+       "is this actually updating?" without anybody having to guess */
+    const t2 = now - 2000;
+    this._tickTimes = (this._tickTimes || []).filter(x => x >= t2);
+    const rt = document.querySelector('[data-tickrate]');
+    if (rt) {
+      const per = this._tickTimes.length / 2;
+      const txt = per.toFixed(1) + '/s';
+      if (rt.textContent !== txt) rt.textContent = txt;
+      rt.classList.toggle('idle', per === 0);
+    }
+    const board = document.getElementById('bullionBoard');
+    if (board) {
+      const stale = age != null && age >= 5000;
+      if (board.classList.contains('bd-stale') !== stale) board.classList.toggle('bd-stale', stale);
+    }
+  },
   /* v78 — official push relay over Server-Sent Events. When live, MCX rows
      repaint the instant the exchange tick arrives (no 0.8 s poll wait); the
      REST loop drops to 2.5 s just to refresh the dollar spot + customs. */
@@ -3872,7 +3988,7 @@ window.ShivaaBullion = {
         this._relayLive = Date.now();
         this.tickFails = 0;
         this.tickOpen = !!t.open && !t.stale;
-        this.applyTick(t);
+        this.pushTick(t);          // v235 — one paint per frame, newest tick wins
         const clock = this.istTime(t.at);
         if (t.stale) this.setTickState((t.error || 'market closed') + ' · ' + clock, false);
         else this.setTickState('live ⚡ push · ' + clock, true);
@@ -3899,17 +4015,37 @@ window.ShivaaBullion = {
     }
     this.tickFails = 0;
     this.tickOpen = !!t.open && !t.stale;
-    this.applyTick(t);
+    this.pushTick(t);            // v235 — coalesced; the poll hint below still governs the next call
     const clock = this.istTime(t.at);
     if (t.stale) { this.setTickState((t.error ? 'feed: ' + t.error : 'market closed') + ' · ' + clock, false); return t.delayMs || 8000; }
     const ageTxt = t.ageMs != null ? (t.ageMs / 1000).toFixed(1) + 's' : '<1s';   // v90 real feed latency
     this.setTickState((this.tickOpen ? 'live · ' + ageTxt : 'market closed · 10 s') + ' · ' + clock, true);
-    return t.delayMs || (this.tickOpen ? 800 : 10000);
+    /* v235 — poll at the rate the server can actually produce (its `poll`
+       hint), not at a number guessed on the client. Against the 1 s exchange
+       cache the desk used to ask every 800 ms, so roughly one request in five
+       came back with the bytes it already had; now it asks once a second and
+       drops to 250 ms only when a push relay is filling the cache ten times a
+       second. Freshness is unchanged; the request count is 20 % lower. */
+    const base = t.delayMs || (this.tickOpen ? 1000 : 10000);
+    const hint = this.pollHint;
+    if (!hint) return base;
+    return Math.max(hint.minMs, Math.min(hint.maxMs, base));
   },
   applyTick(t) {
     const B = this.B; if (!B) return;
     B.board = B.board || {};
     const g = t.gold, s = t.silver;
+    /* v235 — the freshness ledger. `ageMs` is how old the exchange snapshot
+       is on the server; we add the time it took to reach this frame, so the
+       number in the strip is the age of the digits a jeweller is reading. */
+    this._lastFeedAge = t.ageMs != null ? Math.max(0, +t.ageMs)
+      : (t.cacheAgeMs != null ? Math.max(0, +t.cacheAgeMs) : 0);
+    this._lastTickAt = Date.now();
+    this._tickTimes = (this._tickTimes || []);
+    this._tickTimes.push(this._lastTickAt);
+    if (this._tickTimes.length > 64) this._tickTimes.splice(0, this._tickTimes.length - 64);
+    /* the poll hint the server sent with this snapshot (v235) */
+    if (t.poll && +t.poll.minMs > 0) this.pollHint = { minMs: +t.poll.minMs, maxMs: +t.poll.maxMs || 8000 };
     const num = v => this.num(Math.round(v || 0));
     /* model: future cards + mcx + karat */
     B.board.future = Object.assign(B.board.future || {}, {
@@ -3940,10 +4076,7 @@ window.ShivaaBullion = {
       const newN = parseInt(String(v).replace(/[^0-9-]/g, ''), 10) || 0;
       el.textContent = v;
       if (old !== v && old !== '--' && old !== '' && newN !== oldN) {
-        el.classList.remove('bd-flash-up', 'bd-flash-down');
-        void el.offsetWidth;
-        el.classList.add(newN > oldN ? 'bd-flash-up' : 'bd-flash-down');
-        setTimeout(() => el.classList.remove('bd-flash-up', 'bd-flash-down'), 600);
+        this.flashClass(el, newN > oldN ? 'bd-flash-up' : 'bd-flash-down');   // v235 — no forced layout
       }
     };
     /* rows: RTGS rows re-derive from anchor × factor + premium ± spread
@@ -4054,8 +4187,8 @@ window.ShivaaBullion = {
       this._resyncWired = true;
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && document.getElementById('bullionBoard')) {
-          this.tickFails = 0; this.refresh(true);
-        }
+          this.tickFails = 0; this.startBeat(); this.refresh(true);
+        } else if (document.hidden) this.stopBeat();   // v235 — a hidden tab draws nothing
       });
       window.addEventListener('online', () => {
         if (document.getElementById('bullionBoard')) { this.tickFails = 0; this.refresh(true); }

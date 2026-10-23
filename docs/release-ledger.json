@@ -4,16 +4,16 @@
  "updated": "2026-10-23",
  "release_branch": "arena/e8a470c6-shivaa-ecom",
  "twin_branch": "arena/09f3c79f-shivaa-ecom",
- "next_release": 235,
+ "next_release": 236,
  "live": {
-  "release": 234,
-  "title": "The Desk App",
+  "release": 235,
+  "title": "The Millisecond Desk",
   "since": "2026-10-23",
   "confirmed_by": null,
   "owner_words": null,
-  "deployed_build": 233,
-  "note": "packaged 2026-10-23 and awaiting the owner's explicit yes; the last build the owner actually applied is v233 (23 Oct 2026)",
-  "zip": "shivaa-update-v234.zip"
+  "deployed_build": 234,
+  "note": "packaged 2026-10-23 and awaiting the owner's explicit yes; the last build the owner actually applied is v234 (23 Oct 2026)",
+  "zip": "shivaa-update-v235.zip"
  },
  "rules": {
   "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -200,10 +200,22 @@
    "files": 366,
    "bytes": 37416420,
    "sha256": "16adae14b9745f5d0560145775221d329ab304c1c688d64244885726585e1b84",
+   "status": "applied",
+   "deployed": "2026-10-23",
+   "layer": "v234.css"
+  },
+  {
+   "release": 235,
+   "commit": "PENDING",
+   "title": "The Millisecond Desk",
+   "zip": "shivaa-update-v235.zip",
+   "files": 367,
+   "bytes": 37424830,
+   "sha256": "f5b14e8a274a1911ed87875992de43a144402e48930f4702553e8ad09b26ec35",
    "status": "live",
    "deployed": null,
    "awaiting": "the owner's explicit yes — packaged, not deployed",
-   "layer": "v234.css"
+   "layer": "v235.css"
   }
  ]
 }

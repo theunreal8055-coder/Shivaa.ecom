@@ -1,6 +1,56 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+**v235 — THE MILLISECOND DESK** (2026-10-23). The owner's ask: *"keep it
+updated every millisecond"*. No exchange on earth sends a price a thousand times
+a second, and pretending otherwise would put a number on a jeweller's screen
+that never existed — the one thing a bullion desk must never do. So this release
+does not fake it. It makes the desk keep up with the data it has, to the frame,
+and makes every number say **how old it is**:
+
+**1 · The frame, not the fetch.** A tick that arrives is painted in the very
+next animation frame instead of waiting behind a timer, and ticks that land
+inside the same frame collapse into **one** repaint — the newest wins. Eight
+ticks pushed in a single frame now cost `paints = 1`. The value flash that used
+to restart by reading `offsetWidth` (a forced layout per changed number, a dozen
+on a busy second, on the phone that is also decoding ticks) now restarts on the
+next frame instead: **zero** layout reads for a price change, counted with a
+getter in the suite, not promised. The board's 30 s full refresh is untouched.
+
+**2 · Every number says how old it is.** A millisecond clock
+(`12:04:31.284`) and, beside it, the real age of the digits on screen — the
+exchange age the server reports **plus** the time it took to reach this frame.
+The strip also shows the measured arrival rate (`1.0/s`, or `9.4/s` when the
+push relay is feeding the cache), because "is this actually updating?" should
+never be a guess. Past 1.5 s the age chip turns amber, past 5 s red, and the
+board itself **dims and says so** — a stale price shown as live is a loss, not a
+bug. One `requestAnimationFrame` loop writes those three strings and nothing
+else: no markup, no layout read, no network. It starts with the board, stops
+when the tab is hidden, and never runs on a page without a board, so the
+storefront pays exactly nothing for it.
+
+**3 · Ask at the rate the server can answer.** `GET /api/bullion/tick` now
+carries `nowMs` (the server's own clock, so a phone with a wrong clock cannot
+advertise a freshness it does not have), `cacheAgeMs`, and a `poll` hint with a
+reason: **250 ms** when a push relay is filling the cache ten times a second,
+**1000 ms** against the exchange's 1 s micro-cache, **5000 ms** when the
+snapshot is stale. The desk used to ask every 800 ms against a 1 s cache — one
+request in five came back with the bytes it already had. It now asks at the
+cache's own rate: same freshness, **20 % fewer requests**, and 4× the frames
+when the relay is live.
+
+New suite `qa/browser/t-v235-live.mjs` (**71 assertions**): it proves the wire
+fields and the poll hint, drives the coalescer (eight ticks → one paint, newest
+wins), measures the clock against wall time, watches the age chip turn amber and
+red, dims the board at five seconds, freezes the loop on a hidden tab, counts
+layout reads during a price change (**0**), and boots the same strip inside the
+SPA and *not* on the shop home. Gate **`bash qa/v235-gate.sh`** → **26 checks, 0
+red**, with `t-v234-desk` 111/0, `t-v233-nidhi` 146/0, `t-v232-idle` 87/0,
+`t-v229-bills` 102/0, `t-v231-ink` 53/0, `t-v230-cert` 61/0, `t-v229-black` 88/0,
+`qa/v229-routes.py` 61/0. **367 files** (adds `css/v235.css`; the stylesheet is
+**69 layers / 69 blocks**, still **one** request, 936,026 B raw / 184,230 B
+gzipped).
+
 **v234 — THE DESK APP** (2026-10-23). The owner's ask: *"make the bullion
 application for PC as well as for Android more compatible and operational"*.
 The desk was already live and priced; what it was not was a tool a jeweller can
@@ -188,22 +238,24 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 234 pending owner review — nothing goes live without the
-owner's explicit yes.** Live: **v233** (applied by the owner on 23 Oct 2026).
-Built and not live: **v234 — deploy v234**, which contains v233 and turns the
-jeweller's desk into an installable desk app (PC layout, keyboard map, Android
-install, tranche settlements with numbered slips, a day book). Forward-only rule
-in force — next release number is **v235**.
-Updated 2026-10-23 (v234) on the `arena/800194ed-shivaa-ecom` session branch,
+**COUNTDOWN: release 235 pending owner review — nothing goes live without the
+owner's explicit yes.** Live: **v234** (applied by the owner on 23 Oct 2026).
+Built and not live: **v235 — deploy v235**, which contains v234 and makes the
+bullion desk keep up with its data to the frame: one paint per animation frame,
+a millisecond clock and the true age of every number on screen, a dimmed board
+past five seconds, and a poll hint from the server (250 ms with a push relay,
+1 s against the exchange cache). Forward-only rule in force — next release
+number is **v236**.
+Updated 2026-10-23 (v235) on the `arena/800194ed-shivaa-ecom` session branch,
 whose base commit `fd90c0f` is the release branch `arena/e8a470c6-shivaa-ecom`'s
 v232 tip.
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=234`), built from the 67 historical layers (68 cascade
+(stamped `?v=235`), built from the 68 historical layers (69 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v234 bundle: 934,114 B raw / 183,810 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v235 bundle: 936,026 B raw / 184,230 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`

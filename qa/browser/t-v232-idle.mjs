@@ -77,8 +77,8 @@ const STYLES = stripCss(read('cms/css/styles.css'));
 
 /* the v232 block of the shipped bundle: everything after its provenance mark */
 const at232 = BUNDLE.lastIndexOf('/* v232.css */');
-const at234 = BUNDLE.lastIndexOf('/* v234.css */');
-const SHOP_LAYERS = at234 >= 0 ? BUNDLE.slice(0, at234) : BUNDLE;   // everything the shopper loads
+const at235 = BUNDLE.lastIndexOf('/* v234.css */');
+const SHOP_LAYERS = at235 >= 0 ? BUNDLE.slice(0, at235) : BUNDLE;   // up to the first desk-only layer   // everything the shopper loads
 const SHIPPED = at232 >= 0 ? SHOP_LAYERS.slice(at232) : '';
 
 /* ── 1 · the two loops that never slept ───────────────────────────────── */
@@ -249,20 +249,20 @@ T('layer: every !important in it is a transform, a transition or a display — n
   V232.split('\n').filter(l => l.includes('!important') && !/transform|transition|display|will-change/.test(l)).join(' | '));
 
 /* ── 6 · stamps, bundle ───────────────────────────────────────────────── */
-T('stamps: every carrier is at 234',
-  (INDEX.match(/\?v=234/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*234/.test(INDEX) &&
-  /shivaa-shell-v234/.test(SW) && /const REL = 234/.test(SW) && (SW.match(/\?v=234/g) || []).length === 32 &&
-  /APP_REL = 234/.test(APP) && /'rel' => 234/.test(API));
+T('stamps: every carrier is at 235',
+  (INDEX.match(/\?v=235/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*235/.test(INDEX) &&
+  /shivaa-shell-v235/.test(SW) && /const REL = 235/.test(SW) && (SW.match(/\?v=235/g) || []).length === 32 &&
+  /APP_REL = 235/.test(APP) && /'rel' => 235/.test(API));
 T('stamps: no carrier was left behind at 231',
   !/\?v=231/.test(INDEX) && !/\?v=231/.test(SW) && !/__SHIVAA_REL=231/.test(INDEX) &&
   !/shivaa-shell-v231/.test(SW) && !/APP_REL = 231/.test(APP) && !/'rel' => 231/.test(API));
-T('bundle: v234.css is last in the cascade order, and in the bundle exactly once',
-  ORDER[ORDER.length - 1] === 'v234.css' && ORDER[ORDER.length - 2] === 'v233.css' &&
+T('bundle: v235.css is last in the cascade order, and in the bundle exactly once',
+  ORDER[ORDER.length - 1] === 'v235.css' && ORDER[ORDER.length - 2] === 'v234.css' &&
   (BUNDLE.match(/^\/\* v232\.css \*\/$/gm) || []).length === 1 &&
-  BUNDLE.lastIndexOf('/* v234.css */') > BUNDLE.lastIndexOf('/* v233.css */'),
+  BUNDLE.lastIndexOf('/* v235.css */') > BUNDLE.lastIndexOf('/* v234.css */'),
   ORDER.slice(-2).join(' → '));
 T('bundle: still exactly one blocking stylesheet',
-  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=234'));
+  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=235'));
 T('bundle: this release adds no new request — the governors live in app.js',
   !INDEX.includes('/js/v232.js') && !SW.includes('/js/v232.js') &&
   (INDEX.match(/<script src="\/js\//g) || []).length === 24,

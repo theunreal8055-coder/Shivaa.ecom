@@ -1,21 +1,19 @@
-> ## CURRENT STATE — **v234 PACKAGED, AWAITING THE OWNER'S YES** (23 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v235 PACKAGED, AWAITING THE OWNER'S YES** (23 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v234 “The Desk App” is the newest release** — packaged 23 Oct 2026, **not deployed**.
->   `shivaa-update-v234.zip` — **366 files · 37,416,420 B ·
->   `16adae14b9745f5d0560145775221d329ab304c1c688d64244885726585e1b84`**. **Next release number: v235.**
->   The build the owner actually applied is **v233** (23 Oct 2026). Chain: v205 (11 Oct) → v228 (17 Oct) →
->   v232 (21 Oct) → v233 (23 Oct, applied) → **v234 (23 Oct, packaged)**.
-> - **What v234 does.** The jeweller's bullion desk becomes a real app: `/desk.html` (generated from
->   `index.html` by `tools/build-desk-shell.py`; `--check` in the gate fails on drift) with its own
->   manifest (`desk.webmanifest` — standalone, `orientation: any`, four shortcuts, maskable icon, scope
->   `/desk.html`) and its own runtime `js/v234.js` loaded by the desk **only** — index.html never loads
->   it. Storefront chrome is gone on the desk; from 1000 px it is a PC counter, from 1500 px the quote
->   rail is sticky beside the board; keyboard `1–4 · C · B · R · F · P · ?`; Android gets 44 px targets,
->   safe areas, pull-to-refresh, wake lock and Share. Operations: **tranche settlements** (40 g + 60 g =
->   two numbered slips `DS…`, one order at 100 g), refusals for over-settling / cancelling after metal
->   moved / another jeweller's deal, a **day book** (grams, fine grams, value, TCS, settled, open, MTM —
->   screen, CSV, print), a per-partner **watchlist**, and **₹ per fine gram + ★ on every row**. Proof:
->   `qa/browser/t-v234-desk.mjs` (**111**) and `bash qa/v234-gate.sh` → **25 checks, 0 red**.
+> - **v235 “The Millisecond Desk” is the newest release** — packaged 23 Oct 2026, **not deployed**.
+>   `shivaa-update-v235.zip` — **367 files · 37,424,830 B ·
+>   `f5b14e8a274a1911ed87875992de43a144402e48930f4702553e8ad09b26ec35`**. **Next release number: v236.**
+>   The build the owner actually applied is **v234** (23 Oct 2026), and he asked for this one straight
+>   after installing it. Chain: v228 (17 Oct) → v232 (21 Oct) → v233 (23 Oct) → v234 (23 Oct, applied) →
+>   **v235 (23 Oct, packaged)**.
+> - **What v235 does.** The desk repaints on the frame a tick lands (one paint per frame, newest wins —
+>   `t-v235-live` counts 8 ticks → 1 paint) and a price change now costs **0** forced layout reads. A
+>   millisecond clock, the true age of every number on screen and the measured arrival rate are written by
+>   one rAF loop that only touches text; past 1.5 s the chip is amber, past 5 s it is red and the board
+>   dims. `/api/bullion/tick` carries `nowMs`, `cacheAgeMs` and a `poll` hint (250 ms with a push relay,
+>   1 s against the exchange cache, 5 s when stale) and the desk obeys it. **Honest limitation, stated
+>   everywhere:** the exchange itself updates about once a second; the millisecond is the *paint and the
+>   measurement*, never a fabricated price.
 > - **Work branch: `arena/800194ed-shivaa-ecom`** — the Arena session's branch, based on the release
 >   branch `arena/e8a470c6-shivaa-ecom` at `fd90c0f` (v232 content). `qa/where-am-i.sh` names
 >   `e8a470c6` as the release line and reports this tree as "newest content, wrong branch" (exit 2) —
@@ -23,42 +21,41 @@
 >   **PR #107 is MERGED** (21 Oct 2026) into `arena/5529f0ec-shivaa-ecom` as `c6337db`; **`main` is
 >   untouched (`7d23eea`, v184)** and the Hostinger workflow is `workflow_dispatch` only — no merge has
 >   ever deployed anything.
-> - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
->   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
->   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do
->   not write docs; run the three commands it prints. **Never work on a tree older than the newest
->   release, and never rebuild a spent number.**
+> - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh` (≥120 s). It fetches origin,
+>   reads the release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or
+>   **BEHIND** (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build
+>   a zip, do not write docs; run the three commands it prints. **Never work on a tree older than the
+>   newest release, and never rebuild a spent number.**
 > - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). `live` there
 >   means *newest release in the ledger*; whether the owner has applied it is the `deployed`/`awaiting`
 >   fields and the docs' countdown. `python3 qa/check-handoff.py` proves ledger ⟷ stamps ⟷ zips (sha256,
->   bytes, file count, committed in git) ⟷ these docs.
+>   bytes, file count, committed in git) ⟷ these docs. **167 checks, 0 red** at v234's close.
 > - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
 >   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` refuses
->   a spent number, and its `ADDED` map is where a release declares any new file other than its css
->   layer (v234 declares `desk.html`, `desk.webmanifest`, `js/v234.js`) — an omission there would ship a
->   manifest pointing at a page the owner does not have. Owner approval before anything goes live;
->   rollback is the previous ledger row (v233).
-> - **Sandbox resets between turns.** First
->   `git fetch origin arena/800194ed-shivaa-ecom && git reset --hard FETCH_HEAD`, then
->   `bash qa/where-am-i.sh`. Then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
->   `python3 qa/build-test-db.py --with-staff`, `python3 qa/preview_shim.py --port 8090`. The zips are
->   tracked in git, so a reset restores them. **`pkill -f preview_shim` kills your own shell** (the
->   pattern matches your command line) — scan `/proc/*/cmdline` instead, and check for a stale shim
->   before believing a red suite: port 8090 silently refuses a second one.
+>   a spent number, and its `ADDED` map is where a release declares any new file other than its css layer
+>   (v234 declared `desk.html`, `desk.webmanifest`, `js/v234.js`; v235 adds only `css/v235.css`). Owner
+>   approval before anything goes live; rollback is the previous ledger row (v234).
+> - **Sandbox resets between turns** — twice now the tree came back at the base commit with the branch
+>   name intact. First `git fetch origin arena/800194ed-shivaa-ecom && git reset --hard FETCH_HEAD`, then
+>   `bash qa/where-am-i.sh`, then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
+>   `python3 qa/build-test-db.py --with-staff`, `python3 qa/preview_shim.py --port 8090`.
+>   **`pkill -f preview_shim` kills your own shell** (the pattern matches your command line) — scan
+>   `/proc/*/cmdline` instead, or just use the gate script, which owns the port.
 > - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
->   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`,
->   and the order in `tools/css-bundle-order.txt` is load-bearing (**68 positions**, `v186.css` twice,
->   `v234.css` last); never hand-edit `cms/desk.html` — **regenerate it** with
->   `python3 tools/build-desk-shell.py`; films load only via `wake()`; never animate a layout property,
->   a `filter` or `background-position` in a loop; **no markup rebuild inside a `setInterval`** (v224 —
->   the quote clock writes text into one node); zero idle frames and no per-event
->   `getBoundingClientRect()` in any move listener; the member percentage is one setting, ships **20**;
->   `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed and never ships.
+>   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`;
+>   the order in `tools/css-bundle-order.txt` is load-bearing (**69 positions**, `v186.css` twice,
+>   `v235.css` last); never hand-edit `cms/desk.html` — **regenerate** it with
+>   `python3 tools/build-desk-shell.py`; films load only via `wake()`; never animate a layout property, a
+>   `filter` or `background-position` in a loop; **no markup rebuild inside a timer** (v224) and **no
+>   forced layout read to restart an animation** (v235 — use `flashClass()`); zero idle frames and no
+>   per-event `getBoundingClientRect()` in any move listener; the member percentage is one setting, ships
+>   **20**; `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed, never ships.
 > - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
 >   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
->   × 14 days), and the private bills folder `.shivaa-private-bills` **beside** `public_html`
->   (`DEPLOY-v229.md` §2 — without it the admin upload answers 503 by design). Details:
->   `docs/NEXT-CHAT-HEAD.md` §12.
+>   × 14 days), the private bills folder `.shivaa-private-bills` **beside** `public_html`
+>   (`DEPLOY-v229.md` §2), and `partnerWatch`'s missing `$db` init entry (harmless; queued for v236).
+>   Details: `docs/NEXT-CHAT-HEAD.md` §12.
+
 
 # ARENA-STATE — the continuity contract (read this first, every chat)
 

@@ -1,0 +1,108 @@
+/* ══════════════════════════════════════════════════════════════════════
+   v235 · THE MILLISECOND DESK — every number says how old it is
+   ──────────────────────────────────────────────────────────────────────
+   The desk promised live rates and never said how live. This layer dresses
+   the one strip that answers the question, and the two states that keep the
+   answer honest:
+
+     1 · THE STRIP.  A millisecond clock, the age of the digits on screen and
+         the measured arrival rate, on one line under the brand — reading as
+         a clock reads, right-aligned and tabular, so the digits do not dance
+         while the numbers beside them change.
+
+     2 · TWO WARNINGS, NOT FIVE.  Amber when the feed is past its own cache
+         window, red when it is past five seconds; the board itself dims at
+         five seconds, because a stale price shown as live is a loss, not a
+         bug. There is no third state to learn.
+
+     3 · FLASH WITHOUT A RE-FLOW.  The value flash lives in the layer that
+         already defines it (v232's `.bd-flash-*`); v235 only guarantees it
+         keeps its shape when restarted every second, and that it is switched
+         off for anyone who asked for reduced motion.
+
+   Scoped to `.bd-*` / `[data-*]` names owned by the bullion board, so the
+   storefront cannot inherit anything from this file.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · the strip ─────────────────────────────────────────────────────── */
+.bd-ms {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .4px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.bd-ms b {
+  font-family: var(--ff-num, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f6ece0;
+  letter-spacing: .6px;
+}
+
+.bd-ms em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  color: #39d98a;
+  background: rgba(57, 217, 138, .10);
+  border: 1px solid rgba(57, 217, 138, .32);
+  border-radius: 999px;
+  padding: 1px 7px;
+  min-width: 62px;
+  text-align: center;
+  transition: color .2s, border-color .2s, background .2s;
+}
+
+.bd-ms em.warn {
+  color: #edbd5a;
+  background: rgba(237, 189, 90, .12);
+  border-color: rgba(237, 189, 90, .45);
+}
+
+.bd-ms em.bad {
+  color: #ff8080;
+  background: rgba(255, 107, 107, .12);
+  border-color: rgba(255, 107, 107, .5);
+}
+
+.bd-ms i {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: #8fd8ab;
+  letter-spacing: .3px;
+  min-width: 40px;
+  text-align: right;
+}
+
+.bd-ms i.idle { color: rgba(244, 232, 207, .4); }
+
+/* ── 2 · stale: dim the numbers, never hide them ───────────────────────── */
+.bd-board.bd-stale .bd-section { opacity: .55; transition: opacity .35s; }
+.bd-board.bd-stale .bd-row,
+.bd-board.bd-stale .bd-num { border-color: rgba(255, 128, 128, .5); }
+.bd-board.bd-stale .bd-topbar { box-shadow: inset 0 -1px 0 rgba(255, 128, 128, .45); }
+
+/* ── 3 · the flash, restarted every tick without a re-flow ─────────────── */
+.bd-num.bd-flash-up { animation: bdNumUp .64s ease-out; }
+.bd-num.bd-flash-down { animation: bdNumDown .64s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-num.bd-flash-up,
+  .bd-num.bd-flash-down { animation: none; }
+  .bd-board.bd-stale .bd-section { transition: none; }
+  .bd-ms em { transition: none; }
+}
+
+/* ── 4 · a counter PC reads it from a step back ─────────────────────────── */
+@media (min-width: 1000px) {
+  .bd-ms { margin-top: 2px; gap: 12px; }
+  .bd-ms b { font-size: 13px; }
+  .bd-ms em, .bd-ms i { font-size: 11px; }
+}

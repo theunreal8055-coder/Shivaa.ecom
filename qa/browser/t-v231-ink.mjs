@@ -218,14 +218,14 @@ T('rate: historical receipts still derive their own percentage',
   /function blackOrderPct\(o\) \{[\s\S]{0,400}?disc \/ basis \* 100/.test(APP_J));
 
 /* ── 6 · the release itself ────────────────────────────────────────────── */
-T('stamps: every carrier is at 234',
-  (INDEX.match(/\?v=234/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*234/.test(INDEX) &&
-  /shivaa-shell-v234/.test(SW) && /const REL = 234/.test(SW) && (SW.match(/\?v=234/g) || []).length === 32 &&
-  /APP_REL = 234/.test(APP) && /'rel' => 234/.test(API));
-T('bundle: v234.css is last in the cascade order, and in the bundle exactly once',
-  ORDER[ORDER.length - 1] === 'v234.css' && ORDER[ORDER.length - 2] === 'v233.css' &&
+T('stamps: every carrier is at 235',
+  (INDEX.match(/\?v=235/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*235/.test(INDEX) &&
+  /shivaa-shell-v235/.test(SW) && /const REL = 235/.test(SW) && (SW.match(/\?v=235/g) || []).length === 32 &&
+  /APP_REL = 235/.test(APP) && /'rel' => 235/.test(API));
+T('bundle: v235.css is last in the cascade order, and in the bundle exactly once',
+  ORDER[ORDER.length - 1] === 'v235.css' && ORDER[ORDER.length - 2] === 'v234.css' &&
   (BUNDLE.match(/^\/\* v231\.css \*\/$/gm) || []).length === 1 &&
-  BUNDLE.lastIndexOf('/* v234.css */') > BUNDLE.lastIndexOf('/* v233.css */'),
+  BUNDLE.lastIndexOf('/* v235.css */') > BUNDLE.lastIndexOf('/* v234.css */'),
   ORDER.slice(-2).join(' → '));
 T('bundle: still exactly one blocking stylesheet',
   (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1);

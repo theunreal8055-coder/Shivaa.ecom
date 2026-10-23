@@ -1891,6 +1891,46 @@ class Handler(SimpleHTTPRequestHandler):
             out["news"] = []
             out["watch"] = list(DEV["partnerWatch"].get(str(u.get("partnerId") or "")) or [])
             return self._json(200, out)
+        if route == "bullion/tick":
+            # v235 — the millisecond desk. Same shape as api.php's tick: the
+            # exchange snapshot, its age, the server clock in ms and the poll
+            # hint. Prices are *identical* to the board rows so a historic,
+            # money-touching flow can never see a number move under it;
+            # freshness is what this route is for.
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            d2 = db()
+            last = d2["rates"]["last"]
+            fine = float(last.get("gold24") or 0)
+            sil = float(last.get("silver") or 0)
+            now = time.time()
+            force_age = q.get("age", [None])[0]
+            stale = bool(q.get("stale"))
+            age = int(force_age) if force_age is not None else (int(now * 1000) % 240 + 40)
+            gl = round(fine * 10, 2)
+            sl = round(sil * 1000, 2)
+            hist = d2["rates"].get("history") or []
+            prev = hist[-2] if len(hist) > 1 else None
+            def _leg(ltp, symbol, prevv):
+                close = float(prevv or ltp)
+                chg = round(ltp - close, 2)
+                return {"symbol": symbol, "ltp": ltp, "bid": ltp - 1, "ask": ltp + 1,
+                        "bidQty": 10, "askQty": 10, "open": ltp, "high": ltp + 30,
+                        "low": ltp - 30, "close": close, "oi": 8120, "atp": ltp,
+                        "vol": 4310, "feedTime": int(now * 1000), "chg": chg,
+                        "chgPct": round((chg / close * 100) if close else 0.0, 2)}
+            tick = {"at": time.strftime("%Y-%m-%dT%H:%M:%S+05:30", time.localtime()),
+                    "source": "live-mcx", "open": not stale, "stale": stale,
+                    "gold": _leg(gl, "GOLD26DECFUT", (prev or {}).get("gold24", 0) * 10 if prev else gl),
+                    "silver": _leg(sl, "SILVER26DECFUT", (prev or {}).get("silver", 0) * 1000 if prev else sl),
+                    "ageMs": age, "cacheAgeMs": age, "nowMs": int(now * 1000),
+                    "delayMs": 8000 if stale else 1000, "marketHours": True,
+                    "servedFrom": "stale" if stale else "cache"}
+            tick["poll"] = {"minMs": 5000 if stale else 1000, "maxMs": 10000,
+                            "why": "stale snapshot \u2014 backing off" if stale
+                                   else "exchange micro-cache turns over once a second"}
+            return self._json(200, tick)
         if route == "bullion/daybook":
             u = dev_token(self)
             if not u or u.get("role") not in ("partner", "admin"):
