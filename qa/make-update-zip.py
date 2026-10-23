@@ -23,6 +23,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import zipfile
 
@@ -48,13 +49,48 @@ def previous_list(rel):
         return [n for n in z.namelist() if not n.endswith('/')]
 
 
+# ── declared additions ───────────────────────────────────────────────────
+# A release that adds anything other than its own css layer must say so here.
+# v234 is the first: an installable desk app is a SHELL (desk.html), an app
+# identity (desk.webmanifest) and a runtime of its own (js/v234.js). Omitting
+# one of them from the package would leave the owner with a manifest pointing at
+# a page he does not have — the exact silent failure an update zip must not have.
+ADDED = {
+    234: ['desk.html', 'desk.webmanifest', 'js/v234.js'],
+}
+
+# files under cms/ that are deliberately not shipped (mirrors the docstring)
+NEVER_SHIPPED = re.compile(
+    r'^(data/|uploads/(?!kyc/|store-bills/)|images/designs/|images/films/|images/black/|'
+    r'fonts/|privacy|setup-mysql\.php|upgrade-sql\.php|shivaa-update-v\d+\.zip|'
+    r'\.htaccess$|config\.php|db\.json$)', re.I)
+
+
 def new_files(rel):
     """what this release added that the previous zip could not have contained"""
     added = []
     layer = 'css/v%d.css' % rel
     if os.path.isfile(os.path.join(CMS, layer)):
         added.append(layer)
+    for extra in ADDED.get(rel, []):
+        if extra not in added:
+            added.append(extra)
     return added
+
+
+def undeclared(rel, names):
+    """cms/ files this release looks new and the package would not carry"""
+    listed = set(names)
+    out = []
+    for root, _dirs, files in os.walk(CMS):
+        for f in files:
+            rel_path = os.path.relpath(os.path.join(root, f), CMS).replace(os.sep, '/')
+            if rel_path in listed or NEVER_SHIPPED.match(rel_path):
+                continue
+            # only a file that appeared WITH this release matters; anything older
+            # being absent is a deliberate omission the docstring already lists
+            out.append(rel_path)
+    return sorted(out)
 
 
 def build(rel, list_only=False):
@@ -131,6 +167,14 @@ def build(rel, list_only=False):
         verdict = ('  ledger    : NOT FOUND — this is an old tree; the build cannot prove '
                    'it is a new release')
 
+    left = undeclared(rel, names)
+    if left:
+        print('  NOTE      : %d file(s) under cms/ are not in this package '
+              '(declare any that belong to this release in ADDED):' % len(left))
+        for n in left[:12]:
+            print('              · %s' % n)
+        if len(left) > 12:
+            print('              · … and %d more' % (len(left) - 12))
     print('shivaa-update-v%d.zip' % rel)
     print('  files     : %d  (v%d had %d)' % (len(names), rel - 1, len(previous_list(rel - 1))))
     print('  raw bytes : %s' % format(raw, ','))

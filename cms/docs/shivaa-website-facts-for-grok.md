@@ -1,6 +1,62 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+**v234 — THE DESK APP** (2026-10-23). The owner's ask: *"make the bullion
+application for PC as well as for Android more compatible and operational"*.
+The desk was already live and priced; what it was not was a tool a jeweller can
+work from all day. Three things were missing, and each one is a number.
+
+**1 · It was a page inside a shop, not an app.** `/desk.html` is a real,
+installable app: its own manifest (`desk.webmanifest` — `Shivaa Bullion Desk`,
+standalone, `orientation: any`, four shortcuts straight to Rates / Quote / Day
+book / Deals, maskable icon), its own scope, its own runtime (`js/v234.js`,
+loaded by the desk **only** — `index.html` remains byte-for-byte free of it), and
+the storefront's utility strip, masthead, bottom nav and footer removed so the
+board is the first thing on screen. The shell is **generated** from
+`index.html` by `tools/build-desk-shell.py`: seven asserted transforms, and
+`--check` fails if the two ever drift, because `app.js` binds dozens of the
+shop's elements and a hand-made second HTML shell would rot the first time a
+release touched the page.
+
+**2 · A PC is not a phone.** From 1000 px the desk is a counter: the bottom tab
+bar becomes a seated segmented row, the desk-maths strip gets four columns, the
+calculator two, and every table is tabular-figure. From 1500 px the quote rail
+sits **beside** the board, sticky, so a firm quote never leaves sight. A keyboard
+map runs the whole thing (`1–4` tabs, `C` quote, `B` day book, `R` refresh,
+`F` full screen, `P` print, `?` the map) — and it works in the browser too, not
+only in the installed app. On Android every control the counter touches is
+44 px, safe-area insets are respected in standalone, the page never bounces
+away under a finger, a downward drag refreshes the rates, an opt-in wake lock
+stops the screen sleeping mid-quote, and a quote or a slip can go out through
+the phone's own share sheet.
+
+**3 · It could quote but not count.** A firm quote was the end of the desk's
+paperwork. Now metal has a document: **`POST /api/bullion/orders/<id>/settle`**
+settles in full *or in tranches* — 40 g today and 60 g tomorrow write **two
+numbered slips** (`DS<yymd>-<nnnn>`) and leave **one** order whose `settledGrams`
+is 100, never 200. Over-settling is refused with the number still open; a deal
+whose metal has moved cannot be cancelled; a new one can, with a reason on the
+record; another jeweller cannot touch either. **`GET /api/bullion/daybook`** adds
+up the day on the server's own date (a phone in another timezone cannot move the
+totals): bought and sold grams, fine grams, value, TCS, settled grams and slips,
+open grams and value, mark-to-market — as a screen, as CSV, and as paper.
+**`POST /api/bullion/watch`** pins the four rows a desk actually trades, per
+partner, and the board gains a **fine price and a ★ on every row** plus a "My
+metals" filter. `bullion_exposure` now separates settled from open grams, so the
+exposure figure is what is actually still at risk.
+
+New suite `qa/browser/t-v234-desk.mjs` (**111 assertions**): it proves the shell
+is in sync, drives the tranche maths over real HTTP, and then boots
+`desk.html#/partner?view=bullion` in jsdom — the shop chrome gone, a fine price
+and a star on every row, the star saved server-side, the day book rendered, a
+slip written from the screen, a quote whose clock visibly counts down — and boots
+the same board inside the SPA to prove the tool did not become app-only. New gate
+**`bash qa/v234-gate.sh`** → **25 checks, 0 red**, with `t-v233-nidhi` 146/0,
+`t-v232-idle` 87/0, `t-v229-bills` 102/0, `t-v231-ink` 53/0, `t-v230-cert` 61/0,
+`t-v229-black` 88/0, `qa/v229-routes.py` 61/0. **366 files** (adds `css/v234.css`,
+`desk.html`, `desk.webmanifest`, `js/v234.js`; the bundle is **68 layers / 68
+blocks**, still **one** stylesheet request, 934,114 B raw / 183,810 B gzipped).
+
 **v233 — THE PASSBOOK RELEASE** (2026-10-23). Two owner asks, one release:
 *"Make the Swarna Nidhi teacher fully functional and traceable for every
 customer"* and *"make the bullion feature for jewellers more practical and
@@ -132,21 +188,22 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 233 pending owner review — nothing goes live without the
-owner's explicit yes.** Live: **v232** (applied by the owner on 21 Oct 2026 —
-*"I have applied each and every update to the website and it's fine"*).
-Built and not live: **v233 — deploy v233**, the first release in which a Nidhi
-customer can prove what they paid and a jeweller can prove what they were
-quoted. Forward-only rule in force — next release number is **v234**.
-Updated 2026-10-23 (v233) from `arena/800194ed-shivaa-ecom`, the tree branched
-from `arena/e8a470c6-shivaa-ecom` at its v232 tip (`fd90c0f`).
+**COUNTDOWN: release 234 pending owner review — nothing goes live without the
+owner's explicit yes.** Live: **v233** (applied by the owner on 23 Oct 2026).
+Built and not live: **v234 — deploy v234**, which contains v233 and turns the
+jeweller's desk into an installable desk app (PC layout, keyboard map, Android
+install, tranche settlements with numbered slips, a day book). Forward-only rule
+in force — next release number is **v235**.
+Updated 2026-10-23 (v234) on the `arena/800194ed-shivaa-ecom` session branch,
+whose base commit `fd90c0f` is the release branch `arena/e8a470c6-shivaa-ecom`'s
+v232 tip.
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=233`), built from the 66 historical layers (67 cascade
+(stamped `?v=234`), built from the 67 historical layers (68 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v233 bundle: 924,855 B raw / 181,961 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v234 bundle: 934,114 B raw / 183,810 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`

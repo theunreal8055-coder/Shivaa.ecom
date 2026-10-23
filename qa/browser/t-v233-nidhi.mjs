@@ -94,7 +94,8 @@ T('admin.js: the jeweller calculator exists', ADMIN_J.includes('secCalc'));
 T('admin.js: the fine-gram strip rides the board', ADMIN_J.includes('deskStrip'));
 T('admin.js: quotes are taken from the server', ADMIN_J.includes("api('/api/bullion/quote'"));
 
-T('v233.css: is the last layer in the cascade', ORDER[ORDER.length - 1] === 'v233.css');
+T('v233.css: sits in the cascade, directly before the release that followed it',
+  ORDER.includes('v233.css') && ORDER.indexOf('v233.css') === ORDER.indexOf('v234.css') - 1);
 T('v233.css: the bundle carries its block', BUNDLE.includes('/* v233.css */'));
 T('v233.css: styles the passbook', /\.nb-head\b/.test(V233));
 T('v233.css: styles the desk calculator', /\.bd-calc\b/.test(V233));

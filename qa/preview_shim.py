@@ -137,7 +137,10 @@ DEV = {"otps": [], "tokens": {}, "users": [], "wishlist": {}, "orders": {},
        # quotes and the bullion orders placed against them. In memory only.
        "savings": [], "savingsSeq": 0,
        "bullionQuotes": [], "bullionQuoteSeq": 0,
-       "bullionOrders": [], "bullionAlerts": []}
+       "bullionOrders": [], "bullionAlerts": [],
+       # v234 — dealing slips written when metal is delivered, and the rows
+       # each partner watches (partnerId -> [key, ...])
+       "bullionSlips": [], "bullionSlipSeq": 0, "partnerWatch": {}}
 PREVIEW_PASSWORD = "shivaa123"          # bcrypt is unavailable in the sandbox
 GST_STATES = {"08": "Rajasthan", "27": "Maharashtra", "29": "Karnataka", "24": "Gujarat",
               "07": "Delhi", "09": "UP", "33": "Tamil Nadu", "36": "Telangana",
@@ -487,15 +490,18 @@ def bullion_exposure(d, u, rows):
     by_key = {str(r.get("key")): r for r in rows}
     orders = DEV["bullionOrders"] + list(d.get("bullionOrders") or [])
     pid = str(u.get("partnerId") or "")
-    ob, os_, value, mtm, opened, settled = 0.0, 0.0, 0, 0.0, 0, 0
+    ob, os_, value, mtm, opened, settled, settled_grams = 0.0, 0.0, 0, 0.0, 0, 0, 0.0
     for o in orders:
         if str(o.get("partnerId") or "") != pid:
             continue
         st = str(o.get("status") or "").lower()
         if st == "cancelled":
             continue
-        grams = float(o.get("qty") or 0) * (1000 if str(o.get("unit") or "g") == "kg" else 1)
-        if st in ("delivered", "settled", "closed"):
+        grams = dev_order_grams(o)
+        delivered = dev_order_settled(o)
+        settled_grams += delivered
+        grams = round(grams - delivered, 3)
+        if st in ("delivered", "settled", "closed") or grams <= 0.0005:
             settled += 1
             continue
         opened += 1
@@ -503,7 +509,7 @@ def bullion_exposure(d, u, rows):
             os_ += grams
         else:
             ob += grams
-        value += int(o.get("amount") or 0)
+        value += int(round(float(o.get("rate") or 0) * grams))
         cur = by_key.get(str(o.get("metKey") or ""))
         if cur:
             now = float(cur.get("sell") if str(o.get("side")) == "buy" else cur.get("buy") or 0)
@@ -512,7 +518,8 @@ def bullion_exposure(d, u, rows):
                 mtm += direction * (now - float(o.get("rate") or 0)) * grams
     return {"openDeals": opened, "settledDeals": settled, "openBuyGrams": round(ob, 3),
             "openSellGrams": round(os_, 3), "netGrams": round(ob - os_, 3),
-            "openValue": value, "mtm": int(round(mtm))}
+            "openValue": value, "settledGrams": round(settled_grams, 3),
+            "mtm": int(round(mtm))}
 
 
 def dev_quote_no():
@@ -525,6 +532,104 @@ def dev_quote_no():
             break
     DEV["bullionQuoteSeq"] = n
     return qid
+
+
+def dev_slip_no():
+    used = {str(s.get("id")) for s in DEV["bullionSlips"]}
+    n = int(DEV.get("bullionSlipSeq") or 0)
+    while True:
+        n += 1
+        sid = "DS%s-%04d" % (time.strftime("%y%m%d"), n)
+        if sid not in used:
+            break
+    DEV["bullionSlipSeq"] = n
+    return sid
+
+
+def dev_order_grams(o):
+    if o.get("qtyGrams") is not None:
+        return float(o.get("qtyGrams") or 0)
+    return float(o.get("qty") or 0) * (1000 if str(o.get("unit") or "g") == "kg" else 1)
+
+
+def dev_order_settled(o):
+    return round(sum(float(s.get("grams") or 0) for s in (o.get("settlements") or [])), 3)
+
+
+def dev_slip_view(s):
+    return {"slipNo": str(s.get("id") or ""), "orderId": str(s.get("orderId") or ""),
+            "side": str(s.get("side") or ""), "metal": str(s.get("metal") or ""),
+            "purity": str(s.get("purity") or ""), "grams": float(s.get("grams") or 0),
+            "fineGrams": float(s.get("fineGrams") or 0), "rate": float(s.get("rate") or 0),
+            "amount": int(s.get("amount") or 0), "tcs": int(s.get("tcs") or 0),
+            "total": int(s.get("total") or 0), "note": str(s.get("note") or ""),
+            "by": str(s.get("by") or ""), "at": str(s.get("at") or ""),
+            "quoteNo": str(s.get("quoteNo") or "")}
+
+
+def dev_daybook(d, u, rows):
+    today = time.strftime("%Y-%m-%d")
+    is_admin = str(u.get("role") or "") == "admin"
+    pid = str(u.get("partnerId") or "")
+    by_key = {str(r.get("key")): r for r in rows}
+    tot = {"deals": 0, "buyGrams": 0.0, "sellGrams": 0.0, "buyFineGrams": 0.0, "sellFineGrams": 0.0,
+           "buyValue": 0, "sellValue": 0, "tcs": 0, "settledGrams": 0.0, "settledValue": 0,
+           "settledDeals": 0, "openDeals": 0, "openGrams": 0.0, "openValue": 0, "mtm": 0}
+    deals = []
+    for o in DEV["bullionOrders"] + list(d.get("bullionOrders") or []):
+        if not is_admin and str(o.get("partnerId") or "") != pid:
+            continue
+        if str(o.get("createdAt") or "")[:10] != today:
+            continue
+        grams = dev_order_grams(o)
+        settled = dev_order_settled(o)
+        remaining = round(max(0.0, grams - settled), 3)
+        fine = bullion_purity_factor(o.get("purity"))
+        side = str(o.get("side") or "buy")
+        amount = int(o.get("amount") or 0)
+        tcs = int(round(amount * 0.001)) if side == "buy" else 0
+        st = str(o.get("status") or "New")
+        tot["deals"] += 1
+        if side == "sell":
+            tot["sellGrams"] += grams
+            tot["sellFineGrams"] += grams * fine
+            tot["sellValue"] += amount
+        else:
+            tot["buyGrams"] += grams
+            tot["buyFineGrams"] += grams * fine
+            tot["buyValue"] += amount
+            tot["tcs"] += tcs
+        tot["settledGrams"] += settled
+        tot["settledValue"] += int(round(float(o.get("rate") or 0) * settled))
+        if st.lower() != "cancelled":
+            if remaining > 0.0005:
+                tot["openDeals"] += 1
+                tot["openGrams"] += remaining
+                tot["openValue"] += int(round(float(o.get("rate") or 0) * remaining))
+                cur = by_key.get(str(o.get("metKey") or ""))
+                if cur:
+                    now = float(cur.get("sell") if side == "buy" else cur.get("buy") or 0)
+                    if now > 0:
+                        tot["mtm"] += (1 if side == "buy" else -1) * (now - float(o.get("rate") or 0)) * remaining
+            else:
+                tot["settledDeals"] += 1
+        deals.append({"id": str(o.get("id") or ""), "side": side, "metal": str(o.get("metal") or ""),
+                      "metKey": str(o.get("metKey") or ""), "purity": str(o.get("purity") or ""),
+                      "qty": float(o.get("qty") or 0), "unit": str(o.get("unit") or "g"),
+                      "grams": round(grams, 3), "fineGrams": round(grams * fine, 3),
+                      "rate": float(o.get("rate") or 0), "amount": amount, "tcs": tcs,
+                      "status": st, "quoteNo": str(o.get("quoteNo") or ""),
+                      "createdAt": str(o.get("createdAt") or ""), "settledGrams": settled,
+                      "remainingGrams": remaining,
+                      "slips": [str(s0.get("id") or "") for s0 in (o.get("settlements") or [])]})
+    for k in ("buyGrams", "sellGrams", "buyFineGrams", "sellFineGrams", "settledGrams", "openGrams"):
+        tot[k] = round(float(tot[k]), 3)
+    tot["mtm"] = int(round(tot["mtm"]))
+    slips = [dev_slip_view(s0) for s0 in DEV["bullionSlips"]
+             if (is_admin or str(s0.get("partnerId") or "") == pid)
+             and str(s0.get("at") or "")[:10] == today]
+    return {"date": today, "totals": tot, "deals": list(reversed(deals)),
+            "slips": list(reversed(slips)), "watch": list(DEV["partnerWatch"].get(pid) or [])}
 
 
 def dev_black_left(card):
@@ -1396,7 +1501,8 @@ class Handler(SimpleHTTPRequestHandler):
             oid = "BL" + str(int(time.time()))[-8:] + secrets.token_hex(2).upper()
             ordr = {"id": oid, "side": side, "metKey": key, "metal": str(body.get("metal") or "")[:40],
                     "mode": row.get("mode") or "", "qty": round(qty, 3), "unit": unit,
-                    "rate": rate, "amount": int(round(rate * grams)),
+                    "rate": rate, "purity": str(row.get("purity") or ""),
+                    "amount": int(round(rate * grams)),
                     "note": str(body.get("note") or "")[:300],
                     "quoteNo": quote_no if quote else "",
                     "qtyGrams": round(grams, 3),
@@ -1424,6 +1530,90 @@ class Handler(SimpleHTTPRequestHandler):
                 if a0["id"] == m_ba.group(1):
                     a0["removed"] = True
             return self._json(200, {"ok": True})
+        m_bs = re.match(r"^bullion/orders/([\w-]+)/settle$", route)
+        if m_bs:
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            o = next((x for x in DEV["bullionOrders"] if str(x.get("id")) == m_bs.group(1)), None)
+            if not o:
+                return self._json(404, {"error": "That deal is not on the book \u2014 refresh and try again."})
+            is_admin = str(u.get("role")) == "admin"
+            if not is_admin and str(o.get("partnerId") or "") != str(u.get("partnerId") or ""):
+                return self._json(403, {"error": "That deal belongs to another jeweller."})
+            if str(o.get("status") or "").lower() == "cancelled":
+                return self._json(400, {"error": "Deal " + str(o["id"]) + " was cancelled \u2014 there is nothing to settle."})
+            grams = dev_order_grams(o)
+            before = dev_order_settled(o)
+            remaining = round(grams - before, 3)
+            if remaining <= 0.0005:
+                return self._json(400, {"error": "Deal " + str(o["id"]) + " is already settled in full."})
+            try:
+                ask = float(body.get("grams")) if body.get("grams") not in (None, "") else remaining
+            except (TypeError, ValueError):
+                return self._json(400, {"error": "Enter the grams delivered."})
+            if ask <= 0:
+                return self._json(400, {"error": "Enter the grams delivered."})
+            if ask > remaining + 0.0005:
+                return self._json(400, {"error": "Only %s g is still open on %s." % (("%.3f" % remaining).rstrip("0").rstrip("."), o["id"])})
+            take = min(ask, remaining)
+            fine = bullion_purity_factor(o.get("purity"))
+            if fine <= 0 and grams > 0:
+                fine = float(o.get("fineGrams") or 0) / grams
+            rate = float(o.get("rate") or 0)
+            amount = int(round(rate * take))
+            tcs = int(round(amount * 0.001)) if str(o.get("side")) == "buy" else 0
+            slip = {"id": dev_slip_no(), "orderId": str(o["id"]),
+                    "partnerId": str(o.get("partnerId") or ""), "partnerName": str(o.get("partnerName") or ""),
+                    "side": str(o.get("side") or ""), "metal": str(o.get("metal") or ""),
+                    "purity": str(o.get("purity") or ""), "metKey": str(o.get("metKey") or ""),
+                    "grams": round(take, 3), "fineGrams": round(take * fine, 3),
+                    "rate": rate, "amount": amount, "tcs": tcs, "total": amount + tcs,
+                    "quoteNo": str(o.get("quoteNo") or ""),
+                    "note": str(body.get("note") or "")[:200], "by": str(u.get("name") or ""),
+                    "byRole": "office" if is_admin else "desk",
+                    "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+            DEV["bullionSlips"].append(slip)
+            after = round(before + take, 3)
+            o.setdefault("settlements", []).append(slip)
+            o["settledGrams"] = after
+            o["settledAt"] = slip["at"]
+            o["status"] = "Settled" if round(grams - after, 3) <= 0.0005 else "Partly settled"
+            return self._json(200, {"slip": dev_slip_view(slip), "order": o})
+        m_bc = re.match(r"^bullion/orders/([\w-]+)/cancel$", route)
+        if m_bc:
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            o = next((x for x in DEV["bullionOrders"] if str(x.get("id")) == m_bc.group(1)), None)
+            if not o:
+                return self._json(404, {"error": "That deal is not on the book."})
+            is_admin = str(u.get("role")) == "admin"
+            if not is_admin and str(o.get("partnerId") or "") != str(u.get("partnerId") or ""):
+                return self._json(403, {"error": "That deal belongs to another jeweller."})
+            if dev_order_settled(o) > 0.0005:
+                return self._json(400, {"error": "Metal has already been delivered against " + str(o["id"]) + " \u2014 the office must reverse it."})
+            o["status"] = "Cancelled"
+            o["cancelReason"] = str(body.get("reason") or "")[:200]
+            o["cancelledAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            o["cancelledBy"] = str(u.get("name") or "")
+            return self._json(200, o)
+        if route == "bullion/watch":
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            d = db()
+            valid = {str(r.get("key")) for r in bullion_rows(d)["rows"]}
+            keys = []
+            for k in (body.get("keys") or []):
+                k = str(k or "")[:40]
+                if k and k in valid and k not in keys:
+                    keys.append(k)
+                if len(keys) >= 12:
+                    break
+            DEV["partnerWatch"][str(u.get("partnerId") or "")] = keys
+            return self._json(200, {"watch": keys})
+
         if route == "orders":
             u = dev_token(self)
             if not u:
@@ -1699,7 +1889,17 @@ class Handler(SimpleHTTPRequestHandler):
             out["alerts"] = [a for a in DEV["bullionAlerts"]
                              if a.get("userId") == u.get("id") and not a.get("removed")]
             out["news"] = []
+            out["watch"] = list(DEV["partnerWatch"].get(str(u.get("partnerId") or "")) or [])
             return self._json(200, out)
+        if route == "bullion/daybook":
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            d = db()
+            book = dev_daybook(d, u, bullion_rows(d)["rows"])
+            book["partner"] = {"firm": str(u.get("name") or ""), "city": str(u.get("city") or "")}
+            book["isAdmin"] = str(u.get("role")) == "admin"
+            return self._json(200, book)
         if route == "bullion/orders":
             u = dev_token(self)
             if not u or u.get("role") not in ("partner", "admin"):

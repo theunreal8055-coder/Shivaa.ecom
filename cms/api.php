@@ -4366,17 +4366,22 @@ function bullion_desk_view(array $rows): array {
 function bullion_exposure(array $db, array $u, array $rows): array {
   $byKey = [];
   foreach ($rows as $r) $byKey[(string)($r['key'] ?? '')] = $r;
-  $openBuy = 0.0; $openSell = 0.0; $value = 0; $mtm = 0.0; $open = 0; $settled = 0;
+  $openBuy = 0.0; $openSell = 0.0; $value = 0; $mtm = 0.0; $open = 0; $settled = 0; $settledGrams = 0.0;
   foreach (($db['bullionOrders'] ?? []) as $o) {
     if ((string)($o['partnerId'] ?? '') !== (string)($u['partnerId'] ?? '')) continue;
     $st = strtolower((string)($o['status'] ?? ''));
     if ($st === 'cancelled') continue;
-    $grams = (float)($o['qty'] ?? 0) * (((string)($o['unit'] ?? 'g')) === 'kg' ? 1000 : 1);
+    /* v234 — a tranche that has been delivered is no longer open metal, and
+       its value is no longer exposure. Only the remaining grams are marked. */
+    $grams = bullion_order_grams($o);
+    $delivered = bullion_order_settled($o);
+    $settledGrams += $delivered;
+    $grams = round($grams - $delivered, 3);
     $done = in_array($st, ['delivered', 'settled', 'closed'], true);
-    if ($done) { $settled++; continue; }
+    if ($done || $grams <= 0.0005) { $settled++; continue; }
     $open++;
     if ((string)($o['side'] ?? '') === 'sell') $openSell += $grams; else $openBuy += $grams;
-    $value += (int)($o['amount'] ?? 0);
+    $value += (int)round((float)($o['rate'] ?? 0) * $grams);
     $cur = $byKey[(string)($o['metKey'] ?? '')] ?? null;
     if ($cur) {
       $now = (float)(((string)($o['side'] ?? '') === 'buy') ? ($cur['sell'] ?? 0) : ($cur['buy'] ?? 0));
@@ -4389,6 +4394,7 @@ function bullion_exposure(array $db, array $u, array $rows): array {
   return ['openDeals' => $open, 'settledDeals' => $settled,
     'openBuyGrams' => round($openBuy, 3), 'openSellGrams' => round($openSell, 3),
     'netGrams' => round($openBuy - $openSell, 3), 'openValue' => $value,
+    'settledGrams' => round($settledGrams, 3),
     'mtm' => (int)round($mtm)];
 }
 
@@ -4402,6 +4408,144 @@ function bullion_quote_no(array &$db): string {
   } while (isset($used[$id]) && $n < 10000);
   $db['bullionQuoteSeq'] = $n;
   return $id;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v234 · THE DESK APP — server side
+   ──────────────────────────────────────────────────────────────────────────
+   v233 gave the jeweller a firm quote. A quote is a price, not paperwork: the
+   moment metal changes hands the counter needs a numbered document, the day
+   needs a total, and the owner needs to know what is still open. This release
+   adds exactly three things and no new price source:
+
+     1 · THE DEALING SLIP.  Every settlement — in full or in tranches — writes
+         a numbered slip DS<yymd>-nnnn with grams, fine grams, rate, value, TCS
+         and who stamped it. An order can settle 40 g today and 60 g tomorrow;
+         the order keeps its remaining grams and its own status.
+     2 · THE DAY BOOK.  Today's buy/sell grams, fine grams, value, TCS, what is
+         settled and what is still open, in one answer the app prints or exports.
+     3 · THE WATCHLIST.  The rows a jeweller actually trades, saved per partner
+         so the board opens on his metals instead of all of them.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* DS<yymd>-<nnnn>, unique against every slip ever written. */
+function bullion_slip_no(array &$db): string {
+  $used = [];
+  foreach (($db['bullionSlips'] ?? []) as $s) if (!empty($s['id'])) $used[(string)$s['id']] = 1;
+  $n = max(0, (int)($db['bullionSlipSeq'] ?? 0));
+  do {
+    $n++;
+    $id = 'DS' . date('ymd') . '-' . str_pad((string)$n, 4, '0', STR_PAD_LEFT);
+  } while (isset($used[$id]) && $n < 10000);
+  $db['bullionSlipSeq'] = $n;
+  return $id;
+}
+
+/* grams on an order, whatever shape the order was written in */
+function bullion_order_grams(array $o): float {
+  if (isset($o['qtyGrams']) && is_numeric($o['qtyGrams'])) return (float)$o['qtyGrams'];
+  $mult = ((string)($o['unit'] ?? 'g')) === 'kg' ? 1000 : 1;
+  return (float)($o['qty'] ?? 0) * $mult;
+}
+
+/* grams already delivered against an order (partial settlements included) */
+function bullion_order_settled(array $o): float {
+  $g = 0.0;
+  foreach (($o['settlements'] ?? []) as $s) $g += (float)($s['grams'] ?? 0);
+  return round($g, 3);
+}
+
+/* one slip, as the app prints it */
+function bullion_slip_view(array $s, ?array $o = null): array {
+  return [
+    'slipNo' => (string)($s['id'] ?? ''),
+    'orderId' => (string)($s['orderId'] ?? ''),
+    'side' => (string)($s['side'] ?? ''),
+    'metal' => (string)($s['metal'] ?? ''),
+    'purity' => (string)($s['purity'] ?? ''),
+    'grams' => (float)($s['grams'] ?? 0),
+    'fineGrams' => (float)($s['fineGrams'] ?? 0),
+    'rate' => (float)($s['rate'] ?? 0),
+    'amount' => (int)($s['amount'] ?? 0),
+    'tcs' => (int)($s['tcs'] ?? 0),
+    'total' => (int)($s['total'] ?? 0),
+    'note' => (string)($s['note'] ?? ''),
+    'by' => (string)($s['by'] ?? ''),
+    'at' => (string)($s['at'] ?? ''),
+    'quoteNo' => (string)($o['quoteNo'] ?? ($s['quoteNo'] ?? '')),
+  ];
+}
+
+/* The day book. `today` is the server's own date — a jeweller's phone being on
+   another timezone must not move the totals to yesterday. */
+function bullion_daybook(array $db, array $u, array $rows): array {
+  $today = date('Y-m-d');
+  $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+  $pid = (string)($u['partnerId'] ?? '');
+  $byKey = [];
+  foreach ($rows as $r) $byKey[(string)($r['key'] ?? '')] = $r;
+
+  $tot = ['deals' => 0, 'buyGrams' => 0.0, 'sellGrams' => 0.0, 'buyFineGrams' => 0.0, 'sellFineGrams' => 0.0,
+    'buyValue' => 0, 'sellValue' => 0, 'tcs' => 0, 'settledGrams' => 0.0, 'settledValue' => 0,
+    'settledDeals' => 0, 'openDeals' => 0, 'openGrams' => 0.0, 'openValue' => 0, 'mtm' => 0];
+  $deals = [];
+  foreach (($db['bullionOrders'] ?? []) as $o) {
+    if (!$isAdmin && (string)($o['partnerId'] ?? '') !== $pid) continue;
+    $at = (string)($o['createdAt'] ?? '');
+    if (substr($at, 0, 10) !== $today) continue;
+    $grams = bullion_order_grams($o);
+    $settled = bullion_order_settled($o);
+    $remaining = round(max(0, $grams - $settled), 3);
+    $fine = bullion_purity_factor((string)($o['purity'] ?? ''));
+    $side = (string)($o['side'] ?? 'buy');
+    $amount = (int)($o['amount'] ?? 0);
+    $tcs = $side === 'buy' ? (int)round($amount * 0.001) : 0;
+    $st = (string)($o['status'] ?? 'New');
+    $low = strtolower($st);
+    $tot['deals']++;
+    if ($side === 'sell') { $tot['sellGrams'] += $grams; $tot['sellFineGrams'] += $grams * $fine; $tot['sellValue'] += $amount; }
+    else { $tot['buyGrams'] += $grams; $tot['buyFineGrams'] += $grams * $fine; $tot['buyValue'] += $amount; $tot['tcs'] += $tcs; }
+    $tot['settledGrams'] += $settled;
+    $tot['settledValue'] += (int)round((float)($o['rate'] ?? 0) * $settled);
+    if ($low !== 'cancelled') {
+      if ($remaining > 0.0005) {
+        $tot['openDeals']++; $tot['openGrams'] += $remaining; $tot['openValue'] += (int)round((float)($o['rate'] ?? 0) * $remaining);
+        $cur = $byKey[(string)($o['metKey'] ?? '')] ?? null;
+        if ($cur) {
+          $now = (float)(($side === 'buy') ? ($cur['sell'] ?? 0) : ($cur['buy'] ?? 0));
+          if ($now > 0) $tot['mtm'] += ($side === 'buy' ? 1 : -1) * ($now - (float)($o['rate'] ?? 0)) * $remaining;
+        }
+      } else { $tot['settledDeals']++; }
+    }
+    $deals[] = ['id' => (string)($o['id'] ?? ''), 'side' => $side,
+      'metal' => (string)($o['metal'] ?? ''), 'metKey' => (string)($o['metKey'] ?? ''),
+      'purity' => (string)($o['purity'] ?? ''), 'qty' => (float)($o['qty'] ?? 0),
+      'unit' => (string)($o['unit'] ?? 'g'), 'grams' => round($grams, 3),
+      'fineGrams' => round($grams * $fine, 3), 'rate' => (float)($o['rate'] ?? 0),
+      'amount' => $amount, 'tcs' => $tcs, 'status' => $st,
+      'quoteNo' => (string)($o['quoteNo'] ?? ''), 'createdAt' => $at,
+      'settledGrams' => $settled, 'remainingGrams' => $remaining,
+      'slips' => array_map(fn($s) => (string)($s['id'] ?? ''), array_values((array)($o['settlements'] ?? [])))];
+  }
+  foreach ($tot as $k => $v) {
+    if (in_array($k, ['buyGrams', 'sellGrams', 'buyFineGrams', 'sellFineGrams', 'settledGrams', 'openGrams'], true)) $tot[$k] = round((float)$v, 3);
+  }
+  $tot['mtm'] = (int)round($tot['mtm']);
+
+  $slips = [];
+  foreach (($db['bullionSlips'] ?? []) as $s) {
+    if (!$isAdmin && (string)($s['partnerId'] ?? '') !== $pid) continue;
+    if (substr((string)($s['at'] ?? ''), 0, 10) !== $today) continue;
+    $slips[] = bullion_slip_view($s);
+  }
+  return ['date' => $today, 'totals' => $tot, 'deals' => array_reverse($deals),
+    'slips' => array_reverse($slips), 'watch' => bullion_watch_of($db, $u)];
+}
+
+/* v234 — the rows this jeweller actually trades, in board order. Empty = all. */
+function bullion_watch_of(array $db, array $u): array {
+  $w = $db['partnerWatch'][(string)($u['partnerId'] ?? '')] ?? [];
+  return is_array($w) ? array_values($w) : [];
 }
 
 /* v57 ── personal occasion coupons (birthday / anniversary) ──
@@ -4926,7 +5070,7 @@ $db = db_load($DB_FILE);
 $GLOBALS['shv_black_pct'] = black_pct_setting($db);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit','storeBills'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','bullionSlips','bullionQuotes','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit','storeBills'] as $__k) $db[$__k] = $db[$__k] ?? [];
 
 /* v60 — lightweight audit trail for money/status actions */
 function audit_log(array &$db, string $what, array $meta = []): void {
@@ -7160,7 +7304,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 233,
+      'rel' => 234,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8109,6 +8253,15 @@ try {
       $myQuotes[] = $q0;
     }
     $out['quotes'] = array_slice(array_reverse($myQuotes), 0, 12);
+    /* v234 — the desk app opens on this jeweller's own rows */
+    $out['watch'] = bullion_watch_of($db, $u);
+    /* v234 — a quote is dead 90 seconds after it is written, so keeping a
+       month of them only slows the board. Anything older than a day goes. */
+    if (count($db['bullionQuotes'] ?? []) > 60) {
+      $cut = time() - 86400;
+      $db['bullionQuotes'] = array_values(array_filter($db['bullionQuotes'],
+        fn($q) => strtotime((string)($q['createdAt'] ?? '')) >= $cut));
+    }
     if (!$newsFresh) db_save($DB_FILE, $db);   // news cache refreshed (~every 45 min)
     jout(200, $out);
   }
@@ -8285,6 +8438,7 @@ try {
     }
     $ord = ['id' => biz_id('BL'), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
             'qty' => round($qty, 3), 'unit' => $unit, 'rate' => $rate,
+            'purity' => (string)($br['purity'] ?? ''),   // v234 — a slip needs it
             'amount' => (int)round($rate * $qty * $mult), 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300),
             'quoteNo' => $quote ? (string)$quote['id'] : '',
             'qtyGrams' => round($qty * $mult, 3),
@@ -8308,6 +8462,130 @@ try {
     $list = $db['bullionOrders'] ?? [];
     if ($u['role'] !== 'admin') $list = array_values(array_filter($list, fn($o) => ($o['partnerId'] ?? '') === ($u['partnerId'] ?? '')));
     jout(200, ['orders' => array_reverse($list)]);
+  }
+
+  /* ── v234 · the desk app: day book, dealing slips, watchlist ─────────────
+     Three endpoints, no new price source. The board still comes from
+     bullion_rows(), quotes still come from bullion/quote — these only record
+     what the counter did with them. */
+
+  /* The day book: today's trades, what is settled (with slip numbers) and what
+     is still open, marked to the live board. A partner sees his own book; an
+     admin sees every partner's, which is how the office reconciles the day. */
+  if ($route === 'bullion/daybook' && $method === 'GET') {
+    $u = require_partner_approved($db, req_user($db));
+    $rows = bullion_rows($db)['rows'];
+    $book = bullion_daybook($db, $u, $rows);
+    $book['partner'] = ['firm' => (string)($u['name'] ?? ''), 'city' => (string)($u['city'] ?? '')];
+    $book['isAdmin'] = ((string)($u['role'] ?? '')) === 'admin';
+    jout(200, $book);
+  }
+
+  /* Settle an order — in full, or in tranches ("40 g aaj, 60 g kal"). Each
+     settlement writes a numbered slip and the order keeps its own remaining
+     grams, so no delivery can ever be counted twice. */
+  if (preg_match('#^bullion/orders/([\w-]+)/settle$#', $route, $mBS) && $method === 'POST') {
+    $u = require_partner_approved($db, req_user($db));
+    $b = body_json();
+    $idx = null;
+    foreach (($db['bullionOrders'] ?? []) as $i0 => $o0) {
+      if ((string)($o0['id'] ?? '') === $mBS[1]) { $idx = $i0; break; }
+    }
+    if ($idx === null) jout(404, ['error' => 'That deal is not on the book — refresh and try again.']);
+    $o = $db['bullionOrders'][$idx];
+    $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+    if (!$isAdmin && (string)($o['partnerId'] ?? '') !== (string)($u['partnerId'] ?? ''))
+      jout(403, ['error' => 'That deal belongs to another jeweller.']);
+    if (strtolower((string)($o['status'] ?? '')) === 'cancelled')
+      jout(400, ['error' => 'Deal ' . $o['id'] . ' was cancelled — there is nothing to settle.']);
+    $grams = bullion_order_grams($o);
+    $settledBefore = bullion_order_settled($o);
+    $remaining = round($grams - $settledBefore, 3);
+    if ($remaining <= 0.0005)
+      jout(400, ['error' => 'Deal ' . $o['id'] . ' is already settled in full.']);
+    $ask = is_numeric($b['grams'] ?? null) ? (float)$b['grams'] : $remaining;
+    if ($ask <= 0 || !is_finite($ask))
+      jout(400, ['error' => 'Enter the grams delivered.']);
+    if ($ask > $remaining + 0.0005)
+      jout(400, ['error' => 'Only ' . rtrim(rtrim(number_format($remaining, 3, '.', ''), '0'), '.')
+        . ' g is still open on ' . $o['id'] . '.']);
+    $take = min($ask, $remaining);
+    $fine = bullion_purity_factor((string)($o['purity'] ?? ''));
+    /* orders written before v234 carry fineGrams but no purity string */
+    if ($fine <= 0 && $grams > 0) $fine = (float)($o['fineGrams'] ?? 0) / $grams;
+    $rate = (float)($o['rate'] ?? 0);
+    $amount = (int)round($rate * $take);
+    $tcs = ((string)($o['side'] ?? '')) === 'buy' ? (int)round($amount * 0.001) : 0;
+    $slip = ['id' => bullion_slip_no($db), 'orderId' => (string)$o['id'],
+      'partnerId' => (string)($o['partnerId'] ?? ''), 'partnerName' => (string)($o['partnerName'] ?? ''),
+      'side' => (string)($o['side'] ?? ''), 'metal' => (string)($o['metal'] ?? ''),
+      'purity' => (string)($o['purity'] ?? ''), 'metKey' => (string)($o['metKey'] ?? ''),
+      'grams' => round($take, 3), 'fineGrams' => round($take * $fine, 3),
+      'rate' => $rate, 'amount' => $amount, 'tcs' => $tcs, 'total' => $amount + $tcs,
+      'quoteNo' => (string)($o['quoteNo'] ?? ''),
+      'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 200),
+      'by' => (string)($u['name'] ?? ''), 'byRole' => $isAdmin ? 'office' : 'desk',
+      'at' => now_iso()];
+    $db['bullionSlips'] = array_slice(array_merge(is_array($db['bullionSlips'] ?? null) ? $db['bullionSlips'] : [], [$slip]), -2000);
+    $after = round($settledBefore + $take, 3);
+    $db['bullionOrders'][$idx]['settlements'][] = $slip;
+    $db['bullionOrders'][$idx]['settledGrams'] = $after;
+    $db['bullionOrders'][$idx]['settledAt'] = now_iso();
+    $db['bullionOrders'][$idx]['status'] = ($grams - $after) <= 0.0005 ? 'Settled' : 'Partly settled';
+    audit_log($db, 'bullion.settle', ['order' => (string)$o['id'], 'slip' => $slip['id'],
+      'grams' => $slip['grams'], 'by' => $u['name']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['slip' => bullion_slip_view($slip, $db['bullionOrders'][$idx]),
+      'order' => $db['bullionOrders'][$idx]]);
+  }
+
+  /* Cancel an order — the desk's own mistake, before any metal moved. */
+  if (preg_match('#^bullion/orders/([\w-]+)/cancel$#', $route, $mBC) && $method === 'POST') {
+    $u = require_partner_approved($db, req_user($db));
+    $b = body_json();
+    $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+    $hit = false;
+    foreach ($db['bullionOrders'] as &$o1) {
+      if ((string)($o1['id'] ?? '') !== $mBC[1]) continue;
+      if (!$isAdmin && (string)($o1['partnerId'] ?? '') !== (string)($u['partnerId'] ?? ''))
+        jout(403, ['error' => 'That deal belongs to another jeweller.']);
+      if (bullion_order_settled($o1) > 0.0005)
+        jout(400, ['error' => 'Metal has already been delivered against ' . $o1['id'] . ' — the office must reverse it.']);
+      $o1['status'] = 'Cancelled';
+      $o1['cancelReason'] = mb_substr(trim((string)($b['reason'] ?? '')), 0, 200);
+      $o1['cancelledAt'] = now_iso();
+      $o1['cancelledBy'] = (string)($u['name'] ?? '');
+      $hit = true;
+      $out = $o1;
+      break;
+    }
+    unset($o1);
+    if (!$hit) jout(404, ['error' => 'That deal is not on the book.']);
+    audit_log($db, 'bullion.cancel', ['order' => $mBC[1], 'by' => $u['name'],
+      'reason' => (string)($out['cancelReason'] ?? '')]);
+    db_save($DB_FILE, $db);
+    jout(200, $out);
+  }
+
+  /* The watchlist: the rows this desk actually trades. Saved per partner so a
+     phone, a PC and the counter all open on the same four metals. */
+  if ($route === 'bullion/watch' && $method === 'POST') {
+    $u = require_partner_approved($db, req_user($db));
+    $b = body_json();
+    $rows = bullion_rows($db)['rows'];
+    $valid = [];
+    foreach ($rows as $r) $valid[(string)($r['key'] ?? '')] = 1;
+    $keys = [];
+    foreach ((array)($b['keys'] ?? []) as $k) {
+      $k = substr(trim((string)$k), 0, 40);
+      if ($k !== '' && isset($valid[$k]) && !in_array($k, $keys, true)) $keys[] = $k;
+      if (count($keys) >= 12) break;
+    }
+    $pid = (string)($u['partnerId'] ?? '');
+    $db['partnerWatch'][$pid] = $keys;
+    audit_log($db, 'bullion.watch', ['partner' => $pid, 'keys' => implode(',', $keys)]);
+    db_save($DB_FILE, $db);
+    jout(200, ['watch' => $keys]);
   }
 
   /* v187 — private, admin-only business-card streaming. Partner IDs are

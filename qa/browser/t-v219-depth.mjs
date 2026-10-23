@@ -44,10 +44,10 @@ T('stillness: no filter or background-position animation in v219', !/filter:\s*(
 
 // 5 · wiring and stamps
 T('the bundle carries the v219 layer and index loads v219.js',
-  CSS_BUNDLE.includes('/* v219.css */') && index.includes('/js/v219.js?v=233'));
+  CSS_BUNDLE.includes('/* v219.css */') && index.includes('/js/v219.js?v=234'));
 T('sw precaches the bundle + v219.js and names shell v226',
-  sw.includes('shivaa-shell-v233') && sw.includes('/css/shivaa.css?v=233') && sw.includes('/js/v219.js?v=233') && sw.includes('const REL = 233;'));
-T('app.js APP_REL = 233', app.includes('const APP_REL = 233;'));
+  sw.includes('shivaa-shell-v234') && sw.includes('/css/shivaa.css?v=234') && sw.includes('/js/v219.js?v=234') && sw.includes('const REL = 234;'));
+T('app.js APP_REL = 234', app.includes('const APP_REL = 234;'));
 
 // 6 · jsdom: the 10 g entry is present on the home page
 const { doc } = await boot('#/', { mobile: false });

@@ -77,7 +77,9 @@ const STYLES = stripCss(read('cms/css/styles.css'));
 
 /* the v232 block of the shipped bundle: everything after its provenance mark */
 const at232 = BUNDLE.lastIndexOf('/* v232.css */');
-const SHIPPED = at232 >= 0 ? BUNDLE.slice(at232) : '';
+const at234 = BUNDLE.lastIndexOf('/* v234.css */');
+const SHOP_LAYERS = at234 >= 0 ? BUNDLE.slice(0, at234) : BUNDLE;   // everything the shopper loads
+const SHIPPED = at232 >= 0 ? SHOP_LAYERS.slice(at232) : '';
 
 /* ── 1 · the two loops that never slept ───────────────────────────────── */
 T('loops: the interpolator no longer schedules itself unconditionally',
@@ -210,7 +212,8 @@ T('blur: the fill it leaves behind is the one motion.css ships, closed from .96 
   /background:rgba\(255,252,244,\.96\);backdrop-filter:blur\(6px\)/.test(WS(MOTION).replace(/,\s/g, ',')) &&
   Math.abs((1 - 0.98) * 255 - 5.1) < 0.01 && Math.abs((1 - 0.96) * 255 - 10.2) < 0.01);
 T('blur: the fixed bars keep their glass — this release measured them and chose',
-  !/\.header|\.utilbar|\.pd-stickybar|\.mnav|#pdpBuybar|\.mcta-bar|\.kyc-bar/.test(SHIPPED.replace(/#cursorGlow/, '')));
+  !/\.header|\.utilbar|\.pd-stickybar|\.mnav|#pdpBuybar|\.mcta-bar|\.kyc-bar/.test(SHIPPED.replace(/#cursorGlow/, '')),
+  'measured on the shop layers; v234\'s desk layer hides those bars on /desk.html only');
 T('blur: a desktop still gets the blur, because there hover reveals it over a photograph',
   /\.pc-quick\{position:absolute;[^}]*backdrop-filter:blur\(6px\)/.test(WS(MOTION)) &&
   (WS(V232).match(/(?<!-webkit-)backdrop-filter: none/g) || []).length === 3,
@@ -246,20 +249,20 @@ T('layer: every !important in it is a transform, a transition or a display — n
   V232.split('\n').filter(l => l.includes('!important') && !/transform|transition|display|will-change/.test(l)).join(' | '));
 
 /* ── 6 · stamps, bundle ───────────────────────────────────────────────── */
-T('stamps: every carrier is at 233',
-  (INDEX.match(/\?v=233/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*233/.test(INDEX) &&
-  /shivaa-shell-v233/.test(SW) && /const REL = 233/.test(SW) && (SW.match(/\?v=233/g) || []).length === 31 &&
-  /APP_REL = 233/.test(APP) && /'rel' => 233/.test(API));
+T('stamps: every carrier is at 234',
+  (INDEX.match(/\?v=234/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*234/.test(INDEX) &&
+  /shivaa-shell-v234/.test(SW) && /const REL = 234/.test(SW) && (SW.match(/\?v=234/g) || []).length === 32 &&
+  /APP_REL = 234/.test(APP) && /'rel' => 234/.test(API));
 T('stamps: no carrier was left behind at 231',
   !/\?v=231/.test(INDEX) && !/\?v=231/.test(SW) && !/__SHIVAA_REL=231/.test(INDEX) &&
   !/shivaa-shell-v231/.test(SW) && !/APP_REL = 231/.test(APP) && !/'rel' => 231/.test(API));
-T('bundle: v233.css is last in the cascade order, and in the bundle exactly once',
-  ORDER[ORDER.length - 1] === 'v233.css' && ORDER[ORDER.length - 2] === 'v232.css' &&
+T('bundle: v234.css is last in the cascade order, and in the bundle exactly once',
+  ORDER[ORDER.length - 1] === 'v234.css' && ORDER[ORDER.length - 2] === 'v233.css' &&
   (BUNDLE.match(/^\/\* v232\.css \*\/$/gm) || []).length === 1 &&
-  BUNDLE.lastIndexOf('/* v233.css */') > BUNDLE.lastIndexOf('/* v232.css */'),
+  BUNDLE.lastIndexOf('/* v234.css */') > BUNDLE.lastIndexOf('/* v233.css */'),
   ORDER.slice(-2).join(' → '));
 T('bundle: still exactly one blocking stylesheet',
-  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=233'));
+  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=234'));
 T('bundle: this release adds no new request — the governors live in app.js',
   !INDEX.includes('/js/v232.js') && !SW.includes('/js/v232.js') &&
   (INDEX.match(/<script src="\/js\//g) || []).length === 24,

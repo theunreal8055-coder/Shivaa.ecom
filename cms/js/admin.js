@@ -2808,6 +2808,22 @@ async function renderPartner(view) {
     <main class="adm-main">
       <div class="adm-head"><h2>Namaste, ${esc(partner?.contactPerson || partner?.firm || 'Partner')}</h2>
         <span class="src-badge src-live"><span class="live-dot"></span>Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div>
+      <!-- v234 · the desk's own tool row: the same actions a counter reaches for
+           first, on a PC with a keyboard and on a phone with a thumb. -->
+      <div class="shv-desk-tools" data-desk-tools>
+        <button type="button" class="shv-tool" data-desk="refresh" onclick="ShivaaBullion.refresh(true);Shivaa.toast('Rates refreshed ✦')">↻ Refresh</button>
+        <button type="button" class="shv-tool" onclick="ShivaaBullion.menuGo('calc')">🧮 Quote</button>
+        <button type="button" class="shv-tool" onclick="ShivaaBullion.menuGo('book')">📒 Day book</button>
+        <button type="button" class="shv-tool" onclick="ShivaaBullion.menuGo('deals')">🤝 Deals</button>
+        <button type="button" class="shv-tool" data-desk="mine" onclick="ShivaaBullion.toggleMine()">★ My metals</button>
+        <button type="button" class="shv-tool" data-desk="keys" onclick="ShivaaDeskKeys()">⌨ Keys</button>
+        <button type="button" class="shv-tool" data-desk="density" onclick="ShivaaBullion.toggleDensity()">⇕ Rows</button>
+        <button type="button" class="shv-tool" data-desk="wake" title="Keep the screen on">☀ Awake</button>
+        <span class="shv-spacer"></span>
+        <span class="shv-net"><i></i><b data-desk-net>live</b></span>
+        <button type="button" class="shv-tool" data-desk="full" onclick="if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen().catch(()=>{})}">⛶ Full</button>
+      </div>
+      <button type="button" class="shv-install" data-desk-install hidden>⬇ <b>Install the desk</b></button>
       <!-- ══ PRIMARY HIGHLIGHT · METAL INVESTMENT SCHEME ══ -->
       <a class="mtl-prime" href="#/metal" data-sec="dash">
         <div class="mp-glow" aria-hidden="true"></div>
@@ -4873,6 +4889,503 @@ window.ShivaaAdmin.billDelete = async (id, billNo) => {
     }
     return origRenderSection.call(this);
   };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v234 · THE DESK APP — the counter side of the jeweller's desk
+   ──────────────────────────────────────────────────────────────────────────
+   v233 made the price honest (fine grams, a firm 90-second quote). This adds
+   what happens AFTER the quote: metal arrives, and somebody has to write it
+   down. Three things, all reading the same board:
+
+     1 · THE DAY BOOK (`secBook`).  Today's buy and sell grams, fine grams,
+         value, TCS, what is settled and what is still open, plus a row per
+         deal with its remaining grams and the slips already written.
+     2 · SETTLE — in full or in tranches.  Every settlement writes a numbered
+         slip (DS…); the order keeps its remaining grams, so 40 g today and
+         60 g tomorrow can never be counted as 200 g. An order can be
+         cancelled only while no metal has moved.
+     3 · THE WATCHLIST.  The four rows this desk actually trades, pinned per
+         partner, with a "My metals" filter for a four-row board.
+
+   Plus the two things a counter asks for on day one: the fine price written
+   on every row (not only in the summary), and a keyboard map for the PC.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  const B = window.ShivaaBullion;
+  if (!B) return;
+  const api = window.Shivaa.api;
+  const esc = window.Shivaa.esc;
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const inr = v => (Math.round(Number(v) || 0)).toLocaleString('en-IN');
+  const money = v => '₹' + inr(v);
+  const g3 = v => {
+    const n = Math.round((Number(v) || 0) * 1000) / 1000;
+    return n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+  };
+  const when = iso => {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+  const csv = (rows) => rows.map(a => a.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const download = (name, text) => {
+    try {
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(href); a.remove(); } catch (e) {} }, 0);
+      window.Shivaa.toast('Downloaded ✦ ' + name);
+    } catch (e) { window.Shivaa.toast('This browser cannot download the file', 'err'); }
+  };
+  const watchKeys = () => (B.B && Array.isArray(B.B.watch)) ? B.B.watch : [];
+
+  /* ───────── 1 · the fine price on every row, and the pin ───────── */
+  const ORDER = ['tdsGold995', 'tdsGold9999', 'silverChorsa', 'silverPeti', 'goldIndian',
+    'goldRef9930', 'silverKachcha', 'silverPetiBulk', 'silverGrn999', 'goldImport995'];
+  const sortedRows = () => ((B.B && B.B.rows) || []).slice().sort((a, b) => {
+    const ia = ORDER.indexOf(a.key), ib = ORDER.indexOf(b.key);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  function decorateRows(host) {
+    const rows = sortedRows();
+    const meta = ((B.B && B.B.desk && B.B.desk.rows) || {});
+    const w = watchKeys();
+    $$('.bd-row', host).forEach((el, i) => {
+      const r = rows[i];
+      if (!r) return;
+      el.setAttribute('data-rowkey', r.key);
+      el.classList.toggle('bd-mine', w.includes(r.key));
+      if (B.mineOnly && !w.includes(r.key)) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      const m = meta[r.key] || {};
+      const desc = $('.bd-desc', el);
+      if (desc && !$('[data-fine]', desc)) {
+        const fine = document.createElement('em');
+        fine.className = 'bd-fine';
+        fine.setAttribute('data-fine', r.key);
+        fine.textContent = m.fineBuy ? 'fine ' + money(m.fineBuy) + '/g · spread ' + money(m.spread) + '/g' : '';
+        const star = document.createElement('button');
+        star.type = 'button';
+        star.className = 'bd-watchbtn' + (w.includes(r.key) ? ' on' : '');
+        star.setAttribute('data-watch', r.key);
+        star.title = w.includes(r.key) ? 'Unpin from My metals' : 'Pin to My metals';
+        star.textContent = '★';
+        star.onclick = (ev) => { ev.stopPropagation(); B.toggleWatch(r.key); };
+        desc.appendChild(fine);
+        desc.appendChild(star);
+      } else if (desc) {
+        const fine = $('[data-fine]', desc);
+        if (fine) fine.textContent = m.fineBuy ? 'fine ' + money(m.fineBuy) + '/g · spread ' + money(m.spread) + '/g' : '';
+        const star = $('[data-watch]', desc);
+        if (star) star.className = 'bd-watchbtn' + (w.includes(r.key) ? ' on' : '');
+      }
+    });
+  }
+
+  B.toggleWatch = async function (key) {
+    const w = watchKeys().slice();
+    const i = w.indexOf(key);
+    if (i >= 0) w.splice(i, 1); else { if (w.length >= 12) w.shift(); w.push(key); }
+    if (this.B) this.B.watch = w;
+    try {
+      const res = await api('/api/bullion/watch', { method: 'POST', body: JSON.stringify({ keys: w }) });
+      if (this.B && res && Array.isArray(res.watch)) this.B.watch = res.watch;
+      window.Shivaa.toast(i >= 0 ? 'Unpinned ✦' : 'Pinned to My metals ✦');
+    } catch (e) {
+      window.Shivaa.toast(e.message || 'Could not save your metals', 'err');
+    }
+    const host = document.getElementById('bdSection');
+    if (host && this.section === 'rates') this.secRates(host);
+  };
+
+  B.toggleMine = function () {
+    this.mineOnly = !this.mineOnly;
+    const btn = document.querySelector('[data-desk="mine"]');
+    if (btn) btn.classList.toggle('is-on', !!this.mineOnly);
+    if (!watchKeys().length && this.mineOnly) {
+      this.mineOnly = false;
+      if (btn) btn.classList.remove('is-on');
+      window.Shivaa.toast('Pin a metal with ★ first — then "My metals" filters the board', 'err');
+      return;
+    }
+    const host = document.getElementById('bdSection');
+    if (host && this.section === 'rates') this.secRates(host);
+  };
+
+  B.toggleDensity = function () {
+    const on = document.documentElement.classList.toggle('shv-compact');
+    try { localStorage.setItem('shv_desk_compact', on ? '1' : '0'); } catch (e) {}
+    const btn = document.querySelector('[data-desk="density"]');
+    if (btn) btn.classList.toggle('is-on', on);
+    window.Shivaa.toast(on ? 'Compact rows ✦ more of the board on screen' : 'Comfortable rows ✦');
+  };
+  try {
+    if (localStorage.getItem('shv_desk_compact') === '1') document.documentElement.classList.add('shv-compact');
+  } catch (e) {}
+
+  /* ───────── 2 · the day book ───────── */
+  B.secBook = function (host) {
+    host.innerHTML = `<h4 class="bd-sech">Day book</h4>
+      <div class="bd-deal-top-acts">
+        <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaBullion.menuGo('calc')">🧮 New quote</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.bookCSV()">⬇ CSV</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.printBook()">🖶 Print</button>
+      </div>
+      <div class="loading-spin"></div>`;
+    api('/api/bullion/daybook').then(b => {
+      this.book = b;
+      paintBook(host, b);
+    }).catch(e => {
+      host.innerHTML = `<h4 class="bd-sech">Day book</h4>
+        <p class="partner-note">${esc(e.message || 'The day book did not load')} — the board is still live above.
+        <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.menuGo('book')">Try again</button></p>`;
+    });
+  };
+
+  function paintBook(host, b) {
+    const t = b.totals || {};
+    const day = new Date((b.date || '') + 'T00:00:00');
+    const dayTxt = isNaN(day) ? (b.date || 'today') : day.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' });
+    const tot = (label, value, sub) => `<div><small>${label}</small><b>${value}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
+    const deals = b.deals || [];
+    const slips = b.slips || [];
+
+    host.innerHTML = `<h4 class="bd-sech">Day book · ${esc(dayTxt)}</h4>
+      <div class="bd-deal-top-acts">
+        <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaBullion.menuGo('calc')">🧮 New quote</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.bookCSV()">⬇ CSV</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.printBook()">🖶 Print</button>
+      </div>
+      <div class="bd-book">
+        <div class="bd-book-tot">
+          ${tot('Bought today', g3(t.buyGrams) + ' g', g3(t.buyFineGrams) + ' g fine · ' + money(t.buyValue))}
+          ${tot('Sold today', g3(t.sellGrams) + ' g', g3(t.sellFineGrams) + ' g fine · ' + money(t.sellValue))}
+          ${tot('Settled', g3(t.settledGrams) + ' g', slips.length + ' slip(s) · ' + money(t.settledValue))}
+          ${tot('Still open', g3(t.openGrams) + ' g', t.openDeals + ' deal(s) · ' + money(t.openValue))}
+          ${tot('TCS (buy, 0.1%)', money(t.tcs), 'collected on your buys')}
+          ${tot('Mark to board', (t.mtm >= 0 ? '+' : '−') + money(Math.abs(t.mtm || 0)), t.settledDeals + ' deal(s) settled')}
+        </div>
+        <h5 class="bd-sech" style="margin:6px 0 2px">Today's deals</h5>
+        ${deals.length ? `<div class="bd-book-list">${deals.map(d => {
+          const left = Number(d.remainingGrams) || 0;
+          const done = left <= 0.0005 || d.status === 'Cancelled';
+          const canCancel = !done && (Number(d.settledGrams) || 0) <= 0.0005 && d.status !== 'Cancelled';
+          return `<div class="bd-book-row ${done ? 'done' : ''}">
+            <div class="bk-main">
+              <b>${d.side === 'buy' ? 'BUY' : 'SELL'} · ${esc(d.metal)}</b>
+              <small>${esc(d.id)} · ${g3(d.grams)} g${d.fineGrams ? ' (' + g3(d.fineGrams) + ' g fine)' : ''} @ ${money(d.rate)}/g
+                · ${money(d.amount)}${d.tcs ? ' + TCS ' + money(d.tcs) : ''} · ${esc(when(d.createdAt))}
+                ${d.quoteNo ? ' · quote ' + esc(d.quoteNo) : ''}</small>
+              ${(d.slips && d.slips.length) ? `<small>Slips: ${d.slips.map(s => '<b>' + esc(s) + '</b>').join(' · ')}</small>` : ''}
+              <div class="bk-acts">
+                ${left > 0.0005 && d.status !== 'Cancelled'
+                  ? `<button type="button" class="btn btn-gold btn-sm" onclick="ShivaaBullion.openSettle('${esc(d.id)}')">✔ Settle ${g3(left)} g</button>` : ''}
+                ${canCancel ? `<button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.cancelDeal('${esc(d.id)}')">✕ Cancel</button>` : ''}
+                <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaBullion.jumpRate('${esc(d.metKey)}')">Board</button>
+              </div>
+            </div>
+            <div class="bk-num">
+              <b>${left > 0.0005 ? g3(left) + ' g open' : esc(d.status)}</b>
+              <small>${esc(d.status)}</small>
+            </div>
+          </div>`;
+        }).join('')}</div>` : '<p class="partner-note">No deals yet today. A quote becomes a deal when you place the order — then it appears here with its slip.</p>'}
+        <h5 class="bd-sech" style="margin:10px 0 2px">Dealing slips (${slips.length})</h5>
+        ${slips.length ? `<div class="bd-book-list">${slips.map(s => `<div class="bd-book-row">
+            <div class="bk-main bd-slip">
+              <b>${esc(s.slipNo)}</b> · ${s.side === 'buy' ? 'BUY' : 'SELL'} ${esc(s.metal)} · ${g3(s.grams)} g
+              ${s.fineGrams ? '(' + g3(s.fineGrams) + ' g fine) ' : ''}@ ${money(s.rate)}/g
+              <small>${esc(when(s.at))} · ${money(s.amount)}${s.tcs ? ' + TCS ' + money(s.tcs) : ''} · ${esc(s.by || '')}${s.note ? ' · ' + esc(s.note) : ''}${s.quoteNo ? ' · quote ' + esc(s.quoteNo) : ''}</small>
+            </div>
+            <div class="bk-num"><b>${money(s.total)}</b>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaBullion.printSlip('${esc(s.slipNo)}')">🖶</button></div>
+          </div>`).join('')}</div>` : '<p class="partner-note">No slips yet today. A slip is written the moment you settle a deal — in full, or in tranches.</p>'}
+        ${b.isAdmin ? '<p class="partner-note">You are signed in as the office: this book shows every partner\'s deals.</p>' : ''}
+      </div>`;
+  }
+
+  B.openSettle = function (id) {
+    const d = ((this.book && this.book.deals) || []).find(x => x.id === id);
+    if (!d) { window.Shivaa.toast('Refresh the day book first', 'err'); return; }
+    const left = Number(d.remainingGrams) || 0;
+    window.Shivaa.openModal(`<h3>Settle ${esc(id)}</h3>
+      <p style="font-size:13px;color:var(--ink-2);line-height:1.8">${d.side === 'buy' ? 'Buying' : 'Selling'} ${esc(d.metal)} · ${g3(d.grams)} g at ${money(d.rate)}/g.
+      <b>${g3(left)} g is still open.</b> Enter what was delivered — the slip is written now, and the rest stays open.</p>
+      <div class="form-grid">
+        <div class="fld full"><label>Grams delivered *</label>
+          <input id="bsGrams" type="number" min="0.001" step="0.001" value="${left}" inputmode="decimal"></div>
+        <div class="fld full"><label>Note (settlement ref, delivery person)</label>
+          <input id="bsNote" placeholder="e.g. counter, 40 g bar"></div>
+        <div class="fld full" style="background:var(--gold-faint);border-radius:12px;padding:10px 12px;font-size:12.5px">
+          This will write a numbered slip and mark ${'<b>'}the order${'</b>'} settled or partly settled.
+        </div>
+      </div>
+      <button class="btn btn-gold btn-block" style="margin-top:12px" onclick="ShivaaBullion.settleNow('${esc(id)}')">✔ Write the slip</button>`);
+  };
+
+  B.settleNow = async function (id) {
+    const gramsEl = document.getElementById('bsGrams');
+    const noteEl = document.getElementById('bsNote');
+    const grams = Number(gramsEl && gramsEl.value) || 0;
+    if (grams <= 0) { window.Shivaa.toast('Enter the grams delivered', 'err'); return; }
+    const btn = document.querySelector('#modalBox .btn-block');
+    if (btn) { btn.disabled = true; btn.textContent = 'Writing the slip…'; }
+    try {
+      const res = await api('/api/bullion/orders/' + encodeURIComponent(id) + '/settle', {
+        method: 'POST', body: JSON.stringify({ grams, note: (noteEl && noteEl.value) || '' }),
+      });
+      const slip = res.slip || {};
+      window.Shivaa.openModal(`<div class="center">
+        <div style="font-size:38px">✔</div>
+        <h3 style="margin:8px 0">Slip ${esc(slip.slipNo || '')} written</h3>
+        <p style="font-size:13px;color:var(--ink-2);line-height:1.8">${g3(slip.grams)} g ${esc(slip.metal || '')} @ ${money(slip.rate)}/g<br>
+          ${money(slip.amount)}${slip.tcs ? ' + TCS ' + money(slip.tcs) : ''} · total <b>${money(slip.total)}</b><br>
+          <small>${esc(id)} is now ${esc((res.order && res.order.status) || 'settled')}${res.order && Number(res.order.settledGrams) ? ' · ' + g3(res.order.settledGrams) + ' g delivered' : ''}</small></p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+          <button class="btn btn-gold" onclick="ShivaaBullion.printSlip('${esc(slip.slipNo || '')}')">🖶 Print slip</button>
+          <button class="btn btn-outline" onclick="ShivaaBullion.shareSlip('${esc(slip.slipNo || '')}')">📤 Share</button>
+        </div></div>`);
+      window.Shivaa.toast('Slip ' + (slip.slipNo || '') + ' ✦');
+      if (this.section === 'book') this.menuGo('book');
+      this.refresh(true);
+    } catch (e) {
+      window.Shivaa.toast(e.message || 'Could not settle this deal', 'err');
+      if (btn) { btn.disabled = false; btn.textContent = '✔ Write the slip'; }
+    }
+  };
+
+  B.cancelDeal = function (id) {
+    window.Shivaa.openModal(`<h3>Cancel ${esc(id)}?</h3>
+      <p style="font-size:13px;color:var(--ink-2);line-height:1.8">No metal has moved on this deal, so it can be cancelled. Once a slip is written the office has to reverse it instead.</p>
+      <div class="fld full"><label>Reason (kept on the record)</label><input id="bcReason" placeholder="e.g. quantity typed wrong"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="ShivaaBullion.cancelNow('${esc(id)}')">Cancel this deal</button>`);
+  };
+  B.cancelNow = async function (id) {
+    const reason = (document.getElementById('bcReason') || {}).value || '';
+    try {
+      await api('/api/bullion/orders/' + encodeURIComponent(id) + '/cancel', {
+        method: 'POST', body: JSON.stringify({ reason }),
+      });
+      window.Shivaa.closeModal();
+      window.Shivaa.toast('Deal ' + id + ' cancelled');
+      if (this.section === 'book') this.menuGo('book');
+      this.refresh(true);
+    } catch (e) { window.Shivaa.toast(e.message || 'Could not cancel this deal', 'err'); }
+  };
+
+  const slipOf = (no) => ((B.book && B.book.slips) || []).find(s => s.slipNo === no) || null;
+
+  B.printSlip = function (no) {
+    const s = slipOf(no);
+    if (!s) { window.Shivaa.toast('Open the day book first, then print the slip', 'err'); return; }
+    const w = window.open('', '_blank');
+    if (!w) { window.Shivaa.toast('Allow pop-ups to print the slip', 'err'); return; }
+    w.document.write(`<!doctype html><html><head><title>Slip ${esc(s.slipNo)}</title><style>
+      body{font-family:Arial,Helvetica,sans-serif;max-width:380px;margin:14px auto;padding:0 12px;font-size:12.5px;color:#111}
+      h2{font-size:15px;margin:0 0 2px;letter-spacing:.08em}.sub{font-size:11px;color:#555;margin-bottom:8px}
+      .no{font-size:13px;font-weight:700;letter-spacing:.06em;border-top:1px solid #111;border-bottom:1px solid #111;padding:5px 0;margin:8px 0}
+      table{width:100%;border-collapse:collapse}td{padding:4px 0;border-bottom:1px dashed #bbb}
+      .r{text-align:right}.tot td{border-bottom:0;font-weight:700;font-size:14px;padding-top:8px}
+      .fine{font-size:11px;color:#555;margin-top:8px}
+      @media print{@page{size:80mm auto;margin:4mm}}
+    </style></head><body>
+      <h2>SHIVAA BULLION DESK</h2><div class="sub">Jayal, Nagaur · +91 89050 05921 · GSTIN on request</div>
+      <div class="no">DEALING SLIP · ${esc(s.slipNo)}</div>
+      <table>
+        <tr><td>Date</td><td class="r">${esc(when(s.at))}</td></tr>
+        <tr><td>Order</td><td class="r">${esc(s.orderId)}</td></tr>
+        <tr><td>Trade</td><td class="r">${s.side === 'buy' ? 'BUY' : 'SELL'} ${esc(s.metal)}</td></tr>
+        <tr><td>Purity</td><td class="r">${esc(s.purity || '—')}</td></tr>
+        <tr><td>Weight</td><td class="r">${g3(s.grams)} g${s.fineGrams ? ' (' + g3(s.fineGrams) + ' g fine)' : ''}</td></tr>
+        <tr><td>Rate</td><td class="r">₹${inr(s.rate)}/g</td></tr>
+        <tr><td>Metal value</td><td class="r">₹${inr(s.amount)}</td></tr>
+        ${s.tcs ? `<tr><td>TCS 0.1%</td><td class="r">₹${inr(s.tcs)}</td></tr>` : ''}
+        <tr class="tot"><td>Total</td><td class="r">₹${inr(s.total)}</td></tr>
+      </table>
+      ${s.quoteNo ? `<div class="fine">Priced on firm quote ${esc(s.quoteNo)}</div>` : ''}
+      ${s.note ? `<div class="fine">Note: ${esc(s.note)}</div>` : ''}
+      <div class="fine">Signed: ${esc(s.by || '')} · ${esc(s.byRole === 'office' ? 'office' : 'desk')}<br>
+      This slip records metal delivered against the order above. It is not a tax invoice.</div>
+      <script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script>
+    </body></html>`);
+    w.document.close();
+  };
+
+  B.shareSlip = function (no) {
+    const s = slipOf(no);
+    if (!s) return;
+    const text = 'SHIVAA BULLION · DEALING SLIP ' + s.slipNo + '\n' + s.orderId + '\n'
+      + (s.side === 'buy' ? 'BUY' : 'SELL') + ' ' + s.metal + ' ' + g3(s.grams) + ' g'
+      + (s.fineGrams ? ' (' + g3(s.fineGrams) + ' g fine)' : '') + ' @ ₹' + inr(s.rate) + '/g\n'
+      + 'Value ₹' + inr(s.amount) + (s.tcs ? ' + TCS ₹' + inr(s.tcs) : '') + '\nTotal ₹' + inr(s.total)
+      + '\n' + when(s.at) + (s.quoteNo ? '\nQuote ' + s.quoteNo : '');
+    if (window.ShivaaDeskShare) window.ShivaaDeskShare(text, 'Shivaa slip ' + s.slipNo);
+    else window.Shivaa.toast('Copy from the print sheet instead', 'err');
+  };
+
+  B.bookCSV = function () {
+    const b = this.book;
+    if (!b) { window.Shivaa.toast('Open the day book first', 'err'); return; }
+    const t = b.totals || {};
+    const rows = [['SHIVAA BULLION DAY BOOK', b.date, '', '', '', '', '', ''],
+      ['Bought g', t.buyGrams, 'fine g', t.buyFineGrams, 'value', t.buyValue, 'TCS', t.tcs],
+      ['Sold g', t.sellGrams, 'fine g', t.sellFineGrams, 'value', t.sellValue, '', ''],
+      ['Settled g', t.settledGrams, 'open g', t.openGrams, 'open value', t.openValue, 'MTM', t.mtm],
+      [],
+      ['DEALS'],
+      ['Order', 'Time', 'Side', 'Metal', 'Purity', 'Grams', 'Fine g', 'Rate', 'Amount', 'TCS', 'Settled g', 'Open g', 'Status', 'Quote', 'Slips'],
+      ...(b.deals || []).map(d => [d.id, d.createdAt, d.side, d.metal, d.purity, d.grams, d.fineGrams, d.rate,
+        d.amount, d.tcs, d.settledGrams, d.remainingGrams, d.status, d.quoteNo, (d.slips || []).join(' ')]),
+      [],
+      ['DEALING SLIPS'],
+      ['Slip', 'Time', 'Order', 'Side', 'Metal', 'Grams', 'Fine g', 'Rate', 'Amount', 'TCS', 'Total', 'By', 'Quote', 'Note'],
+      ...(b.slips || []).map(s => [s.slipNo, s.at, s.orderId, s.side, s.metal, s.grams, s.fineGrams, s.rate,
+        s.amount, s.tcs, s.total, s.by, s.quoteNo, s.note])];
+    download('shivaa-daybook-' + (b.date || 'today') + '.csv', csv(rows));
+  };
+
+  B.printBook = function () { window.print(); };
+
+  /* ───────── 3 · the desk's own chrome hooks ───────── */
+  const origRates2 = B.secRates;
+  B.secRates = function (host) {
+    origRates2.call(this, host);
+    try { decorateRows(host); } catch (e) {}
+  };
+
+  const origMenu2 = B.secMenu;
+  B.secMenu = function (host) {
+    origMenu2.call(this, host);
+    try {
+      host.insertAdjacentHTML('beforeend', `<div class="bd-menu" style="margin-top:12px">
+        <button type="button" class="bd-menu-it" onclick="ShivaaBullion.menuGo('book')">
+          <i class="bd-menu-ic">📒</i><span><b>Day book</b><small>Today's grams, slips and what is still open</small></span><i class="bd-menu-go">›</i></button>
+        <button type="button" class="bd-menu-it" onclick="ShivaaBullion.toggleMine()">
+          <i class="bd-menu-ic">★</i><span><b>My metals</b><small>Show only the rows you pinned</small></span><i class="bd-menu-go">›</i></button>
+        <button type="button" class="bd-menu-it" onclick="ShivaaDeskKeys()">
+          <i class="bd-menu-ic">⌨</i><span><b>Keyboard map</b><small>Run the desk without the mouse</small></span><i class="bd-menu-go">›</i></button>
+      </div>`);
+    } catch (e) {}
+  };
+
+  /* section shortcuts from the installed app: …&sec=calc|book|deals */
+  const SECS = ['rates', 'deals', 'history', 'menu', 'alerts', 'news', 'calc', 'book'];
+  function applySec() {
+    const q = new URLSearchParams((location.hash.split('?')[1] || ''));
+    const sec = q.get('sec');
+    if (!sec || !SECS.includes(sec)) return;
+    if (B._secApplied === sec && B.section === sec) return;
+    B._secApplied = sec;
+    if (B.section !== sec) {
+      B.section = sec;
+      if (B.B) { B.renderShell(B.B); B.renderSection(); }
+    }
+  }
+  const origRenderShell2 = B.renderShell;
+  B.renderShell = function (b) {
+    const out = origRenderShell2.call(this, b);
+    try { applySec(); } catch (e) {}
+    return out;
+  };
+
+  /* 'book' and 'calc' are not in the base dispatch table */
+  const origSection2 = B.renderSection;
+  B.renderSection = function () {
+    if (this.section === 'book') {
+      const host = document.getElementById('bdSection');
+      if (host) this.secBook(host);
+      return;
+    }
+    return origSection2.call(this);
+  };
+
+  /* ───────── 4 · the quote's clock ───────── */
+  setInterval(() => {
+    const q = B._lastQuote;
+    if (!q || !q.expiresAt || B.section !== 'calc') return;
+    const box = document.getElementById('bdcQuoteBox');
+    if (!box) return;
+    const card = box.querySelector('.bdc-qcard');
+    const note = box.querySelector('.bdc-valid');
+    if (!card || !note) return;
+    const left = Math.round((new Date(q.expiresAt).getTime() - Date.now()) / 1000);
+    /* v234 — one element, updated in place. A 1 s timer may rewrite text; it
+       may never rebuild markup (the v224 rule this repo has held ever since a
+       rebuild-per-tick cost a phone a frame it did not have). */
+    let clock = note.querySelector('[data-clock]');
+    if (!clock) {
+      note.textContent = '';
+      clock = document.createElement('b');
+      clock.className = 'bdc-count';
+      clock.setAttribute('data-clock', '1');
+      note.appendChild(clock);
+      note.appendChild(document.createTextNode(' — after that the board wins.'));
+    }
+    if (left > 0) {
+      clock.textContent = left + 's';
+      clock.classList.toggle('is-low', left <= 15);
+      card.classList.remove('is-dead');
+    } else {
+      clock.textContent = 'expired';
+      clock.classList.add('is-low');
+      card.classList.add('is-dead');
+      if (!note.dataset.dead) {
+        note.dataset.dead = '1';
+        const ob = document.getElementById('bdcOrder');
+        if (ob) ob.disabled = true;
+        window.Shivaa.toast('Quote ' + (q.id || '') + ' expired — take a fresh one', 'err');
+      }
+    }
+  }, 1000);
+
+  /* ───────── 5 · the keyboard map (PC counters) ───────── */
+  const KEYROWS = [['1 – 4', 'Rates · Deals · History · Menu'], ['C', 'Calculator & firm quote'],
+    ['B', 'Day book'], ['R', 'Refresh the board'], ['F', 'Full screen'], ['P', 'Print this screen'],
+    ['?', 'This map'], ['Esc', 'Close a sheet']];
+
+  window.ShivaaDeskKeys = function () {
+    let box = document.getElementById('deskKeys');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'deskKeys';
+      box.className = 'shv-keys';
+      box.innerHTML = `<div class="shv-keys-card" role="dialog" aria-modal="true" aria-label="Keyboard map">
+        <h3>Desk keys</h3>
+        <p>Built for a counter PC — no mouse needed between a rate and a slip.</p>
+        <div class="shv-keys-grid">${KEYROWS.map(r => `<kbd>${esc(r[0])}</kbd><span>${esc(r[1])}</span>`).join('')}</div>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px">
+          <button type="button" class="btn btn-gold btn-sm" id="deskKeysClose">Got it</button></div>
+      </div>`;
+      document.body.appendChild(box);
+      box.addEventListener('click', (e) => { if (e.target === box || (e.target && e.target.id === 'deskKeysClose')) box.classList.remove('open'); });
+    }
+    box.classList.add('open');
+  };
+
+  document.addEventListener('keydown', (e) => {
+    const tag = ((e.target && e.target.tagName) || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!window.location.hash.startsWith('#/partner')) return;
+    const k = e.key;
+    const go = (sec) => { B.section = sec; if (B.B) { B.renderShell(B.B); B.renderSection(); } else { applySec(); } };
+    if (k === '?') { e.preventDefault(); window.ShivaaDeskKeys(); }
+    else if (k === '1') go('rates');
+    else if (k === '2') go('deals');
+    else if (k === '3') go('history');
+    else if (k === '4') go('menu');
+    else if (k === 'c' || k === 'C') go('calc');
+    else if (k === 'b' || k === 'B') go('book');
+    else if (k === 'r' || k === 'R') { e.preventDefault(); B.refresh(true); window.Shivaa.toast('Rates refreshed ✦'); }
+    else if (k === 'f' || k === 'F') {
+      if (!document.fullscreenElement) { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); }
+      else { document.exitFullscreen && document.exitFullscreen().catch(() => {}); }
+    } else if (k === 'p' || k === 'P') { e.preventDefault(); window.print(); }
+  });
 })();
 
 /* register routes */
