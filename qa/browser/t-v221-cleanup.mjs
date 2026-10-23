@@ -92,14 +92,14 @@ T('css: v209 keeps the header/flicker guards',
 
 /* ── 4 · the release stamps ──────────────────────────────────────── */
 T('stamps: index at 227 with no older stamp left',
-  index.includes('__SHIVAA_REL=232') && !index.includes('?v=226'));
-T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v232') && sw.includes('const REL = 232;'));
-T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 232;'));
-T('stamps: api rel 227', api.includes("'rel' => 232,"));
+  index.includes('__SHIVAA_REL=233') && !index.includes('?v=226'));
+T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v233') && sw.includes('const REL = 233;'));
+T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 233;'));
+T('stamps: api rel 227', api.includes("'rel' => 233,"));
 /* v222 bundled the stylesheets, so the SW precaches the bundle rather than
    v125.css. The v125 CSS itself still has to be inside that bundle. */
 T('stamps: sw precaches the bundle and the v125 script at 224',
-  sw.includes('/css/shivaa.css?v=232') && sw.includes('/js/v125.js?v=232'));
+  sw.includes('/css/shivaa.css?v=233') && sw.includes('/js/v125.js?v=233'));
 T('v221: the v125 layer is inside the bundle', CSS_BUNDLE_V221.includes('/* v125.css */'));
 
 /* ── 5 · jsdom: the live page still behaves ─────────────────────── */

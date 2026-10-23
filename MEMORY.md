@@ -1,52 +1,55 @@
-> ## CURRENT STATE — **v232 IS LIVE** (owner applied every update, 21 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v233 PACKAGED, AWAITING THE OWNER'S YES** (23 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **LIVE: v232 “The Idle Release”.** The owner applied every update and reported *“I have applied
->   each and every update to the website and it's fine”* on 21 Oct 2026. The package that matches the
->   live site is `shivaa-update-v232.zip` — **361 files · 37,349,816 B ·
->   `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**. **Next release number: v233.**
->   Live chain: v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)**.
-> - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the Arena session is hard-wired to it. Commit and push
->   there only: `git push origin arena/e8a470c6-shivaa-ecom`. **PR #107 is MERGED** (21 Oct 2026, owner's
->   word) — `arena/e8a470c6-shivaa-ecom` → `arena/5529f0ec-shivaa-ecom`, merge commit **`c6337db`**, so the
->   shared base now carries v232. PR #106 (twin branch) closed itself as merged because #107 carried its
->   commits. **`main` is untouched (`7d23eea`, v184) and nothing was deployed** — the Hostinger workflow is
->   `workflow_dispatch` only, so a merge has never deployed anything. Live is still **v232**, deployed by
->   the owner from `shivaa-update-v232.zip`.
+> - **v233 “The Passbook Release” is the newest release** — packaged 23 Oct 2026, **not deployed**.
+>   `shivaa-update-v233.zip` — **362 files · 37,381,263 B ·
+>   `e5a9b9ffa410b5ea8a1735380fd10bfb60a85473648499144ddd8cb0b117984c`**. **Next release number: v234.**
+>   The build the owner actually applied is still **v232** (21 Oct 2026 — *“I have applied each and every
+>   update to the website and it's fine”*). Chain: v205 (11 Oct) → v228 (17 Oct) → v232 (21 Oct) →
+>   **v233 (packaged 23 Oct)**.
+> - **What v233 does.** A Swarna Nidhi plan is numbered (`SN26-0001`) and every instalment has a numbered
+>   receipt (`SN26-0001-01`); **one** builder, `savings_view()`, feeds the customer's passbook, the public
+>   lookup and the owner's ledger, so the three cannot disagree. A guest traces a plan with its number
+>   **plus the last 4 digits of the registered mobile** — masked holder (`A•••• Sharma`), no phone, no
+>   email, no staff note, 30 lookups an hour per IP then a 15-minute block. In-app redeem/close requests
+>   are stamped `done` by the desk; the owner's Nidhi tab is a ledger with receipts, `⇢ Open plan` for a
+>   counter payment, printable receipt and CSV. The jeweller's desk carries ₹ per **fine gram** for every
+>   row, a mark-to-market `exposure` block and firm **90-second** quotes (`BQ<yymd>-<nnnn>`, TCS 0.1 % on
+>   a buy, none on a sell); an order pins to a quote, and a quote whose metal moved **>0.2 %**, expired, for
+>   the other side, or somebody else's is refused **in words**, never silently re-priced. Proof:
+>   `qa/browser/t-v233-nidhi.mjs` (**146**) and `bash qa/v233-gate.sh` → **24 checks, 0 red**.
+> - **Work branch: `arena/e8a470c6-shivaa-ecom`** — the release branch `qa/where-am-i.sh` enforces.
+>   The v233 packaging session ran on its child **`arena/800194ed-shivaa-ecom`** at the same base commit
+>   (`fd90c0f`, v232 content); push v233 to the session branch, and treat `e8a470c6` as the release line.
+>   **PR #107 is MERGED** (21 Oct 2026) into `arena/5529f0ec-shivaa-ecom` as `c6337db`; **`main` is
+>   untouched (`7d23eea`, v184)** and the Hostinger workflow is `workflow_dispatch` only — no merge has
+>   ever deployed anything.
 > - **FIRST COMMAND OF EVERY CHAT, ON ANY BRANCH:** `bash qa/where-am-i.sh`. It fetches origin, reads the
 >   release stamp out of `cms/js/app.js` on **every** branch, and says **FORWARD** (exit 0) or **BEHIND**
 >   (exit 3) for the tree you are standing in. Exit 3 = stop: do not edit `cms/`, do not build a zip, do
 >   not write docs; run the three commands it prints. **Never work on a tree older than the newest
->   release, and never rebuild a spent number.** On 21 Oct a sandbox came back on the v220 base commit
->   with a stale worktree — this guard exists because of exactly that.
-> - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). It holds every
->   release from v221 with commit, file count, byte size, sha256, status, plus `live` and `next_release`.
->   `python3 qa/check-handoff.py` proves ledger ⟷ stamps in the shipped tree ⟷ zips on disk (and in git)
->   ⟷ these docs. Run it after any doc edit and before any release.
+>   release, and never rebuild a spent number.**
+> - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). `live` there
+>   means *newest release in the ledger*; whether the owner has applied it is the `deployed`/`awaiting`
+>   fields and the docs' countdown. `python3 qa/check-handoff.py` proves ledger ⟷ stamps ⟷ zips (sha256,
+>   bytes, file count, committed in git) ⟷ these docs. Run it after any doc edit and before any release.
 > - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
->   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` now
->   refuses a spent number whose bytes do not reproduce (a faithful v232 rebuild reproduces the sha256
->   above byte for byte). Owner approval before anything goes live; a push, a merge, a green gate or a
->   finished zip is **not** approval. Rollback is the previous ledger row (v231), never an older tree.
+>   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` refuses
+>   a spent number. Owner approval before anything goes live; a push, a merge, a green gate or a finished
+>   zip is **not** approval. Rollback is the previous ledger row (v232), never an older tree.
 > - **Sandbox resets between turns.** First
->   `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`, then
->   `bash qa/where-am-i.sh`. Then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
->   `python3 qa/build-test-db.py`, `python3 qa/preview_shim.py --port 8090`. The zips are tracked in git,
->   so the reset restores them. **Check for stray `node` before believing a flaky suite**
->   (`ps aux | grep "[n]ode"`).
-> - **v232's measured facts (the proof the owner was given):** idle animation frames **123/s → 0/s** on a
->   silent home page (1264 frames in 12 s, 1148 from `_msTick` + the cursor glow); layout reads for ten
->   pointer moves over one card **10 → 1**, twenty more **→ 0**; main-thread image decodes **56 of 68 → 0**
->   (the LCP set keeps its decode); hidden-tab rate polls **1/s → 0**. **The find:** v226's press rules
->   for `.p-card`/`.cat-card`/the offer banner had been dead on every phone since v226 —
->   `styles.css:4637` and `v219.css:129` beat them — restored in `cms/css/v232.css` §1.
+>   `git fetch origin <branch> && git reset --hard FETCH_HEAD`, then `bash qa/where-am-i.sh`. Then
+>   `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`, `python3 qa/build-test-db.py --with-staff`,
+>   `python3 qa/preview_shim.py --port 8090`. The zips are tracked in git, so a reset restores them.
+>   **Check for stray `node`/`preview_shim.py` before believing a flaky suite** — port 8090 refuses a
+>   dirty second shim, and `pkill -f preview_shim` kills your own shell (use a `/proc` scan).
 > - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
 >   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`,
->   and the order in `tools/css-bundle-order.txt` is load-bearing (66 positions, `v186.css` twice);
->   films load only via `wake()`, never put `src`/`preload="auto"` back; never animate a layout property,
->   a `filter` or `background-position` in a loop; scroll work lives in `v225.js`'s one frame; one ripple
->   system; **zero idle frames** and **no per-event `getBoundingClientRect()`** in any move listener
->   (v232); the member percentage is one setting, ships **20**, never hard-coded elsewhere;
->   `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed and never ships.
+>   and the order in `tools/css-bundle-order.txt` is load-bearing (**67 positions**, `v186.css` twice,
+>   `v233.css` last); films load only via `wake()`; never animate a layout property, a `filter` or
+>   `background-position` in a loop; scroll work lives in `v225.js`'s one frame; one ripple system;
+>   **zero idle frames** and **no per-event `getBoundingClientRect()`** in any move listener; the member
+>   percentage is one setting, ships **20**, never hard-coded elsewhere; `content-visibility` stays
+>   sealed (v217); `cms/data/db.json` is never committed and never ships.
 > - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
 >   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
 >   × 14 days), and the private bills folder `.shivaa-private-bills` **beside** `public_html`
@@ -64,10 +67,12 @@
   live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
 - Production deploys are owner-approved only. A push or merge is not approval.
 
-- **LIVE: v232** — the owner applied every update and confirmed on 21 Oct 2026
-  (*“I have applied each and every update to the website and it's fine”*). Machine truth:
-  `docs/release-ledger.json`; guard: `bash qa/where-am-i.sh`; next release: **v233**.
-  Live chain: v205 (11 Oct) → v228 (17 Oct) → v232 (21 Oct). Everything below this line is history.
+- **v233 “The Passbook Release” is the newest release** — packaged 23 Oct 2026, **awaiting the
+  owner's yes**, and not deployed. **Applied on the site: v232**, which the owner applied and
+  confirmed on 21 Oct 2026 (*“I have applied each and every update to the website and it's fine”*).
+  Machine truth: `docs/release-ledger.json`; guard: `bash qa/where-am-i.sh`; next release: **v234**.
+  Release chain: v205 (11 Oct) → v228 (17 Oct) → v232 (21 Oct, applied) → v233 (23 Oct, packaged).
+  Everything below this line is history.
 
 ## The v232 baseline — what the live release is (the detail behind the top block)
 

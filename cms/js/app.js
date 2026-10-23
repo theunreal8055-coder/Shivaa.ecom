@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 232;
+const APP_REL = 233;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -10995,11 +10995,34 @@ pages.savings = async (view) => {
       join.textContent = state.user ? '✦ Enrol & open my passbook' : 'Sign in to enrol ✦';
       join.onclick = async () => {
         if (!state.user) { openLogin(); return; }
+        join.disabled = true;
         try {
-          await api('/api/savings', { method: 'POST', body: JSON.stringify({ monthlyAmount: m }) });
-          toast('Welcome to Swarna Nidhi ✦ passbook opened'); pages.savings($('#view'));
-          document.getElementById('svPassbookWrap')?.scrollIntoView({ behavior: 'smooth' });
+          const res = await api('/api/savings', { method: 'POST', body: JSON.stringify({ monthlyAmount: m }) });
+          const v = (res && (res.view || res.plan)) || {};
+          const no = v.planNo || '';
+          toast('Welcome to Swarna Nidhi ✦ passbook opened');
+          /* v233 — the plan number is the thing the customer will read out on
+             the phone, so it is shown once, big, with a copy button. */
+          openModal(`<div class="nb-welcome">
+            <span class="nb-kicker">SWARNA NIDHI · PLAN OPENED</span>
+            <h3>Your plan number</h3>
+            <div class="nb-big-no" data-nb-plan-no>${esc(no)}</div>
+            <p class="nb-fine">Keep this number. It is printed on every receipt and it is what the desk asks for. ${fmt(m)} on the same date every month; Shivaa pays the twelfth.</p>
+            <div class="nb-modal-acts">
+              <button type="button" class="btn btn-gold btn-sm" id="nbWelcomeCopy">Copy number</button>
+              <button type="button" class="btn btn-outline btn-sm" id="nbWelcomeGo">Open my passbook</button>
+            </div></div>`);
+          const cp = $('#nbWelcomeCopy');
+          if (cp) cp.onclick = async () => {
+            try { if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(no); toast('Plan number copied ✦'); }
+            catch (e) { toast('Copy is blocked here — the number is ' + no); }
+          };
+          const go = $('#nbWelcomeGo');
+          if (go) go.onclick = () => { closeModal(); pages.savings($('#view')); };
+          pages.savings($('#view'));
+          setTimeout(() => { try { document.getElementById('svPassbookWrap')?.scrollIntoView({ behavior: 'smooth' }); } catch (e) {} }, 60);
         } catch (e) { toast(e.message, 'err'); }
+        join.disabled = false;
       };
     }
   };
@@ -11015,44 +11038,349 @@ pages.savings = async (view) => {
   }));
   calc();
 
-  /* ---- v60 digital passbook ---- */
+  /* ═══════════════════════════════════════════════════════════════════════
+     v233 · SWARNA NIDHI — the passbook a customer can actually trace
+     ───────────────────────────────────────────────────────────────────────
+     v60 shipped the plan; v233 makes the plan answer questions.
+
+       · every plan has a HUMAN number (SN26-0001) and every instalment has a
+         numbered receipt (SN26-0001-03) that the shop and the customer can
+         both read out on a call;
+       · grams accrued are the sum of each receipt's own amount ÷ its own 22K
+         rate — a past receipt is never re-priced when gold moves, so the
+         passbook and the shop's books can never disagree;
+       · the twelve-month schedule says which month is paid, which is due,
+         and which is Shivaa's gift — with the real dates;
+       · the customer can ASK for redemption, a refund, a transfer or a
+         question from this page; the desk sees the request in Admin and the
+         request stays in the history with its timestamp;
+       · anyone can TRACE a plan without signing in (plan number + last four
+         digits of the mobile on the plan). The server sends back a minimised
+         view — masked name, no phone, no notes — so a shared screen or a
+         counter tablet leaks nothing;
+       · statement and receipt print to paper/PDF, and the receipt list
+         downloads as CSV.
+
+     Everything reads ONE server view (`savings_view()` in api.php), so the
+     passbook, the public lookup and the admin ledger cannot drift apart.
+     No timers, no polling: a route render is one fetch.
+     ═══════════════════════════════════════════════════════════════════════ */
+  const nbDate = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(+d)) return String(iso).slice(0, 10);
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const nbMoney = v => fmt(Math.round(Number(v) || 0));
+  const nbGrams = v => {
+    const n = Number(v) || 0;
+    return (n >= 100 ? n.toFixed(1) : n.toFixed(3)).replace(/\.?0+$/, '') + ' g';
+  };
+  const nbReceipts = p => (p && Array.isArray(p.receipts)) ? p.receipts : [];
+  const nbPlanNo = p => (p && p.planNo) ? String(p.planNo) : '—';
+  const nbStatusClass = s => 'nb-st-' + String(s || 'active').replace(/[^a-z-]/gi, '');
+  const nbCSV = (p) => {
+    const head = ['Receipt no', 'Date', 'Amount INR', '22K rate per g', 'Grams', 'Mode', 'Status'];
+    const rows = nbReceipts(p).map(r => [r.receiptNo, String(r.at || '').slice(0, 10),
+      r.amount, r.rate22, r.grams, r.modeLabel || r.mode, r.status]);
+    return [head].concat(rows).map(a => a.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  };
+  const nbDownload = (name, text) => {
+    try {
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(href); a.remove(); } catch (e) {} }, 0);
+      return true;
+    } catch (e) { toast('This browser cannot download the file — use Print instead.', 'err'); return false; }
+  };
+  const nbPrintDoc = (title, html) => {
+    try {
+      const w = window.open('', '_blank');
+      if (!w || !w.document) { window.print(); return; }
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' +
+        'body{font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:18px auto;padding:0 14px;color:#1c1512;font-size:13px}' +
+        'h1{font-size:19px;margin:0 0 2px}h2{font-size:14px;margin:18px 0 6px}.r{text-align:right}' +
+        'table{width:100%;border-collapse:collapse;margin-top:8px}td,th{padding:6px 4px;border-bottom:1px solid #d8cfc2;text-align:left;font-size:12px}' +
+        '.muted{color:#6b5e52}.tot{font-size:15px;font-weight:700}@media print{@page{size:A4;margin:12mm}}' +
+        '</style></head><body>' + html + '<script>window.onload=function(){window.print()}<\/script></body></html>');
+      w.document.close();
+    } catch (e) { window.print(); }
+  };
+  const nbReceiptSheet = (p, r) => `
+    <div class="nb-sheet">
+      <div class="nb-sheet-h"><img src="/images/logo.png" alt="Shivaa" width="46" height="46"><div>
+        <b>Shivaa Jewels</b><small>Jayal, Nagaur · shivaa.in</small></div></div>
+      <h2>Swarna Nidhi receipt</h2>
+      <table>
+        <tr><td class="muted">Receipt number</td><td class="r"><b>${esc(r.receiptNo)}</b></td></tr>
+        <tr><td class="muted">Plan number</td><td class="r">${esc(nbPlanNo(p))}</td></tr>
+        <tr><td class="muted">Received on</td><td class="r">${esc(nbDate(r.at))}</td></tr>
+        <tr><td class="muted">Instalment</td><td class="r">${esc(String(r.seq))} of 11${r.seq === 12 ? ' (Shivaa\'s gift)' : ''}</td></tr>
+        <tr><td class="muted">Mode</td><td class="r">${esc(r.modeLabel || r.mode || '—')}</td></tr>
+        <tr><td class="muted">22K gold rate on the day</td><td class="r">${r.rate22 ? fmt(r.rate22) + '/g' : '—'}</td></tr>
+        <tr><td class="muted">Gold credited</td><td class="r">${nbGrams(r.grams)}</td></tr>
+        <tr><td class="tot">Amount received</td><td class="r tot">${nbMoney(r.amount)}</td></tr>
+      </table>
+      <p class="muted" style="margin-top:14px">This receipt is issued against plan ${esc(nbPlanNo(p))}. Gold is credited in grams at the 22K rate printed above; the piece is billed at Shivaa's live rate on redemption day.</p>
+    </div>`;
+  const nbScheduleHTML = (p) => {
+    const sched = Array.isArray(p.schedule) ? p.schedule : [];
+    if (!sched.length) return '';
+    return `<div class="nb-sched" aria-label="Twelve month schedule">${sched.map((m) => {
+      const label = m.state === 'gift' ? 'Shivaa pays' : m.state === 'gift-locked' ? 'Gift on month 11' :
+        m.state === 'paid' ? 'Paid' : m.state === 'due' ? 'Due now' : 'Upcoming';
+      return `<div class="nb-cell nb-${esc(m.state)}" data-month="${m.month}">
+        <span class="nb-cell-n">${m.month === 12 ? '✦' : String(m.month).padStart(2, '0')}</span>
+        <b>${m.month === 12 ? 'Gift' : nbMoney(p.monthlyAmount)}</b>
+        <small>${esc(nbDate(m.dueAt))}</small>
+        <em>${esc(label)}</em>
+      </div>`;
+    }).join('')}</div>`;
+  };
+  const nbBookHTML = (p) => {
+    const receipts = nbReceipts(p);
+    const pending = p.pendingRequest;
+    const paid = p.status === 'active' || p.status === 'matured';
+    const dueText = p.nextDueAt ? nbDate(p.nextDueAt) : (p.status === 'active' ? 'after your last receipt' : 'plan closed');
+    return `
+    <div class="nb" id="nidhiBook" data-plan-no="${esc(nbPlanNo(p))}">
+      <div class="nb-head">
+        <div>
+          <span class="nb-kicker">SWARNA NIDHI · DIGITAL PASSBOOK</span>
+          <h3>Plan <b data-nb-plan-no>${esc(nbPlanNo(p))}</b>
+            <button type="button" class="nb-copy" data-nb-copy="${esc(nbPlanNo(p))}" title="Copy the plan number">Copy</button></h3>
+          <small>Opened ${esc(nbDate(p.startedAt))} · matures ${esc(nbDate(p.maturesOn))} · ${nbMoney(p.monthlyAmount)} a month</small>
+        </div>
+        <span class="nb-status ${nbStatusClass(p.status)}">${esc(p.statusLabel || p.status)}</span>
+      </div>
+
+      <div class="nb-metrics">
+        <div><small>Paid in</small><b>${nbMoney(p.contributed)}</b><em>${p.monthsPaid || 0} of 11 instalments</em></div>
+        <div><small>Gold accrued</small><b>${nbGrams(p.gramsAccrued)}</b><em>at each receipt's own rate</em></div>
+        <div><small>Buying power</small><b>${nbMoney(p.buyingPower)}</b><em>${p.bonus ? 'incl. Shivaa\'s 12th' : 'Shivaa\'s 12th at 11 receipts'}</em></div>
+        <div class="${p.nextDueAt ? 'nb-due' : ''}"><small>Next instalment</small><b>${p.nextDueAt ? nbMoney(p.monthlyAmount) : '—'}</b><em>${esc(dueText)}</em></div>
+      </div>
+
+      <div class="nb-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p.progressPct || 0}">
+        <i style="--nb-p:${(Math.min(100, Number(p.progressPct) || 0) / 100).toFixed(3)}"></i>
+        <span>${p.monthsPaid || 0}/11</span>
+      </div>
+
+      ${nbScheduleHTML(p)}
+
+      <div class="nb-receipts">
+        <div class="nb-r-head"><b>Receipts</b><small>${receipts.length} ${receipts.length === 1 ? 'receipt' : 'receipts'} · every one printable</small></div>
+        ${receipts.length ? `<div class="nb-r-list">${receipts.map(r => `
+          <div class="nb-r-row" data-receipt-no="${esc(r.receiptNo)}">
+            <span class="nb-r-no">${esc(r.receiptNo)}</span>
+            <span class="nb-r-date">${esc(nbDate(r.at))}</span>
+            <b>${nbMoney(r.amount)}</b>
+            <span class="nb-r-g">${nbGrams(r.grams)}${r.rate22 ? ' @ ' + fmt(r.rate22) + '/g' : ''}</span>
+            <span class="nb-r-mode">${esc(r.modeLabel || r.mode || '')}</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-nb-receipt="${esc(r.receiptNo)}">View</button>
+          </div>`).join('')}</div>`
+        : `<p class="nb-empty">No instalment recorded yet. Pay at the counter or on WhatsApp — the receipt appears here the moment the desk enters it.</p>`}
+        ${p.bonus ? `<div class="nb-r-row nb-gift" data-receipt-no="${esc(nbPlanNo(p))}-12">
+            <span class="nb-r-no">${esc(nbPlanNo(p))}-12</span><span class="nb-r-date">${esc(nbDate(p.maturesOn))}</span>
+            <b>${nbMoney(p.bonus)}</b><span class="nb-r-g">paid by Shivaa ✦</span><span class="nb-r-mode">gift</span>
+          </div>` : ''}
+      </div>
+
+      ${pending ? `<div class="nb-pending"><b>Request open: ${esc(pending.kind)}</b>
+        <small>Sent ${esc(nbDate(pending.at))}${pending.note ? ' · “' + esc(pending.note) + '”' : ''} — the desk will call you.</small></div>` : ''}
+
+      <div class="nb-acts">
+        <button type="button" class="btn btn-gold btn-sm" data-nb-ask="redeem" ${paid ? '' : 'disabled'}>Redeem in gold</button>
+        <button type="button" class="btn btn-outline btn-sm" data-nb-ask="close">Close &amp; refund</button>
+        <button type="button" class="btn btn-outline btn-sm" data-nb-ask="transfer">Transfer</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-nb-ask="query">Ask a question</button>
+        <button type="button" class="btn btn-outline btn-sm" data-nb-print>🖨 Print statement</button>
+        <button type="button" class="btn btn-outline btn-sm" data-nb-csv>⬇ Receipts CSV</button>
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener"
+           href="${waLink('Namaste Shivaa ✦ my Swarna Nidhi plan is ' + nbPlanNo(p) + '. Please share my statement.')}">WhatsApp the desk</a>
+      </div>
+      <p class="nb-fine">Gold accrued is a running record of what each receipt bought at that day's 22K rate. The piece you take is billed at Shivaa's live rate on redemption day, and making charges are payable on the piece.</p>
+    </div>`;
+  };
+  const nbTrackHTML = () => `
+    <div class="nb-track" id="nidhiTrack">
+      <div class="nb-track-head">
+        <span class="nb-kicker">TRACE ANY PLAN · NO LOGIN NEEDED</span>
+        <h3>Check a Swarna Nidhi plan</h3>
+        <p>Enter the plan number from any receipt and the last four digits of the mobile registered on it. Works for a plan opened at the counter too.</p>
+      </div>
+      <form class="nb-track-form" data-nb-track-form autocomplete="off">
+        <label class="fld"><span>Plan number</span>
+          <input id="nbTrackPlan" data-nb-track-plan placeholder="SN26-0001" inputmode="text" autocomplete="off" required></label>
+        <label class="fld"><span>Mobile · last 4 digits</span>
+          <input id="nbTrackContact" data-nb-track-contact placeholder="1234" inputmode="numeric" maxlength="4" required></label>
+        <button class="btn btn-gold" type="submit" data-nb-track-go>Trace plan</button>
+      </form>
+      <div class="nb-track-out" id="nbTrackOut" data-nb-track-out aria-live="polite"></div>
+    </div>`;
+  const nbTrackResultHTML = (v) => `
+    <div class="nb-track-card">
+      <div class="nb-head">
+        <div><span class="nb-kicker">PLAN FOUND</span>
+          <h3>${esc(v.planNo)} <small>· ${esc(v.holder || '')}</small></h3>
+          <small>${esc(nbDate(v.startedAt))} → ${esc(nbDate(v.maturesOn))} · ${nbMoney(v.monthlyAmount)} a month</small></div>
+        <span class="nb-status ${nbStatusClass(v.status)}">${esc(v.statusLabel || v.status)}</span>
+      </div>
+      <div class="nb-metrics">
+        <div><small>Paid in</small><b>${nbMoney(v.contributed)}</b><em>${v.monthsPaid || 0} of 11 instalments</em></div>
+        <div><small>Gold accrued</small><b>${nbGrams(v.gramsAccrued)}</b><em>at each receipt's rate</em></div>
+        <div><small>Buying power</small><b>${nbMoney(v.buyingPower)}</b><em>${v.bonus ? 'incl. Shivaa\'s 12th' : 'gift at 11 receipts'}</em></div>
+        <div class="${v.nextDueAt ? 'nb-due' : ''}"><small>Next instalment</small><b>${v.nextDueAt ? nbMoney(v.monthlyAmount) : '—'}</b><em>${esc(v.nextDueAt ? nbDate(v.nextDueAt) : 'not due')}</em></div>
+      </div>
+      <div class="nb-r-list nb-r-compact">
+        ${(v.receipts || []).map(r => `<div class="nb-r-row" data-receipt-no="${esc(r.receiptNo)}">
+          <span class="nb-r-no">${esc(r.receiptNo)}</span><span class="nb-r-date">${esc(nbDate(r.at))}</span>
+          <b>${nbMoney(r.amount)}</b><span class="nb-r-g">${nbGrams(r.grams)}</span><span class="nb-r-mode"></span></div>`).join('') ||
+          '<p class="nb-empty">No instalment recorded yet.</p>'}
+      </div>
+      <p class="nb-fine">Shown for plan ${esc(v.planNo)}. For a printed statement, ask the desk on WhatsApp or sign in to your own passbook.</p>
+    </div>`;
+
   const loadPassbook = async () => {
     const wrap = $('#svPassbookWrap');
     if (!wrap) return;
+    /* The trace box is for EVERY customer — signed in or not — so it renders
+       first and never depends on the account fetch below. */
     if (!state.user) {
-      wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>Sign in to see your running plan, receipts and grams accrued.</p></div>
-        <div style="text-align:center"><button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin()">Sign in</button></div>`;
+      wrap.innerHTML = `<div class="sec-head"><h2>Trace your Swarna Nidhi plan</h2>
+        <p>Already saving with us? Look up the plan now. Sign in to see the full passbook, receipts and requests.</p></div>
+        ${nbTrackHTML()}
+        <div class="nb-signin"><button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin()">Sign in to open my passbook</button>
+          <a class="btn btn-ghost btn-lg" href="#/contact">Ask the desk</a></div>`;
+      nbWire(wrap, null);
       return;
     }
     try {
       const data = await api('/api/savings/mine');
       const plans = data.plans || [];
-      if (!plans.length) {
-        wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>No active plan yet — set the monthly amount above and tap <b>Enrol</b>.</p></div>`;
-        return;
+      wrap.innerHTML = plans.length
+        ? `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>Every receipt, its number, the grams it bought and what is due next — in one place.</p></div>
+           ${nbBookHTML(plans[0])}
+           ${plans.length > 1 ? `<div class="nb-others"><b>Earlier plans</b>${plans.slice(1).map(p => `<span>${esc(nbPlanNo(p))} · ${esc(p.statusLabel || p.status)} · ${nbMoney(p.contributed)}</span>`).join('')}</div>` : ''}
+           ${nbTrackHTML()}`
+        : `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>No plan yet — choose a monthly amount above and tap <b>Enrol</b>. Your plan number appears here the moment it opens.</p></div>
+           ${nbTrackHTML()}`;
+      nbWire(wrap, plans[0] || null);
+    } catch (e) {
+      wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>We could not load your plan just now. You can still trace it by number.</p></div>
+        ${nbTrackHTML()}<div class="nb-signin"><button class="btn btn-gold" onclick="Shivaa.redraw()">Try again</button></div>`;
+      nbWire(wrap, null);
+    }
+  };
+
+  const nbWire = (wrap, p) => {
+    /* ── copy the plan number ── */
+    $$('[data-nb-copy]', wrap).forEach(b => b.addEventListener('click', async () => {
+      const v = b.getAttribute('data-nb-copy') || '';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(v);
+        else { const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+        toast('Plan number copied ✦ ' + v);
+      } catch (e) { toast('Copy is blocked here — the number is ' + v); }
+    }));
+    /* ── one receipt, printable ── */
+    $$('[data-nb-receipt]', wrap).forEach(b => b.addEventListener('click', () => {
+      if (!p) return;
+      const no = b.getAttribute('data-nb-receipt');
+      const r = nbReceipts(p).find(x => x.receiptNo === no);
+      if (!r) return;
+      openModal(`<div class="nb-receipt-modal">
+        ${nbReceiptSheet(p, r)}
+        <div class="nb-modal-acts">
+          <button type="button" class="btn btn-gold btn-sm" id="nbPrintOne">🖨 Print / PDF</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.closeModal()">Close</button>
+        </div></div>`);
+      const pr = $('#nbPrintOne');
+      if (pr) pr.onclick = () => nbPrintDoc('Swarna Nidhi receipt ' + r.receiptNo, nbReceiptSheet(p, r));
+    }));
+    /* ── statement ── */
+    $$('[data-nb-print]', wrap).forEach(b => b.addEventListener('click', () => {
+      if (!p) return;
+      const rows = nbReceipts(p).map(r => `<tr><td>${esc(r.receiptNo)}</td><td>${esc(nbDate(r.at))}</td><td class="r">${nbMoney(r.amount)}</td><td class="r">${r.rate22 ? fmt(r.rate22) : '—'}</td><td class="r">${nbGrams(r.grams)}</td></tr>`).join('');
+      nbPrintDoc('Swarna Nidhi statement ' + nbPlanNo(p), `
+        <h1>Shivaa Jewels · Swarna Nidhi statement</h1>
+        <p class="muted">Plan <b>${esc(nbPlanNo(p))}</b> · opened ${esc(nbDate(p.startedAt))} · ${nbMoney(p.monthlyAmount)} a month</p>
+        <h2>Instalments</h2>
+        <table><thead><tr><th>Receipt</th><th>Date</th><th>Amount</th><th>22K ₹/g</th><th>Gold</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" class="muted">No instalment recorded yet.</td></tr>'}</tbody></table>
+        <p style="margin-top:12px">Paid in <b>${nbMoney(p.contributed)}</b> · gold accrued <b>${nbGrams(p.gramsAccrued)}</b> · Shivaa's 12th <b>${nbMoney(p.bonus || p.monthlyAmount)}</b>${p.bonus ? '' : ' when 11 receipts are complete'} · buying power <b>${nbMoney(p.buyingPower)}</b></p>
+        <p class="muted">Gold is credited in grams at each receipt's own 22K rate. The piece is billed at Shivaa's live rate on redemption day.</p>`);
+    }));
+    /* ── receipts CSV ── */
+    $$('[data-nb-csv]', wrap).forEach(b => b.addEventListener('click', () => {
+      if (!p) return;
+      if (nbDownload(nbPlanNo(p) + '-receipts.csv', nbCSV(p))) toast('Receipts downloaded ✦');
+    }));
+    /* ── ask the desk (a REQUEST, never a silent change) ── */
+    const ASK = {
+      redeem: ['Redeem in gold', 'The desk will weigh your plan against the live rate on the day of redemption. Tell us the piece or the weight you want.'],
+      close: ['Close & refund', 'Every rupee you paid is refundable before maturity. The desk will confirm the mode and the day.'],
+      transfer: ['Transfer to a family member', 'Name the immediate family member; we will ask for written consent and ID before moving the plan.'],
+      query: ['Ask a question', 'Anything about the plan, the rate or the twelfth instalment — the desk answers on this number.'],
+    };
+    $$('[data-nb-ask]', wrap).forEach(b => b.addEventListener('click', () => {
+      if (!p) return;
+      const kind = b.getAttribute('data-nb-ask');
+      const meta = ASK[kind] || ASK.query;
+      openModal(`<h3>${esc(meta[0])}</h3>
+        <p style="font-size:13px;color:var(--ink-3)">Plan <b>${esc(nbPlanNo(p))}</b>. ${esc(meta[1])}</p>
+        <form class="form-grid" data-nb-ask-form>
+          <div class="fld full"><label>Anything we should know? (optional)</label>
+            <input name="note" maxlength="300" placeholder="e.g. redeem on 20th, a 22K chain around 8 g"></div>
+          <button class="btn btn-gold btn-block" type="submit">Send request ✦</button>
+        </form>`);
+      const f = document.querySelector('[data-nb-ask-form]');
+      if (f) f.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const note = (new FormData(f).get('note') || '').toString();
+        const btn = f.querySelector('button');
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+        try {
+          await api('/api/savings/request', { method: 'POST', body: JSON.stringify({ kind, note }) });
+          closeModal();
+          toast('Request sent ✦ the desk will call you');
+          pages.savings($('#view'));
+        } catch (err) {
+          toast(err.message || 'Could not send the request', 'err');
+          if (btn) { btn.disabled = false; btn.textContent = 'Send request ✦'; }
+        }
+      });
+    }));
+    /* ── the public trace form ── */
+    const form = $('[data-nb-track-form]', wrap);
+    if (form) form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const planEl = $('[data-nb-track-plan]', wrap);
+      const contactEl = $('[data-nb-track-contact]', wrap);
+      const out = $('[data-nb-track-out]', wrap);
+      const btn = $('[data-nb-track-go]', wrap);
+      if (!planEl || !contactEl || !out) return;
+      const planNo = (planEl.value || '').trim().toUpperCase();
+      const contact = (contactEl.value || '').replace(/\D/g, '');
+      if (planNo.length < 5) { out.innerHTML = '<p class="nb-err">Enter the full plan number — it looks like SN26-0001.</p>'; planEl.focus(); return; }
+      if (contact.length < 4) { out.innerHTML = '<p class="nb-err">Enter the last four digits of the mobile on the plan.</p>'; contactEl.focus(); return; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Tracing…'; }
+      out.innerHTML = '<p class="nb-loading">Looking up the plan…</p>';
+      try {
+        const res = await api('/api/savings/track', { method: 'POST', body: JSON.stringify({ plan: planNo, contact }) });
+        out.innerHTML = nbTrackResultHTML(res.plan || {});
+        try {
+          const hist = store.get('shv_nidhi_track', []) || [];
+          store.set('shv_nidhi_track', [planNo].concat(hist.filter(x => x !== planNo)).slice(0, 5));
+        } catch (e) {}
+      } catch (err) {
+        out.innerHTML = `<p class="nb-err">${esc(err.message || 'Could not find that plan.')}</p>`;
       }
-      const p = plans[0];
-      const done = (p.installments || []).length;
-      const contributed = p.contributed || done * p.monthlyAmount;
-      wrap.innerHTML = `<div class="sec-head"><h2>My digital passbook</h2><p>Plan <b>${esc(p.id.toUpperCase())}</b> · ${fmt(p.monthlyAmount)} per month · every receipt is stored here.</p></div>
-        <div class="sv-book">
-          <div class="svb-top">
-            <div><small>Total contributed</small><b>${fmt(contributed)}</b></div>
-            <div><small>Instalments</small><b>${done}/11</b></div>
-            <div><small>Status</small><b class="svb-${p.status}">${esc(p.status)}</b></div>
-          </div>
-          <div class="svb-bar"><i style="width:${Math.min(100, (done / 11) * 100)}%"></i></div>
-          ${p.status === 'active' ? `<div class="svb-next">Next instalment: <b>${fmt(p.monthlyAmount)}</b> — pay at the counter or on WhatsApp; the receipt appears here immediately.</div>` : ''}
-          <div class="svb-list">
-            ${(p.installments || []).map((q, i) => `<div class="svb-row"><span>${i + 1}. ${new Date(q.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span><b>${fmt(q.amount)}</b><small>${q.rate22 ? '@' + fmt(q.rate22) + '/g' : ''} ${esc(q.mode || '')}</small></div>`).join('')}
-            ${done >= 11 ? `<div class="svb-row svb-gift"><span>12. ✦ Shivaa&rsquo;s gift instalment</span><b>${fmt(p.monthlyAmount)}</b></div>` : ''}
-          </div>
-          <div class="svb-actions">
-            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print / PDF statement</button>
-            <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦ please share my Swarna Nidhi plan ' + p.id.toUpperCase() + ' statement.')}">WhatsApp statement</a>
-          </div>
-        </div>`;
-    } catch (e) { wrap.innerHTML = ''; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Trace plan'; }
+    });
   };
   loadPassbook();
 };

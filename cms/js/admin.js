@@ -357,27 +357,52 @@ async function renderAdmin(view, q) {
     </div>`;
   }
 
-  /* ── v60 SWARNA NIDHI admin ── */
+  /* ── v60 / v233 SWARNA NIDHI admin ────────────────────────────────────
+     The ledger is the desk's copy of the customer's passbook: the same plan
+     number, the same next-due date, the same receipt numbers, the same grams.
+     v233 adds the request queue (a customer asks from #/savings; the desk
+     performs it here), a phone lookup to open a plan for a walk-in member,
+     and a CSV of the whole book for the accountant. ─────────────────────── */
   if (tab === 'nidhi') {
-    const plans = (savingsData.plans || []).slice().reverse();
-    body.innerHTML = `<div class="adm-card"><h3>${plans.length} Swarna Nidhi plans</h3>
-      <p class="partner-note">Record each counter/UPI instalment here — the customer&rsquo;s digital passbook and indicative grams update instantly. Shivaa&rsquo;s 12th instalment unlocks after 11 paid months.</p>
+    const plans = (savingsData.plans || []).slice();
+    const nidhiDate = (iso) => {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      return isNaN(+d) ? String(iso).slice(0, 10)
+        : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+    const waiting = plans.filter(p => p.pendingRequest);
+    const totalBook = plans.reduce((n, p) => n + (Number(p.contributed) || 0), 0);
+    body.innerHTML = `<div class="adm-card">
+      <div class="adm-nidhi-head"><h3>${plans.length} Swarna Nidhi plans <small style="font-weight:400;color:var(--ink-3)">· ${fmt(totalBook)} collected</small></h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.nidhiOpen()">＋ Open a plan</button>
+          <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.nidhiCSV()" ${plans.length ? '' : 'disabled'}>⬇ Full book CSV</button>
+        </div></div>
+      <p class="partner-note">Record each counter/UPI instalment here — the customer's passbook, receipt number and grams update instantly. Every receipt is frozen at its own 22K rate; Shivaa's 12th instalment unlocks after 11 paid months.</p>
+      ${waiting.length ? `<div class="adm-nidhi-req"><b>${waiting.length} customer request${waiting.length > 1 ? 's' : ''} waiting</b>
+        ${waiting.map(p => `<div class="anr-row"><span><b>${esc(p.planNo || '')}</b> · ${esc(p.userName || '')} · ${esc(p.pendingRequest.kind)}${p.pendingRequest.note ? ' — “' + esc(p.pendingRequest.note) + '”' : ''}</span>
+          <small>${esc(nidhiDate(p.pendingRequest.at))}</small>
+          <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.nidhiAct('${p.id}','${p.pendingRequest.kind === 'close' ? 'close' : 'redeem'}')">Resolve →</button></div>`).join('')}</div>` : ''}
       ${plans.length ? `<div class="adm-table-wrap" style="margin-top:10px"><table class="adm-table">
-        <thead><tr><th>Plan</th><th>Customer</th><th class="num">Monthly</th><th class="num">Paid months</th><th class="num">Contributed</th><th class="num">~22K grams</th><th>Status</th><th></th></tr></thead>
-        <tbody>${plans.map(p => `<tr>
-          <td><b>${esc(p.id.toUpperCase())}</b><br><small>${new Date(p.createdAt).toLocaleDateString('en-IN')}</small></td>
-          <td>${esc(p.userName)}<br><small style="color:var(--ink-3)">${esc(p.phone || '')}</small></td>
+        <thead><tr><th>Plan</th><th>Customer</th><th class="num">Monthly</th><th class="num">Paid</th><th class="num">Contributed</th><th class="num">Gold · 22K</th><th>Next due</th><th>Status</th><th></th></tr></thead>
+        <tbody>${plans.map(p => `<tr data-plan-no="${esc(p.planNo || '')}">
+          <td><b data-nidhi-plan>${esc(p.planNo || '')}</b><br><small>${p.receipts && p.receipts.length ? p.receipts.length : 0} receipt(s) · opened ${esc(nidhiDate(p.startedAt || p.createdAt))}</small></td>
+          <td>${esc(p.userName || '')}<br><small style="color:var(--ink-3)">${esc(p.phone || '')}</small></td>
           <td class="num">${fmt(p.monthlyAmount)}</td>
-          <td class="num">${p.paidMonths}/11</td>
-          <td class="num"><b>${fmt(p.contributed)}</b></td>
-          <td class="num">${(p.indicativeGrams22 || 0).toFixed(2)} g</td>
-          <td><span class="status-pill st-${p.status === 'active' ? 'placed' : 'delivered'}">${esc(p.status)}</span></td>
+          <td class="num">${p.paidMonths || 0}/11</td>
+          <td class="num"><b>${fmt(p.contributed || 0)}</b></td>
+          <td class="num">${(p.gramsAccrued || 0).toFixed(2)} g<small style="display:block;color:var(--ink-3)">${(p.indicativeGrams || 0).toFixed(2)} g at today's rate</small></td>
+          <td>${p.nextDueAt ? esc(nidhiDate(p.nextDueAt)) : '—'}</td>
+          <td><span class="status-pill st-${p.status === 'active' ? 'placed' : 'delivered'}">${esc(p.statusLabel || p.status)}</span>${p.pendingRequest ? '<br><small class="anr-flag">request open</small>' : ''}</td>
           <td style="white-space:nowrap">${p.status === 'active' ? `
             <button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.nidhiPay('${p.id}')">+ Instalment</button>
             <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.nidhiAct('${p.id}','redeem')">Redeem</button>
-            <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.nidhiAct('${p.id}','close')">Close/refund</button>` : ''}</td>
-        </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No plans yet. Customers enrol from the Swarna Nidhi page.</p>'}
+            <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.nidhiAct('${p.id}','close')">Close/refund</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.nidhiSheet('${p.id}')">Ledger</button></td>
+        </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No plans yet. Customers enrol from the Swarna Nidhi page, or open one here for a walk-in member.</p>'}
     </div>`;
+    window.ShivaaAdmin._nidhi = plans;   // the ledger / CSV handlers read this
   }
 
   /* ── GOLD FINALE — entry ledger for the CA-witnessed draw ── */
@@ -3540,6 +3565,8 @@ window.ShivaaBullion = {
     window.Shivaa.api('/api/bullion/orders').then(({ orders }) => {
       const steps = ['New', 'Confirmed', 'Delivered'];
       host.innerHTML = `<h4 class="bd-sech">My bullion deals</h4>
+        <div class="bd-deal-top-acts"><button type="button" class="btn btn-ghost btn-sm" data-bd-deals-csv>⬇ Deals CSV</button>
+          <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaBullion.menuGo('calc')">🧮 New quote</button></div>
         ${orders.length ? orders.map(o => {
           const stepIdx = o.status === 'Cancelled' ? -1 : steps.indexOf(o.status);
           return `<div class="bd-deal ${o.status === 'Cancelled' ? 'cancelled' : ''}">
@@ -3548,11 +3575,12 @@ window.ShivaaBullion = {
               <span class="status-pill st-${String(o.status).toLowerCase()}">${esc(o.status)}</span>
             </div>
             <div class="bd-deal-grid">
-              <div><small>Qty</small><b>${o.qty} ${o.unit}</b></div>
+              <div><small>Qty</small><b>${o.qty} ${o.unit}${o.fineGrams ? `<em>${Number(o.fineGrams).toFixed(3)} g fine</em>` : ''}</b></div>
               <div><small>Rate ₹/g</small><b>${this.num(o.rate)}</b></div>
               <div><small>Value</small><b>₹${this.num(o.amount)}</b></div>
               <div><small>Date</small><b>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</b></div>
             </div>
+            ${o.quoteNo ? `<small class="bd-dealnote">Priced on firm quote <b>${esc(o.quoteNo)}</b></small>` : ''}
             ${stepIdx >= 0 ? `<div class="bd-track">${steps.map((s, i) => `<span class="${i <= stepIdx ? 'done' : ''}">${s}</span>${i < steps.length - 1 ? '<i></i>' : ''}`).join('')}</div>` : '<div class="bd-cancelled">This deal was cancelled.</div>'}
             ${o.note ? `<small class="bd-dealnote">Note: ${esc(o.note)}</small>` : ''}
             <div class="bd-deal-acts">
@@ -3562,6 +3590,21 @@ window.ShivaaBullion = {
           </div>`;
         }).join('') : '<p class="partner-note">No deals yet — tap BUY/SELL on the Rates tab. Quotes here are firm while the board is live.</p>'}`;
       window._blOrders = orders;
+      const csvBtn = host.querySelector('[data-bd-deals-csv]');
+      if (csvBtn) csvBtn.onclick = () => {
+        const head = ['Order', 'Date', 'Side', 'Metal', 'Purity', 'Qty', 'Unit', 'Rate INR/g', 'Amount INR', 'Fine grams', 'Quote no', 'Status', 'Note'];
+        const lines = orders.map(o => [o.id, o.createdAt, o.side, o.metal, o.purity || '', o.qty, o.unit,
+          o.rate, o.amount, o.fineGrams || '', o.quoteNo || '', o.status, o.note || '']);
+        const text = [head].concat(lines).map(a => a.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+        try {
+          const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+          const href = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = href; a.download = 'shivaa-bullion-deals.csv';
+          document.body.appendChild(a); a.click();
+          setTimeout(() => { try { URL.revokeObjectURL(href); a.remove(); } catch (e) {} }, 0);
+          window.Shivaa.toast('Deals downloaded ✦');
+        } catch (e) { window.Shivaa.toast('Could not build the file', 'err'); }
+      };
     }).catch(e => host.innerHTML = '<p class="partner-note">' + e.message + '</p>');
   },
 
@@ -3668,18 +3711,21 @@ window.ShivaaBullion = {
   },
 
   /* ───────── trade ticket: quantity / amount calculator with TCS ───────── */
-  orderForm(o) {
+  orderForm(o, quoteTicket) {
     const sil = /sil/i.test(o.label);
-    const defUnit = sil ? 'kg' : 'g';
+    const q = quoteTicket && quoteTicket.quote ? quoteTicket.quote : null;
+    const defUnit = q && q.unit ? q.unit : (sil ? 'kg' : 'g');
     window.Shivaa.openModal(`
       <h3 style="font-size:22px;margin-bottom:2px">${o.side === 'buy' ? 'Buy' : 'Sell'} — ${o.label}</h3>
       <div style="font-size:12px;color:var(--ink-3);margin-bottom:14px">${o.purity} · ${o.mode} · firm rate <b>₹${o.rate.toLocaleString('en-IN')}/g</b></div>
       <form class="form-grid" onsubmit="ShivaaBullion.place(event)">
         <input type="hidden" id="boKey" value="${o.key}"><input type="hidden" id="boSide" value="${o.side}">
         <input type="hidden" id="boMetal" value="${o.label}"><input type="hidden" id="boRate" value="${o.rate}">
+        ${q ? `<input type="hidden" id="boQuoteNo" value="${esc(q.id)}">` : ''}
         <div class="fld"><label>Trade by</label><select id="boMode" class="sortsel" style="width:100%;border-radius:12px"><option value="qty">Quantity</option><option value="amt">Amount (₹)</option></select></div>
         <div class="fld"><label>Unit</label><select id="boUnit" class="sortsel" style="width:100%;border-radius:12px"><option value="g" ${defUnit === 'g' ? 'selected' : ''}>Grams</option><option value="kg" ${defUnit === 'kg' ? 'selected' : ''}>Kg</option></select></div>
-        <div class="fld full" id="qtyFld"><label>Quantity *</label><input id="boQty" type="number" step="0.001" min="0.001" placeholder="${sil ? 'e.g. 1 (kg)' : 'e.g. 100 (g)'}"></div>
+        <div class="fld full" id="qtyFld"><label>Quantity *</label><input id="boQty" type="number" step="0.001" min="0.001" value="${q && quoteTicket.qty ? esc(String(quoteTicket.qty)) : ''}" placeholder="${sil ? 'e.g. 1 (kg)' : 'e.g. 100 (g)'}"></div>
+        ${q ? `<div class="fld full" style="font-size:12.5px;color:var(--ink-3)">Priced on firm quote <b>${esc(q.id)}</b> — the order is refused if the board moves more than 0.2% before it lands.</div>` : ''}
         <div class="fld full" id="amtFld" style="display:none"><label>Amount ₹ *</label><input id="boAmt" type="number" step="1" placeholder="e.g. 500000"></div>
         <div class="fld"><label>TCS (0.1%) on buy</label><select id="boTcs" class="sortsel" style="width:100%;border-radius:12px"><option value="0">Not applicable</option><option value="0.001" ${o.side === 'buy' ? 'selected' : ''}>Add 0.1%</option></select></div>
         <div class="fld"><label>Note</label><input id="boNote" placeholder="settlement day, ref…"></div>
@@ -3726,6 +3772,7 @@ window.ShivaaBullion = {
       const ord = await window.Shivaa.api('/api/bullion/order', { method: 'POST', body: JSON.stringify({
         side: document.getElementById('boSide').value, metKey: document.getElementById('boKey').value,
         metal: document.getElementById('boMetal').value, qty: +qty.toFixed(3), unit, note,
+        quoteNo: (document.getElementById('boQuoteNo') || {}).value || '',
       }) });
       window.Shivaa.closeModal();
       window.Shivaa.toast('Order ' + ord.id + ' placed ✦ desk confirms on WhatsApp');
@@ -4060,10 +4107,68 @@ window.ShivaaAdmin.nidhiPay = (id) => {
   const amt = prompt('Instalment received ₹:', '5000'); if (amt === null || +amt <= 0) return;
   const mode = prompt('Mode: cash / upi / bank', 'cash'); if (mode === null) return;
   (async () => {
-    try { await window.Shivaa.api('/api/admin/savings/' + id + '/installment', { method: 'POST', body: JSON.stringify({ amount: +amt, mode }) });
-      window.Shivaa.toast('Instalment recorded ✦ passbook updated'); renderAdmin($('#view'), new URLSearchParams('tab=nidhi'));
+    try {
+      const res = await window.Shivaa.api('/api/admin/savings/' + id + '/installment', { method: 'POST', body: JSON.stringify({ amount: +amt, mode }) });
+      const no = (res && res.receipt && res.receipt.receiptNo) || '';
+      window.Shivaa.toast(no ? 'Receipt ' + no + ' recorded ✦' : 'Instalment recorded ✦ passbook updated');
+      renderAdmin($('#view'), new URLSearchParams('tab=nidhi'));
     } catch (e) { window.Shivaa.toast(e.message, 'err'); }
   })();
+};
+/* v233 — the desk's copy of one plan: the same numbers the customer sees. */
+window.ShivaaAdmin.nidhiSheet = (id) => {
+  const p = (window.ShivaaAdmin._nidhi || []).find(x => x.id === id);
+  if (!p) { window.Shivaa.toast('Reload the tab and try again', 'err'); return; }
+  const dstr = (iso) => { const d = new Date(iso || ''); return isNaN(+d) ? '—' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); };
+  const rows = (p.receipts || []).map(r => `<tr><td><b>${esc(r.receiptNo)}</b></td><td>${esc(dstr(r.at))}</td>
+      <td class="num">${fmt(r.amount)}</td><td class="num">${r.rate22 ? fmt(r.rate22) : '—'}</td>
+      <td class="num">${(Number(r.grams) || 0).toFixed(3)} g</td><td>${esc(r.modeLabel || r.mode || '')}</td></tr>`).join('');
+  window.Shivaa.openModal(`<h3 style="margin-bottom:2px">Plan ${esc(p.planNo || '')}</h3>
+    <p style="font-size:12.5px;color:var(--ink-3)">${esc(p.userName || '')} · ${esc(p.phone || '')} · ${fmt(p.monthlyAmount)} a month · next due ${p.nextDueAt ? esc(dstr(p.nextDueAt)) : '—'}</p>
+    ${p.pendingRequest ? `<div class="nb-pending" style="margin:10px 0"><b>Request: ${esc(p.pendingRequest.kind)}</b><small>${esc(p.pendingRequest.note || '')} · ${esc(dstr(p.pendingRequest.at))}</small></div>` : ''}
+    <div class="adm-table-wrap"><table class="adm-table">
+      <thead><tr><th>Receipt</th><th>Date</th><th class="num">Amount</th><th class="num">22K ₹/g</th><th class="num">Gold</th><th>Mode</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="6" style="color:var(--ink-3)">No instalment yet.</td></tr>'}</tbody></table></div>
+    <p style="font-size:12.5px;margin-top:10px">Paid in <b>${fmt(p.contributed || 0)}</b> · gold accrued <b>${(Number(p.gramsAccrued) || 0).toFixed(3)} g</b> · buying power <b>${fmt(p.buyingPower || 0)}</b>${p.bonus ? ' (12th unlocked)' : ''}</p>`);
+};
+window.ShivaaAdmin.nidhiCSV = () => {
+  const plans = window.ShivaaAdmin._nidhi || [];
+  const head = ['Plan no', 'Customer', 'Phone', 'Monthly', 'Paid months', 'Contributed', 'Gold accrued g', 'Buying power', 'Next due', 'Status', 'Receipts'];
+  const lines = [head].concat(plans.map(p => [p.planNo || '', p.userName || '', p.phone || '', p.monthlyAmount || 0,
+    p.paidMonths || 0, p.contributed || 0, (Number(p.gramsAccrued) || 0).toFixed(3), p.buyingPower || 0,
+    p.nextDueAt || '', p.status || '', (p.receipts || []).map(r => r.receiptNo).join(' ')]));
+  const csv = lines.map(a => a.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  try {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = href; a.download = 'swarna-nidhi-book.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { try { URL.revokeObjectURL(href); a.remove(); } catch (e) {} }, 0);
+    window.Shivaa.toast('Book downloaded ✦');
+  } catch (e) { window.Shivaa.toast('Could not build the file', 'err'); }
+};
+/* v233 — open a plan for a member who walked into the store. */
+window.ShivaaAdmin.nidhiOpen = () => {
+  window.Shivaa.openModal(`<h3>Open a Swarna Nidhi plan</h3>
+    <p style="font-size:13px;color:var(--ink-3)">The customer must already have a Shivaa account (their mobile is the login). The plan number is generated here and appears in their passbook immediately.</p>
+    <form class="form-grid" id="nidhiOpenForm">
+      <div class="fld full"><label>Registered mobile</label><input id="nidhiOpenPhone" inputmode="numeric" maxlength="10" required placeholder="10-digit mobile"></div>
+      <div class="fld full"><label>Monthly instalment ₹</label><input id="nidhiOpenAmt" type="number" min="500" step="500" value="5000" required></div>
+      <button class="btn btn-gold btn-block">Open the plan ✦</button>
+    </form>`);
+  const f = document.getElementById('nidhiOpenForm');
+  if (!f) return;
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const phone = (document.getElementById('nidhiOpenPhone').value || '').replace(/\D/g, '');
+    const monthlyAmount = +(document.getElementById('nidhiOpenAmt').value || 0);
+    try {
+      const res = await window.Shivaa.api('/api/admin/savings/open', { method: 'POST', body: JSON.stringify({ phone, monthlyAmount }) });
+      window.Shivaa.closeModal();
+      window.Shivaa.toast('Plan ' + ((res && res.plan && res.plan.planNo) || '') + ' opened ✦');
+      renderAdmin($('#view'), new URLSearchParams('tab=nidhi'));
+    } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+  });
 };
 window.ShivaaAdmin.nidhiAct = async (id, act) => {
   const note = prompt(act === 'redeem' ? 'Redeem against which piece / order? (note)' : 'Close / refund note:', '') || '';
@@ -4505,6 +4610,270 @@ window.ShivaaAdmin.billDelete = async (id, billNo) => {
   } catch (e) { toast(e.message || 'Could not delete the bill', 'err'); }
 };
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v233 · THE JEWELLER'S DESK — practical maths on top of the live board
+   ──────────────────────────────────────────────────────────────────────────
+   The desk could already show a rate and place an order. What a counter
+   actually needs at 11 a.m. is four things, and v233 puts them beside the
+   board:
+
+     1 · ₹ PER FINE GRAM. 995, 999, 98% chorsa and cash rows are not
+         comparable as printed — the only common denominator is the fine
+         (24K-equivalent) gram. Every row now carries it, the cheapest row
+         per metal is flagged, and the calculator converts karat weight the
+         way a karigar does: grams × purity.
+     2 · A FIRM QUOTE the jeweller can show his own customer: server-priced,
+         numbered (BQ…), valid 90 seconds. An order placed with an expired
+         quote, a moved board (>0.2%) or the wrong metal is REFUSED with a
+         sentence that says what to do — never silently filled at a new price.
+     3 · OPEN METAL AND MARK-TO-MARKET. What is still unsettled, in grams and
+         rupees, and what it is worth at the current board (a buy gains when
+         the SELL side rises; a sell gains when the BUY side falls).
+     4 · THE BOOK IN A FILE. One click gives the day's board with every
+         derived number, and the deals list, as CSV for the accountant.
+
+   All of it reads the same `B.rows` the board renders and the same
+   `B.quotes` the server issued. No second price source, no local maths that
+   can drift from what the order will actually be billed at.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  const B = window.ShivaaBullion;
+  if (!B) return;
+  const api = window.Shivaa.api;
+  const esc = window.Shivaa.esc;
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const inr = v => (Math.round(Number(v) || 0)).toLocaleString('en-IN');
+  const money = v => '₹' + inr(v);
+  const finePct = f => (Number(f) > 0 ? (Number(f) * 100).toFixed(2).replace(/\.?0+$/, '') + '%' : '—');
+
+  const rows = () => (B.B && B.B.rows) || [];
+  const desk = () => (B.B && B.B.desk) || { rows: {}, best: {} };
+  const rowOf = key => rows().find(r => r.key === key) || null;
+  const meta = key => (desk().rows || {})[key] || {};
+  const partnerExposure = () => (B.B && B.B.exposure) || null;
+
+  const csv = (head, lines) => [head].concat(lines)
+    .map(a => a.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(','))
+    .join('\n');
+  const download = (name, text) => {
+    try {
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(href); a.remove(); } catch (e) {} }, 0);
+      window.Shivaa.toast('Downloaded ✦ ' + name);
+    } catch (e) { window.Shivaa.toast('This browser cannot download the file', 'err'); }
+  };
+
+  /* ───────── 1 · the strip that rides under the live board ───────── */
+  B.deskStrip = function (host) {
+    if (!host || !this.B) return;
+    const d = desk();
+    const best = d.best || {};
+    const ex = partnerExposure();
+    const bRow = best.goldKey ? rowOf(best.goldKey) : null;
+    const sRow = best.silverKey ? rowOf(best.silverKey) : null;
+    const tds = rowOf('tdsGold995');
+    const tdsMeta = meta('tdsGold995');
+    host.insertAdjacentHTML('beforeend', `
+      <div class="bd-desk" data-desk-strip>
+        <div class="bd-desk-h"><b>Desk maths</b>
+          <span class="bd-desk-acts">
+            <button type="button" class="btn btn-gold btn-sm" data-desk-calc>Calculator &amp; quote</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-desk-csv>⬇ Board CSV</button>
+          </span></div>
+        <div class="bd-desk-grid">
+          <div><small>Best fine gram · gold</small>
+            <b>${best.gold ? money(best.gold) : '—'}</b>
+            <em>${bRow ? esc(bRow.label) + ' · ' + finePct(meta(best.goldKey).fine) : 'waiting for a quote'}</em></div>
+          <div><small>Best fine gram · silver</small>
+            <b>${best.silver ? money(best.silver) : '—'}</b>
+            <em>${sRow ? esc(sRow.label) + ' · ' + finePct(meta(best.silverKey).fine) : 'waiting for a quote'}</em></div>
+          <div><small>Open metal (unsettled)</small>
+            <b>${ex ? (Number(ex.netGrams) || 0).toFixed(3) + ' g' : '—'}</b>
+            <em>${ex ? ex.openDeals + ' deal(s) · ' + (ex.mtm >= 0 ? '+' : '−') + money(Math.abs(ex.mtm)) + ' at the board' : 'no deals yet'}</em></div>
+          <div><small>TDS 995 spread</small>
+            <b>${tdsMeta.spread ? money(tdsMeta.spread) + '/g' : '—'}</b>
+            <em>${tdsMeta.spreadPct ? Number(tdsMeta.spreadPct).toFixed(2) + '% of mid' : 'board closed'}${tds ? ' · ' + finePct(tdsMeta.fine) + ' fine' : ''}</em></div>
+        </div>
+      </div>`);
+    const calcBtn = $('[data-desk-calc]', host);
+    if (calcBtn) calcBtn.onclick = () => B.menuGo('calc');
+    const csvBtn = $('[data-desk-csv]', host);
+    if (csvBtn) csvBtn.onclick = () => B.boardCSV();
+  };
+
+  B.boardCSV = function () {
+    const d = desk().rows || {};
+    const head = ['Key', 'Metal', 'Purity', 'Mode', 'Buy ₹/g', 'Sell ₹/g', 'Fine', 'Fine buy ₹/g', 'Fine sell ₹/g', 'Spread ₹/g', 'Spread %', 'Day change %', 'Quoted at'];
+    const lines = rows().map(r => {
+      const m = d[r.key] || {};
+      return [r.key, m.metal || '', r.purity, r.mode, r.buy, r.sell, m.fine, m.fineBuy, m.fineSell,
+        m.spread, m.spreadPct, m.chgPct, (B.B && B.B.updatedAt) || ''];
+    });
+    download('shivaa-bullion-board-' + new Date().toISOString().slice(0, 10) + '.csv', csv(head, lines));
+  };
+
+  /* ───────── 2 · the calculator / quote desk ───────── */
+  B.secCalc = function (host) {
+    const live = rows();
+    if (!live.length) { host.innerHTML = '<p class="partner-note">The board is still loading — the calculator needs a live row.</p>'; return; }
+    const goldFirst = live.slice().sort((a, b) => (meta(b.key).fineBuy || 0) - (meta(a.key).fineBuy || 0));
+    const opts = goldFirst.map(r => {
+      const m = meta(r.key);
+      return `<option value="${esc(r.key)}">${esc(r.label)} · ${esc(r.purity)} · ${r.buy ? money(r.buy) + '/g buy' : 'sell only'}${m.fine ? ' · ' + finePct(m.fine) : ''}</option>`;
+    }).join('');
+    host.innerHTML = `
+      <h4 class="bd-sech">Calculator &amp; firm quote</h4>
+      <p class="partner-note">Pick a row, enter the weight — the desk shows the exact rupee value, the fine-gold equivalent, TCS on a buy, and the spread you are paying. “Take a firm quote” locks the number for 90 seconds and gives you a quote number your customer can see.</p>
+      <div class="bd-calc" data-bd-calc>
+        <div class="fld full"><label>Metal / purity</label>
+          <select id="bdcRow" class="sortsel">${opts}</select></div>
+        <div class="fld"><label>Side</label>
+          <select id="bdcSide" class="sortsel"><option value="buy">Buy (desk sells to you)</option><option value="sell">Sell (you sell to the desk)</option></select></div>
+        <div class="fld"><label>Weight in</label>
+          <select id="bdcUnit" class="sortsel"><option value="g">Grams</option><option value="kg">Kilograms</option></select></div>
+        <div class="fld full"><label>Quantity</label>
+          <input id="bdcQty" type="number" min="0.001" step="0.001" value="100" inputmode="decimal"></div>
+        <div class="bdc-chips" data-bdc-chips>
+          <button type="button" data-bdc-q="10">10 g</button><button type="button" data-bdc-q="50">50 g</button>
+          <button type="button" data-bdc-q="100">100 g</button><button type="button" data-bdc-q="1">1 kg</button>
+        </div>
+        <div class="bdc-out" id="bdcOut" data-bdc-out></div>
+        <div class="bdc-acts">
+          <button type="button" class="btn btn-gold" id="bdcQuote" data-bdc-quote>Take a firm quote</button>
+          <button type="button" class="btn btn-outline" id="bdcCopy">Copy quote</button>
+          <button type="button" class="btn btn-ghost" id="bdcOrder" disabled>Order this</button>
+        </div>
+        <div class="bdc-quote" id="bdcQuoteBox" data-bdc-quotebox aria-live="polite"></div>
+      </div>`;
+
+    let lastQuote = null;
+    const rowSel = $('#bdcRow'), sideSel = $('#bdcSide'), unitSel = $('#bdcUnit'), qtyEl = $('#bdcQty');
+    const out = $('#bdcOut'), quoteBox = $('#bdcQuoteBox'), orderBtn = $('#bdcOrder');
+
+    const compute = () => {
+      const r = rowOf(rowSel.value); if (!r) return null;
+      const m = meta(r.key);
+      const side = sideSel.value;
+      const unit = unitSel.value;
+      const qty = Math.max(0, Number(qtyEl.value) || 0);
+      const grams = qty * (unit === 'kg' ? 1000 : 1);
+      const rate = Number(r[side]) || 0;
+      const amount = rate * grams;
+      const tcs = side === 'buy' ? Math.round(amount * 0.001) : 0;
+      const fine = Number(m.fine) || 0;
+      return { r, m, side, unit, qty, grams, rate, amount, tcs, fine,
+        fineGrams: fine > 0 ? grams * fine : 0,
+        fineRate: fine > 0 && rate > 0 ? rate / fine : 0,
+        best: side === 'buy' ? Number((desk().best || {})[m.metal] || 0) : 0 };
+    };
+    const paint = () => {
+      const c = compute();
+      if (!c) { out.innerHTML = ''; return; }
+      const cheaper = c.best > 0 && c.fineRate > 0 && c.fineRate > c.best + 0.01;
+      out.innerHTML = `
+        <div class="bdc-line"><span>Rate</span><b>${c.rate ? money(c.rate) + '/g' : 'not quoting'}</b></div>
+        <div class="bdc-line"><span>Weight</span><b>${c.grams.toFixed(3)} g${c.fine ? ' · fine ' + c.fineGrams.toFixed(3) + ' g' : ''}</b></div>
+        <div class="bdc-line"><span>Metal value</span><b>${money(c.amount)}</b></div>
+        ${c.tcs ? `<div class="bdc-line"><span>TCS 0.1% (buy)</span><b>${money(c.tcs)}</b></div>` : ''}
+        <div class="bdc-line bdc-total"><span>Total ${c.side === 'buy' ? 'payable' : 'receivable'}</span><b>${money(c.amount + (c.side === 'buy' ? c.tcs : 0))}</b></div>
+        <div class="bdc-line bdc-fine"><span>Your cost per fine gram</span><b>${c.fineRate ? money(c.fineRate) : '—'}${c.best ? ' · desk best ' + money(c.best) : ''}</b></div>
+        <div class="bdc-line"><span>Spread on this row</span><b>${c.m.spread ? money(c.m.spread) + '/g · ' + Number(c.m.spreadPct).toFixed(2) + '%' : '—'}</b></div>
+        ${cheaper ? `<p class="bdc-hint">Another row is cheaper per fine gram this minute — compare before you buy.</p>` : ''}`;
+      orderBtn.disabled = !(c.rate > 0);
+    };
+    [rowSel, sideSel, unitSel, qtyEl].forEach(el => {
+      el.addEventListener('input', paint); el.addEventListener('change', paint);
+    });
+    $$('[data-bdc-q]', host).forEach(b => b.addEventListener('click', () => {
+      const q = Number(b.getAttribute('data-bdc-q')) || 0;
+      /* the chip means grams for gold chips and kg for the 1 kg chip */
+      if (q >= 1000) { unitSel.value = 'g'; qtyEl.value = String(q); }
+      else if (q === 1) { unitSel.value = 'kg'; qtyEl.value = '1'; }
+      else { unitSel.value = 'g'; qtyEl.value = String(q); }
+      paint();
+    }));
+    paint();
+
+    $('#bdcQuote').onclick = async () => {
+      const c = compute(); if (!c || !c.rate) return;
+      const btn = $('#bdcQuote');
+      btn.disabled = true; btn.textContent = 'Pricing…';
+      try {
+        const q = await api('/api/bullion/quote', { method: 'POST', body: JSON.stringify({
+          metKey: c.r.key, side: c.side, qty: c.qty, unit: c.unit }) });
+        lastQuote = q;
+        B._lastQuote = q;
+        const until = new Date(q.expiresAt);
+        quoteBox.innerHTML = `<div class="bdc-qcard">
+          <span class="bdc-qk">FIRM QUOTE</span>
+          <b data-bdc-quote-no>${esc(q.id)}</b>
+          <small>${esc(c.r.label)} · ${esc(q.side === 'buy' ? 'BUY' : 'SELL')} ${q.qty} ${q.unit} @ ${money(q.rate)}/g ·
+            ${money(q.amount)}${q.tcs ? ' + ' + money(q.tcs) + ' TCS' : ''} · total <b>${money(q.total)}</b></small>
+          <small class="bdc-valid">Valid till ${esc(isNaN(+until) ? '90 seconds' : until.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))} — after that the board wins.</small>
+        </div>`;
+        window.Shivaa.toast('Quote ' + q.id + ' priced ✦');
+      } catch (e) {
+        quoteBox.innerHTML = `<p class="nb-err">${esc(e.message || 'Could not price the quote')}</p>`;
+      }
+      btn.disabled = false; btn.textContent = 'Take a firm quote';
+    };
+    $('#bdcCopy').onclick = async () => {
+      const c = compute(); if (!c) return;
+      const q = lastQuote;
+      const text = 'SHIVAA BULLION ' + (q ? 'QUOTE ' + q.id : 'INDICATIVE') + '\n' +
+        c.r.label + ' · ' + c.r.purity + '\n' + (c.side === 'buy' ? 'BUY' : 'SELL') + ' ' + c.grams.toFixed(3) + ' g' +
+        (c.fine ? ' (fine ' + c.fineGrams.toFixed(3) + ' g)' : '') + ' @ ₹' + inr(c.rate) + '/g\n' +
+        'Value ₹' + inr(c.amount) + (c.tcs ? '\nTCS 0.1% ₹' + inr(c.tcs) : '') + '\nTotal ₹' + inr(c.amount + c.tcs) +
+        (q ? '\nQuote ' + q.id + ' · valid 90 s' : '\nIndicative at the live board');
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
+        else throw new Error('no clipboard');
+        window.Shivaa.toast('Quote copied ✦');
+      } catch (e) {
+        window.Shivaa.openModal(`<h3>Quote text</h3><textarea readonly style="width:100%;height:150px">${esc(text)}</textarea>`);
+      }
+    };
+    orderBtn.onclick = () => {
+      const c = compute(); if (!c) return;
+      B.orderForm({ key: c.r.key, label: c.r.label, mode: c.r.mode, side: c.side, rate: c.rate, purity: c.r.purity },
+        { quote: lastQuote, qty: c.qty, unit: c.unit });
+    };
+  };
+
+  /* ───────── 3 · hook the strip and the menu into the desk ───────── */
+  const origRates = B.secRates;
+  B.secRates = function (host) {
+    origRates.call(this, host);
+    try { this.deskStrip(host); } catch (e) {}
+  };
+  const origMenu = B.secMenu;
+  B.secMenu = function (host) {
+    origMenu.call(this, host);
+    try {
+      host.insertAdjacentHTML('beforeend', `<div class="bd-menu" style="margin-top:12px">
+        <button type="button" class="bd-menu-it" onclick="ShivaaBullion.menuGo('calc')">
+          <i class="bd-menu-ic">🧮</i><span><b>Calculator &amp; firm quote</b><small>Fine-gram maths, TCS, 90-second quote</small></span><i class="bd-menu-go">›</i></button>
+        <button type="button" class="bd-menu-it" onclick="ShivaaBullion.boardCSV()">
+          <i class="bd-menu-ic">⬇</i><span><b>Board CSV</b><small>Every row with its fine rate, spread and day move</small></span><i class="bd-menu-go">›</i></button>
+      </div>`);
+    } catch (e) {}
+  };
+  const origRenderSection = B.renderSection;
+  B.renderSection = function () {
+    if (this.section === 'calc') {
+      const host = document.getElementById('bdSection');
+      if (host) this.secCalc(host);
+      return;
+    }
+    return origRenderSection.call(this);
+  };
+})();
 
 /* register routes */
 window.Shivaa.routes.admin = renderAdmin;

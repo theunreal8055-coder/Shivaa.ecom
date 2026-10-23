@@ -44,7 +44,7 @@ const CANON = [
   'v227.css',
   'v229.css',
   'v230.css',
-  'v231.css', 'v232.css',
+  'v231.css', 'v232.css', 'v233.css',
 ];
 
 const headers = [...bundle.matchAll(/^\/\* ([a-z0-9-]+\.css) \*\/$/gm)].map(m => m[1]);
@@ -71,7 +71,7 @@ try {
 T('build: tools/build-css-bundle.py runs clean', proof.includes('VERIFY: bundle == ordered concatenation'),
   proof.startsWith('ERROR') ? proof.slice(0, 90) : '');
 T('build: it confirms all blocks are present, contiguous and in order',
-  proof.includes('VERIFY: all 66 blocks present, contiguous and in order'));
+  proof.includes('VERIFY: all 67 blocks present, contiguous and in order'));
 T('build: it writes nothing on a dry run',
   !proof.includes('wrote cms/css/shivaa.css'));
 
@@ -79,7 +79,7 @@ T('build: it writes nothing on a dry run',
 const sheetLinks = [...index.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(m => m[1]);
 const perLayer = sheetLinks.filter(h => /\/css\/v\d+\.css|\/css\/(hallmark|trust|motion|aurum|boost)\.css/.test(h));
 T('index: links exactly ONE stylesheet', sheetLinks.length === 1, sheetLinks.join(','));
-T('index: that stylesheet is the bundle', sheetLinks[0] === '/css/shivaa.css?v=232');
+T('index: that stylesheet is the bundle', sheetLinks[0] === '/css/shivaa.css?v=233');
 T('index: no per-layer stylesheet <link> is left', perLayer.length === 0, perLayer.join(','));
 T('index: the late preload-swap pattern is gone (nothing restyles after paint)',
   !/rel="preload" as="style"/.test(index));
@@ -97,14 +97,14 @@ T('sw: that stylesheet is the bundle', cssPrecache[0] === 'shivaa.css');
 T('sw: no dead per-layer stylesheet is precached for the shopper',
   !/'\/css\/v\d+\.css\?v=\d+'/.test(sw));
 T('sw: the offline shell keeps every script and font it had',
-  sw.includes('/js/app.js?v=232') && sw.includes('/fonts/jost.woff2?v=232')
+  sw.includes('/js/app.js?v=233') && sw.includes('/fonts/jost.woff2?v=233')
   && sw.includes('/offline.html'));
 
 /* ── 5 · stamps ────────────────────────────────────────────────────── */
-T('stamps: index at 227', index.includes('__SHIVAA_REL=232') && !index.includes('?v=226'));
-T('stamps: sw.js shell v227', sw.includes('shivaa-shell-v232') && sw.includes('const REL = 232;'));
-T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 232;'));
-T('stamps: api rel 227', api.includes("'rel' => 232,"));
+T('stamps: index at 227', index.includes('__SHIVAA_REL=233') && !index.includes('?v=226'));
+T('stamps: sw.js shell v227', sw.includes('shivaa-shell-v233') && sw.includes('const REL = 233;'));
+T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 233;'));
+T('stamps: api rel 227', api.includes("'rel' => 233,"));
 
 /* ── 6 · the settings race that the gate found ──────────────────────
    `state.settings` used to start as null; boot caps the /api/settings wait at

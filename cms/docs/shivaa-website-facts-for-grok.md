@@ -1,6 +1,37 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+**v233 — THE PASSBOOK RELEASE** (2026-10-23). Two owner asks, one release:
+*"Make the Swarna Nidhi teacher fully functional and traceable for every
+customer"* and *"make the bullion feature for jewellers more practical and
+updated"*.
+
+**Swarna Nidhi is a document.** A plan is `SN<yy>-<seq>` (`SN26-0001`); every
+instalment is a numbered receipt (`SN26-0001-01`). **One** builder,
+`savings_view()`, feeds three surfaces — the customer's passbook, the public
+lookup and the owner's ledger — so the receipt number on the counter slip is the
+number in the app. A passbook shows months paid, amount, the **grams bought at
+the rate that instalment actually paid**, the next due date, the bonus month
+(one month free, unlocked at 11 instalments) and progress. A customer with no
+login can trace a plan with its number **plus the last four digits of the
+registered mobile** (`POST /api/savings/track`): masked holder (`A•••• Sharma`),
+never the phone, email or a staff note, 30 lookups an hour per IP then a
+15-minute block. `POST /api/savings/request` raises a redeem/close request from
+the passbook; the desk stamps it `done`. The owner's Nidhi tab is a ledger —
+receipts, **⇢ Open plan** for a customer who paid at the counter (`POST
+/api/admin/savings/open`), printable receipt, CSV.
+
+**The jeweller's desk prices metal.** `GET /api/bullion` now carries ₹ per
+**fine gram** for every row (the only way 995 compares with 999), the best row
+per metal, purity factors 999/995/916/750, mark-to-market `exposure`, and the
+partner's quote history. `POST /api/bullion/quote` returns `BQ<yymd>-<nnnn>`,
+**90 seconds** of life, TCS **0.1 %** on a buy and none on a sell; `POST
+/api/bullion/order` takes `quoteNo` and refuses — in words — an expired quote, a
+quote whose metal moved more than **0.2 %**, one for the other side, or somebody
+else's. An order without a quote still works. New `qa/browser/t-v233-nidhi.mjs`
+(**146**), new gate `bash qa/v233-gate.sh` (**24 checks, 0 red**). Packaged as
+`shivaa-update-v233.zip`; adds `css/v233.css` (67 cascade positions).
+
 **v232 — THE IDLE RELEASE** (2026-10-18). *"App is not feeling smooth, it should
 feel like buttery smooth and ultra smooth, without decreasing the quality."*
 Measured before changing anything: a silent home page — no input, no scrolling —
@@ -101,21 +132,21 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 232 pending owner review — nothing goes live without the
-owner's explicit yes.** Live: **v228** (uploaded by the owner on 17 Oct 2026,
-"working fine and good"; v206–v227 went live with it, and before that v205).
-Built and not live: **v229, v230, v231, v232 — deploy v232**, which contains all
-three (v229 alone quotes 25 % to members, which the owner called a false claim).
-Forward-only rule in force — next release number is **v233**.
-Updated 2026-10-18 (v232) from `arena/e8a470c6-shivaa-ecom` (branched from
-`arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
+**COUNTDOWN: release 233 pending owner review — nothing goes live without the
+owner's explicit yes.** Live: **v232** (applied by the owner on 21 Oct 2026 —
+*"I have applied each and every update to the website and it's fine"*).
+Built and not live: **v233 — deploy v233**, the first release in which a Nidhi
+customer can prove what they paid and a jeweller can prove what they were
+quoted. Forward-only rule in force — next release number is **v234**.
+Updated 2026-10-23 (v233) from `arena/800194ed-shivaa-ecom`, the tree branched
+from `arena/e8a470c6-shivaa-ecom` at its v232 tip (`fd90c0f`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=232`), built from the 65 historical layers (66 cascade
+(stamped `?v=233`), built from the 66 historical layers (67 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v232 bundle: 910,723 B raw / 179,425 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v233 bundle: 924,855 B raw / 181,961 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`

@@ -4113,6 +4113,297 @@ function bullion_rows(array &$db): array {
   return ['rows' => $rows, 'board' => $board, 'chart' => $chart, 'rtgsConfig' => $rtgsCfg,
     'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v233 — SWARNA NIDHI, MADE TRACEABLE  (server side)
+   ──────────────────────────────────────────────────────────────────────────
+   The scheme shipped at v60 and the passbook at v60 too, but a plan lived
+   only as `savingsPlans[i]` with a machine id nobody could quote on a phone
+   call: "sp_9f2c…" is not a plan number. v233 gives every plan a HUMAN number
+   (SN26-0001), a numbered receipt per instalment, a month-by-month schedule,
+   a next-due date computed on the same month arithmetic the renewal code
+   uses, and ONE view function that every surface reads — the customer's
+   passbook, the public "track my plan" box, the admin ledger and the receipt
+   modal. Four surfaces, one truth: they cannot disagree.
+
+   Nothing here moves money, and nothing re-prices a past receipt: a receipt
+   keeps the 22K rate it was taken at (rate22), and grams are amount ÷ that
+   rate, so a plan's accrued grams never change when gold moves.
+   ══════════════════════════════════════════════════════════════════════════ */
+function savings_add_months(string $from, int $months): string {
+  $ts = strtotime($from);
+  if ($ts === false) $ts = time();
+  $day = (int)date('j', $ts);
+  $first = strtotime(date('Y-m-01', $ts));
+  $target = strtotime('+' . max(0, $months) . ' months', $first === false ? $ts : $first);
+  if ($target === false) $target = $ts;
+  $y = (int)date('Y', $target); $m = (int)date('n', $target);
+  $d = min($day, (int)date('t', $target));
+  return sprintf('%04d-%02d-%02dT%s', $y, $m, $d, date('H:i:s', $ts));
+}
+
+/* The number a customer reads out. New plans get a sequential one; a plan
+   opened before v233 gets a STABLE number derived from its own id, so the
+   same plan can never answer to two numbers on two different screens. */
+function savings_plan_no(array $p): string {
+  $stored = strtoupper(trim((string)($p['planNo'] ?? '')));
+  if (preg_match('/^SN\d{2}-[A-Z0-9]{3,8}$/', $stored)) return $stored;
+  $raw = strtoupper((string)preg_replace('/[^a-z0-9]/i', '', (string)($p['id'] ?? '')));
+  $tail = substr($raw, -4);
+  if (strlen($tail) < 3) $tail = str_pad($tail, 3, '0', STR_PAD_LEFT);
+  $ts = strtotime((string)($p['startedAt'] ?? '')) ?: time();
+  return 'SN' . date('y', $ts) . '-' . $tail;
+}
+
+function savings_next_no(array &$db): string {
+  $used = [];
+  foreach (($db['savingsPlans'] ?? []) as $q) {
+    $n = strtoupper(trim((string)($q['planNo'] ?? '')));
+    if ($n !== '') $used[$n] = 1;
+  }
+  $n = max(0, (int)($db['savingsSeq'] ?? 0));
+  do {
+    $n++;
+    $no = 'SN' . date('y') . '-' . str_pad((string)$n, 4, '0', STR_PAD_LEFT);
+  } while (isset($used[$no]) && $n < 10000);
+  $db['savingsSeq'] = $n;
+  return $no;
+}
+
+function savings_receipt_no(string $planNo, int $seq): string {
+  return $planNo . '-' . str_pad((string)max(1, $seq), 2, '0', STR_PAD_LEFT);
+}
+
+/* The desk answers a customer request by performing it; the request row is
+   kept (never deleted) and stamped done, so the history stays honest. */
+function savings_close_requests(array &$db, int $pi): void {
+  if (!isset($db['savingsPlans'][$pi]['requests']) || !is_array($db['savingsPlans'][$pi]['requests'])) return;
+  foreach ($db['savingsPlans'][$pi]['requests'] as $k => $rq) {
+    if ((string)($rq['status'] ?? '') === 'pending') {
+      $db['savingsPlans'][$pi]['requests'][$k]['status'] = 'done';
+      $db['savingsPlans'][$pi]['requests'][$k]['doneAt'] = now_iso();
+    }
+  }
+}
+
+function savings_mode_label(string $mode): string {
+  $m = strtolower(trim($mode));
+  if ($m === 'cash') return 'Cash';
+  if ($m === 'bank') return 'Bank / RTGS';
+  if ($m === 'upi') return 'UPI';
+  if ($m === 'card') return 'Card';
+  return $m === '' ? '—' : ucfirst($m);
+}
+
+/* ONE view for every surface. $live is current_rates($db) — the same 22K
+   number the storefront prints, never a second source. */
+function savings_view(array $p, array $live): array {
+  $no = savings_plan_no($p);
+  $amount = (int)round((float)($p['monthlyAmount'] ?? 0));
+  $insts = is_array($p['installments'] ?? null) ? array_values($p['installments']) : [];
+  $receipts = []; $paid = 0; $months = 0; $grams = 0.0;
+  foreach ($insts as $i => $q) {
+    $seq = $i + 1;
+    $amt = (int)round((float)($q['amount'] ?? 0));
+    $rate = (float)($q['rate22'] ?? 0);
+    $ok = ((string)($q['status'] ?? 'approved')) === 'approved';
+    $g = $rate > 0 ? $amt / $rate : 0.0;
+    if ($ok) { $paid += $amt; $months++; $grams += $g; }
+    $receipts[] = [
+      'seq' => $seq,
+      'receiptNo' => (string)($q['receiptNo'] ?? '') !== '' ? (string)$q['receiptNo'] : savings_receipt_no($no, $seq),
+      'id' => (string)($q['id'] ?? ''),
+      'amount' => $amt,
+      'mode' => (string)($q['mode'] ?? ''),
+      'modeLabel' => savings_mode_label((string)($q['mode'] ?? '')),
+      'at' => (string)($q['at'] ?? ''),
+      'rate22' => $rate,
+      'grams' => round($g, 4),
+      'status' => $ok ? 'paid' : 'pending',
+    ];
+  }
+  $bonus = $months >= 11 ? $amount : 0;
+  $buying = $paid + $bonus;
+  $g22 = (float)($live['gold22'] ?? 0);
+  $started = (string)($p['startedAt'] ?? ($p['createdAt'] ?? ''));
+  $status = (string)($p['status'] ?? 'active');
+
+  $schedule = [];
+  for ($i = 0; $i < 12; $i++) {
+    if ($i === 11) $state = $months >= 11 ? 'gift' : 'gift-locked';
+    elseif ($i < $months) $state = 'paid';
+    elseif ($i === $months && $status === 'active') $state = 'due';
+    else $state = 'upcoming';
+    $schedule[] = [
+      'month' => $i + 1,
+      'dueAt' => $started !== '' ? savings_add_months($started, $i) : '',
+      'state' => $state,
+    ];
+  }
+  $nextDueAt = null;
+  if ($status === 'active' && $months < 11 && $started !== '') $nextDueAt = savings_add_months($started, $months);
+
+  $requests = array_values(is_array($p['requests'] ?? null) ? $p['requests'] : []);
+  $pending = null;
+  foreach (array_reverse($requests) as $rq) {
+    if ((string)($rq['status'] ?? '') === 'pending') { $pending = $rq; break; }
+  }
+  $labels = ['active' => 'Active', 'matured' => 'Matured', 'redeemed' => 'Redeemed',
+    'closed-refund' => 'Closed · refunded', 'closed' => 'Closed'];
+
+  return [
+    'id' => (string)($p['id'] ?? ''),
+    'planNo' => $no,
+    'monthlyAmount' => $amount,
+    'status' => $status,
+    'statusLabel' => $labels[$status] ?? ucfirst($status),
+    'startedAt' => $started,
+    'maturesOn' => $started !== '' ? substr(savings_add_months($started, 11), 0, 10) : '',
+    'monthsPaid' => $months,
+    'progressPct' => (int)round(min(100, $months / 11 * 100)),
+    'contributed' => $paid,
+    'bonus' => $bonus,
+    'bonusUnlocked' => $months >= 11,
+    'buyingPower' => $buying,
+    'gramsAccrued' => round($grams, 3),
+    'indicativeGrams' => $g22 > 0 ? round($buying / $g22, 3) : 0,
+    'gold22' => $g22,
+    'nextDueAt' => $nextDueAt,
+    'receipts' => $receipts,
+    'schedule' => $schedule,
+    'requests' => $requests,
+    'pendingRequest' => $pending,
+    'redeemedAt' => (string)($p['redeemedAt'] ?? ''),
+    'closedAt' => (string)($p['closedAt'] ?? ''),
+  ];
+}
+
+/* The public lookup is answerable WITHOUT a login (a customer at the counter
+   does not remember a password), so it is strictly minimised: masked name,
+   no phone, no email, no staff notes, no order ids — receipts reduced to
+   number, date and amount. */
+function savings_mask_name(string $name): string {
+  $name = trim($name);
+  if ($name === '') return 'Shivaa customer';
+  $words = preg_split('/\s+/', $name) ?: [];
+  $out = [];
+  foreach ($words as $w) {
+    $w = (string)$w;
+    $len = function_exists('mb_strlen') ? mb_strlen($w) : strlen($w);
+    if ($len <= 2) { $out[] = $w; continue; }
+    $first = function_exists('mb_substr') ? mb_substr($w, 0, 1) : substr($w, 0, 1);
+    $last = function_exists('mb_substr') ? mb_substr($w, -1) : substr($w, -1);
+    $out[] = $first . str_repeat('•', max(2, $len - 2)) . $last;
+  }
+  return implode(' ', $out);
+}
+
+function savings_track_view(array $v, string $name): array {
+  $keep = ['planNo', 'monthlyAmount', 'status', 'statusLabel', 'startedAt', 'maturesOn',
+    'monthsPaid', 'progressPct', 'contributed', 'bonus', 'bonusUnlocked', 'buyingPower',
+    'gramsAccrued', 'nextDueAt', 'schedule', 'redeemedAt', 'gold22'];
+  $out = [];
+  foreach ($keep as $k) if (array_key_exists($k, $v)) $out[$k] = $v[$k];
+  $out['holder'] = savings_mask_name($name);
+  $out['receipts'] = array_map(static function ($r) {
+    return ['seq' => $r['seq'], 'receiptNo' => $r['receiptNo'], 'amount' => $r['amount'],
+      'at' => $r['at'], 'grams' => $r['grams'], 'status' => $r['status']];
+  }, $v['receipts']);
+  return $out;
+}
+
+/* ── v233 · the jeweller's desk: purity maths, a firm quote, exposure ───── */
+/* "995 (99.50%)" → 0.995 · "999 fine (99.9%)" → 0.999 · "98.00%" → 0.98.
+   The 3-digit assay code is checked first because it is the printed one. */
+function bullion_purity_factor(string $purity): float {
+  $s = strtolower(trim($purity));
+  if (preg_match('/\b(999|995|993|990|980|916|750)\b/', $s, $m)) return ((float)$m[1]) / 1000;
+  if (preg_match('/(\d{1,2}(?:\.\d+)?)\s*%/', $s, $m)) {
+    $f = ((float)$m[1]) / 100;
+    if ($f >= 0.3 && $f <= 1.0) return $f;
+  }
+  if (preg_match('/\b(\d{2})\s*k\b/', $s, $m)) return ((float)$m[1]) / 24;
+  return 0.0;
+}
+
+/* Per-row desk analytics, keyed by board key. Every number a jeweller needs
+   to compare two purities on one screen: ₹ per FINE gram, spread, day move. */
+function bullion_desk_view(array $rows): array {
+  $out = [];
+  $bestG = null; $bestS = null; $bestGKey = ''; $bestSKey = '';
+  foreach ($rows as $r) {
+    $key = (string)($r['key'] ?? '');
+    $sil = stripos($key, 'silver') !== false;
+    $fine = bullion_purity_factor((string)($r['purity'] ?? ''));
+    $buy = (float)($r['buy'] ?? 0); $sell = (float)($r['sell'] ?? 0);
+    $mid = ($buy > 0 && $sell > 0) ? ($buy + $sell) / 2 : max($buy, $sell);
+    $chg = (float)($r['change'] ?? 0);
+    $prev = $buy - $chg;
+    $fineBuy = ($fine > 0 && $buy > 0) ? round($buy / $fine, 2) : 0.0;
+    $row = [
+      'metal' => $sil ? 'silver' : 'gold',
+      'unit' => $sil ? 1000 : 10,
+      'fine' => $fine > 0 ? round($fine, 4) : 0.0,
+      'fineBuy' => $fineBuy,
+      'fineSell' => ($fine > 0 && $sell > 0) ? round($sell / $fine, 2) : 0.0,
+      'spread' => ($buy > 0 && $sell > 0) ? round($sell - $buy, 2) : 0.0,
+      'spreadPct' => ($mid > 0 && $buy > 0 && $sell > 0) ? round(($sell - $buy) / $mid * 100, 3) : 0.0,
+      'chgPct' => $prev > 0 ? round($chg / $prev * 100, 3) : 0.0,
+    ];
+    if ($fineBuy > 0) {
+      if (!$sil && ($bestG === null || $fineBuy < $bestG)) { $bestG = $fineBuy; $bestGKey = $key; }
+      if ($sil && ($bestS === null || $fineBuy < $bestS)) { $bestS = $fineBuy; $bestSKey = $key; }
+    }
+    $out[$key] = $row;
+  }
+  return ['rows' => $out,
+    'best' => ['gold' => $bestG, 'goldKey' => $bestGKey, 'silver' => $bestS, 'silverKey' => $bestSKey]];
+}
+
+/* Open metal this jeweller has not settled yet, marked to the board. A buy
+   order gains when the SELL side rises (that is what the metal is worth to
+   them); a sell order gains when the BUY side falls. */
+function bullion_exposure(array $db, array $u, array $rows): array {
+  $byKey = [];
+  foreach ($rows as $r) $byKey[(string)($r['key'] ?? '')] = $r;
+  $openBuy = 0.0; $openSell = 0.0; $value = 0; $mtm = 0.0; $open = 0; $settled = 0;
+  foreach (($db['bullionOrders'] ?? []) as $o) {
+    if ((string)($o['partnerId'] ?? '') !== (string)($u['partnerId'] ?? '')) continue;
+    $st = strtolower((string)($o['status'] ?? ''));
+    if ($st === 'cancelled') continue;
+    $grams = (float)($o['qty'] ?? 0) * (((string)($o['unit'] ?? 'g')) === 'kg' ? 1000 : 1);
+    $done = in_array($st, ['delivered', 'settled', 'closed'], true);
+    if ($done) { $settled++; continue; }
+    $open++;
+    if ((string)($o['side'] ?? '') === 'sell') $openSell += $grams; else $openBuy += $grams;
+    $value += (int)($o['amount'] ?? 0);
+    $cur = $byKey[(string)($o['metKey'] ?? '')] ?? null;
+    if ($cur) {
+      $now = (float)(((string)($o['side'] ?? '') === 'buy') ? ($cur['sell'] ?? 0) : ($cur['buy'] ?? 0));
+      if ($now > 0) {
+        $dir = ((string)($o['side'] ?? '') === 'buy') ? 1 : -1;
+        $mtm += $dir * ($now - (float)($o['rate'] ?? 0)) * $grams;
+      }
+    }
+  }
+  return ['openDeals' => $open, 'settledDeals' => $settled,
+    'openBuyGrams' => round($openBuy, 3), 'openSellGrams' => round($openSell, 3),
+    'netGrams' => round($openBuy - $openSell, 3), 'openValue' => $value,
+    'mtm' => (int)round($mtm)];
+}
+
+function bullion_quote_no(array &$db): string {
+  $used = [];
+  foreach (($db['bullionQuotes'] ?? []) as $q) if (!empty($q['id'])) $used[(string)$q['id']] = 1;
+  $n = max(0, (int)($db['bullionQuoteSeq'] ?? 0));
+  do {
+    $n++;
+    $id = 'BQ' . date('ymd') . '-' . str_pad((string)$n, 4, '0', STR_PAD_LEFT);
+  } while (isset($used[$id]) && $n < 10000);
+  $db['bullionQuoteSeq'] = $n;
+  return $id;
+}
+
 /* v57 ── personal occasion coupons (birthday / anniversary) ──
    Auto-issued up to 7 days before the date in the shopper's profile; one
    per person per occasion per year. They surface in the account + checkout
@@ -6869,7 +7160,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 232,
+      'rel' => 233,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -7807,8 +8098,56 @@ try {
     $out['alerts'] = array_reverse($myAlerts);
     $newsFresh = is_array($db['bullion']['newsCache'] ?? null) && (time() - (int)($db['bullion']['newsCache']['fetchedAt'] ?? 0)) < 2700;
     $out['news'] = bullion_news($db);
+    /* v233 — the jeweller's practical layer: ₹ per FINE gram on every row
+       (the only way to compare 995 against 999 against cash), the cheapest
+       fine gram per metal, and the metal this desk still has open. */
+    $out['desk'] = bullion_desk_view($out['rows']);
+    $out['exposure'] = bullion_exposure($db, $u, $out['rows']);
+    $myQuotes = [];
+    foreach (($db['bullionQuotes'] ?? []) as $q0) {
+      if ((string)($q0['partnerId'] ?? '') !== (string)($u['partnerId'] ?? '')) continue;
+      $myQuotes[] = $q0;
+    }
+    $out['quotes'] = array_slice(array_reverse($myQuotes), 0, 12);
     if (!$newsFresh) db_save($DB_FILE, $db);   // news cache refreshed (~every 45 min)
     jout(200, $out);
+  }
+  /* v233 — a firm quote the jeweller can show his counter: server-priced from
+     the same board the order uses, valid for 90 seconds, numbered (BQ…). */
+  if ($route === 'bullion/quote' && $method === 'POST') {
+    $u = require_partner_approved($db, req_user($db));
+    rate_block($db, 'bullionquote-u', $u['id'] ?? '?', 240, 3600);
+    $b = body_json();
+    $rows = bullion_rows($db)['rows'];
+    $key = substr(trim((string)($b['metKey'] ?? '')), 0, 40);
+    $row = null;
+    foreach ($rows as $r0) if ((string)($r0['key'] ?? '') === $key) { $row = $r0; break; }
+    if (!$row) jout(400, ['error' => 'Pick a metal from the board.']);
+    $side = ((string)($b['side'] ?? 'buy')) === 'sell' ? 'sell' : 'buy';
+    $rate = (float)($row[$side] ?? 0);
+    if ($rate <= 0) jout(400, ['error' => 'This metal is not quoting on that side right now — refresh the board.']);
+    $unit = ((string)($b['unit'] ?? 'g')) === 'kg' ? 'kg' : 'g';
+    $qty = is_numeric($b['qty'] ?? null) ? (float)$b['qty'] : 0.0;
+    if ($qty <= 0 || $qty > 1000 || !is_finite($qty))
+      jout(400, ['error' => 'Quantity must be between 0 and 1000 ' . $unit]);
+    $grams = $qty * ($unit === 'kg' ? 1000 : 1);
+    $fine = bullion_purity_factor((string)($row['purity'] ?? ''));
+    $amount = (int)round($rate * $grams);
+    $tcs = $side === 'buy' ? (int)round($amount * 0.001) : 0;
+    $q = ['id' => bullion_quote_no($db), 'userId' => $u['id'],
+      'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
+      'metKey' => $key, 'metal' => mb_substr((string)($row['label'] ?? ''), 0, 40),
+      'purity' => (string)($row['purity'] ?? ''), 'mode' => (string)($row['mode'] ?? ''),
+      'side' => $side, 'qty' => round($qty, 3), 'unit' => $unit, 'grams' => round($grams, 3),
+      'fineGrams' => $fine > 0 ? round($grams * $fine, 3) : 0.0,
+      'rate' => $rate, 'amount' => $amount, 'tcs' => $tcs, 'total' => $amount + $tcs,
+      'createdAt' => now_iso(), 'expiresAt' => date('c', time() + 90)];
+    $db['bullionQuotes'] = array_slice(array_merge(is_array($db['bullionQuotes'] ?? null)
+      ? $db['bullionQuotes'] : [], [$q]), -200);
+    audit_log($db, 'bullion.quote', ['quote' => $q['id'], 'met' => $key, 'qty' => $qty,
+      'unit' => $unit, 'by' => $u['name']]);
+    db_save($DB_FILE, $db);
+    jout(200, $q);
   }
   /* v69 — per-second tick (shared server micro-cache, one exchange call/sec).
      v74 — same response also carries the ~1 s live international spot. */
@@ -7923,11 +8262,38 @@ try {
     $rHi = $isSilverRow ? 50000 : 500000;  // absurd-upper guards only
     if ($rate < $rLo || $rate > $rHi) jout(400, ['error' => 'The quoted rate is outside a sane market range — refresh the board and retry, or confirm with the desk.']);
     $mult = $unit === 'kg' ? 1000 : 1;
+    /* v233 — a quote, when one is supplied, must still be the desk's quote:
+       same partner, same metal/side, unexpired, and the board may not have
+       moved more than 0.2% since. A stale quote is refused with a sentence a
+       jeweller can act on, never silently filled at a different price. */
+    $quoteNo = substr(trim((string)($b['quoteNo'] ?? '')), 0, 32);
+    $quote = null;
+    if ($quoteNo !== '') {
+      foreach (($db['bullionQuotes'] ?? []) as $q0) {
+        if ((string)($q0['id'] ?? '') === $quoteNo
+          && (string)($q0['partnerId'] ?? '') === (string)($u['partnerId'] ?? '')) { $quote = $q0; break; }
+      }
+      if (!$quote) jout(400, ['error' => 'That quote number is not on your desk — take a fresh quote.']);
+      if (strtotime((string)($quote['expiresAt'] ?? '')) < time())
+        jout(400, ['error' => 'Quote ' . $quoteNo . ' has expired (firm quotes hold for 90 seconds). Take a fresh quote.']);
+      if ((string)($quote['metKey'] ?? '') !== (string)($b['metKey'] ?? '')
+        || (string)($quote['side'] ?? '') !== $side)
+        jout(400, ['error' => 'That quote was priced for a different metal or side. Take a fresh quote.']);
+      $qRate = (float)($quote['rate'] ?? 0);
+      if ($qRate > 0 && abs($rate - $qRate) / $qRate > 0.002)
+        jout(409, ['error' => 'The board moved since quote ' . $quoteNo . ' — take a fresh quote to trade at the new rate.']);
+    }
     $ord = ['id' => biz_id('BL'), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
             'qty' => round($qty, 3), 'unit' => $unit, 'rate' => $rate,
             'amount' => (int)round($rate * $qty * $mult), 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300),
+            'quoteNo' => $quote ? (string)$quote['id'] : '',
+            'qtyGrams' => round($qty * $mult, 3),
+            'fineGrams' => round($qty * $mult * bullion_purity_factor((string)($br['purity'] ?? '')), 3),
             'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'], 'status' => 'New', 'createdAt' => now_iso()];
-    $db['bullionOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
+    $db['bullionOrders'][] = $ord;
+    audit_log($db, 'bullion.order', ['order' => $ord['id'], 'side' => $side, 'met' => $ord['metal'],
+      'qty' => $ord['qty'], 'unit' => $unit, 'rate' => $rate, 'by' => $u['name']]);
+    db_save($DB_FILE, $db); jout(200, $ord);
   }
   if (preg_match('#^bullion/orders/([\w-]+)$#', $route, $mBLO) && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
@@ -8901,30 +9267,122 @@ try {
     $amt = (int)round((float)($b['monthlyAmount'] ?? 0));
     if ($amt < 500) jout(400, ['error' => 'Monthly instalment must be at least ₹500']);
     if ($amt > 1000000) jout(400, ['error' => 'Monthly instalment is above the ₹10,00,000 online limit — set this up at the shop.']);
-    $plan = ['id' => uid('sp'), 'userId' => $u['id'], 'userName' => $u['name'], 'phone' => $u['phone'] ?? '',
-      'monthlyAmount' => $amt, 'status' => 'active', 'installments' => [],
+    /* v233 — the plan gets the number the customer will actually quote, and a
+       request log so the desk can see what was asked and when. */
+    $plan = ['id' => uid('sp'), 'planNo' => savings_next_no($db),
+      'userId' => $u['id'], 'userName' => $u['name'], 'phone' => $u['phone'] ?? '',
+      'monthlyAmount' => $amt, 'status' => 'active', 'installments' => [], 'requests' => [],
       'startedAt' => now_iso(), 'createdAt' => now_iso()];
     $db['savingsPlans'][] = $plan;
-    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'plan' => $plan]);
+    audit_log($db, 'savings.opened', ['plan' => $plan['planNo'], 'amount' => $amt]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'plan' => $plan, 'view' => savings_view($plan, current_rates($db))]);
   }
   if ($route === 'savings/mine' && $method === 'GET') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $live = current_rates($db);
     $plans = array_values(array_filter($db['savingsPlans'], fn($p) => $p['userId'] === $u['id']));
-    jout(200, ['plans' => array_reverse($plans)]);
+    $plans = array_map(fn($p) => array_merge($p, savings_view($p, $live)), array_reverse($plans));
+    jout(200, ['plans' => $plans]);
+  }
+  /* v233 — every customer can trace a plan without a login: plan number +
+     last 4 digits of the mobile on the plan. Minimised payload, rate-limited
+     per connection because a short plan number is guessable by design. */
+  if ($route === 'savings/track' && $method === 'POST') {
+    rate_block($db, 'savings-track-ip', client_ip(), 30, 3600, 900,
+      'Too many plan lookups from this connection — please wait a few minutes.');
+    $b = body_json();
+    $want = strtoupper((string)preg_replace('/[^A-Za-z0-9-]/', '', (string)($b['plan'] ?? '')));
+    $contact = (string)preg_replace('/\D/', '', (string)($b['contact'] ?? ''));
+    if (strlen($want) < 5) jout(400, ['error' => 'Enter your plan number (for example SN26-0001).']);
+    if (strlen($contact) < 4) jout(400, ['error' => 'Enter the last 4 digits of the mobile number on the plan.']);
+    $hit = null;
+    foreach (($db['savingsPlans'] ?? []) as $p) {
+      $no = savings_plan_no($p);
+      if (strcasecmp($no, $want) === 0 || strcasecmp((string)($p['id'] ?? ''), $want) === 0) { $hit = $p; break; }
+    }
+    if (!$hit) jout(404, ['error' => 'No plan with that number. Check the number printed on your receipt.']);
+    $phone = (string)preg_replace('/\D/', '', (string)($hit['phone'] ?? ''));
+    if (strlen($phone) < 4 || substr($phone, -4) !== substr($contact, -4)) {
+      jout(403, ['error' => 'That mobile number does not match this plan. Ask the store to update it if it changed.']);
+    }
+    jout(200, ['ok' => true, 'plan' => savings_track_view(savings_view($hit, current_rates($db)),
+      (string)($hit['userName'] ?? ''))]);
+  }
+  /* v233 — a customer can ASK for redemption / refund / transfer; the desk
+     still performs it. One pending request at a time, logged forever. */
+  if ($route === 'savings/request' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $b = body_json();
+    $kind = (string)($b['kind'] ?? '');
+    if (!in_array($kind, ['redeem', 'close', 'transfer', 'query'], true))
+      jout(400, ['error' => 'Choose what you need: redeem, close, transfer or a question.']);
+    $note = mb_substr(trim((string)($b['note'] ?? '')), 0, 300);
+    $target = (string)($b['planId'] ?? '');
+    $found = -1;
+    foreach ($db['savingsPlans'] as $pi => $p) {
+      if (($p['userId'] ?? '') !== $u['id']) continue;
+      if ($target !== '' && (string)($p['id'] ?? '') !== $target && strcasecmp(savings_plan_no($p), $target) !== 0) continue;
+      if (($p['status'] ?? 'active') !== 'active') continue;
+      $found = $pi; break;
+    }
+    if ($found < 0) jout(404, ['error' => 'No active Swarna Nidhi plan to act on.']);
+    foreach (($db['savingsPlans'][$found]['requests'] ?? []) as $rq) {
+      if ((string)($rq['status'] ?? '') === 'pending')
+        jout(400, ['error' => 'You already have a request open on this plan — the desk will call you.']);
+    }
+    $req = ['id' => uid('sr'), 'kind' => $kind, 'note' => $note, 'at' => now_iso(),
+      'by' => 'customer', 'status' => 'pending'];
+    $db['savingsPlans'][$found]['requests'][] = $req;
+    if (empty($db['savingsPlans'][$found]['planNo']))
+      $db['savingsPlans'][$found]['planNo'] = savings_plan_no($db['savingsPlans'][$found]);
+    audit_log($db, 'savings.request', ['plan' => savings_plan_no($db['savingsPlans'][$found]), 'kind' => $kind]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'request' => $req,
+      'plan' => savings_view($db['savingsPlans'][$found], current_rates($db))]);
   }
   if ($route === 'admin/savings' && $method === 'GET') {
     need_admin($db);
     $live = current_rates($db);
     $plans = array_map(function ($p) use ($live) {
-      $paid = array_sum(array_map(fn($i) => $i['status'] === 'approved' ? (int)$i['amount'] : 0, $p['installments'] ?? []));
-      $months = count(array_filter($p['installments'] ?? [], fn($i) => $i['status'] === 'approved'));
-      $bonus = $months >= 11 ? (int)($p['monthlyAmount'] ?? 0) : 0;
-      $p['paidMonths'] = $months; $p['contributed'] = $paid; $p['bonus'] = $bonus;
-      $p['buyingPower'] = $paid + $bonus;
-      $p['indicativeGrams22'] = $live['gold22'] ? round(($paid + $bonus) / (float)$live['gold22'], 3) : 0;
-      return $p;
+      $v = savings_view($p, $live);
+      $out = array_merge($p, $v);
+      /* the legacy keys every admin surface already reads */
+      $out['paidMonths'] = $v['monthsPaid'];
+      $out['contributed'] = $v['contributed'];
+      $out['bonus'] = $v['bonus'];
+      $out['buyingPower'] = $v['buyingPower'];
+      $out['indicativeGrams22'] = $v['indicativeGrams'];
+      return $out;
     }, array_reverse($db['savingsPlans']));
-    jout(200, ['plans' => $plans]);
+    jout(200, ['plans' => $plans, 'seq' => (int)($db['savingsSeq'] ?? 0)]);
+  }
+  /* v233 — the desk opens a plan for a walk-in member (mobile lookup), so the
+     passbook works for the customer who never fills an online form. */
+  if ($route === 'admin/savings/open' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $phone = (string)preg_replace('/\D/', '', (string)($b['phone'] ?? ''));
+    $amt = (int)round((float)($b['monthlyAmount'] ?? 0));
+    if (strlen($phone) < 10) jout(400, ['error' => 'Enter the customer\'s 10-digit registered mobile.']);
+    if ($amt < 500 || $amt > 1000000) jout(400, ['error' => 'Monthly instalment must be between ₹500 and ₹10,00,000.']);
+    $target = null;
+    foreach (($db['users'] ?? []) as $row) {
+      if ((string)preg_replace('/\D/', '', (string)($row['phone'] ?? '')) === $phone) { $target = $row; break; }
+    }
+    if (!$target) jout(404, ['error' => 'No Shivaa account on that mobile. Ask the customer to sign in once, then open the plan.']);
+    foreach (($db['savingsPlans'] ?? []) as $p0) {
+      if (($p0['userId'] ?? '') === $target['id'] && ($p0['status'] ?? 'active') === 'active')
+        jout(400, ['error' => 'This customer already has an active plan (' . savings_plan_no($p0) . ').']);
+    }
+    $plan = ['id' => uid('sp'), 'planNo' => savings_next_no($db),
+      'userId' => $target['id'], 'userName' => $target['name'] ?? '', 'phone' => $target['phone'] ?? '',
+      'monthlyAmount' => $amt, 'status' => 'active', 'installments' => [], 'requests' => [],
+      'startedAt' => now_iso(), 'createdAt' => now_iso(), 'openedBy' => req_user($db)['name'] ?? 'desk'];
+    $db['savingsPlans'][] = $plan;
+    audit_log($db, 'savings.opened-by-desk', ['plan' => $plan['planNo'], 'user' => $target['id'], 'amount' => $amt]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'plan' => $plan, 'view' => savings_view($plan, current_rates($db))]);
   }
   if (preg_match('#^admin/savings/([\w-]+)/(installment|redeem|close)$#', $route, $mSP) && $method === 'POST') {
     need_admin($db);
@@ -8943,28 +9401,51 @@ try {
           if (preg_match('/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/', $atRaw)) $atIso = $atRaw;
           else jout(400, ['error' => 'Installment date must be YYYY-MM-DD']);
         }
-        $inst = ['id' => uid('si'), 'amount' => $amt, 'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'upi',
+        /* v233 — the receipt number is minted with the money, not derived
+           later: SN26-0001-03 can be searched by the desk and by the customer,
+           and the grams it bought are frozen at this receipt's own rate. */
+        $planNo = (string)($db['savingsPlans'][$pi]['planNo'] ?? '');
+        if ($planNo === '') {
+          $planNo = savings_plan_no($db['savingsPlans'][$pi]);
+          $db['savingsPlans'][$pi]['planNo'] = $planNo;
+        }
+        $seq = count($db['savingsPlans'][$pi]['installments']) + 1;
+        $rate22 = (float)(current_rates($db)['gold22'] ?? 0);
+        $inst = ['id' => uid('si'), 'receiptNo' => savings_receipt_no($planNo, $seq),
+          'amount' => $amt, 'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'upi',
           'at' => $atIso,
-          'rate22' => (float)(current_rates($db)['gold22'] ?? 0), 'status' => 'approved', 'by' => req_user($db)['name'] ?? ''];
+          'rate22' => $rate22, 'grams' => $rate22 > 0 ? round($amt / $rate22, 4) : 0.0,
+          'status' => 'approved', 'by' => req_user($db)['name'] ?? ''];
         $db['savingsPlans'][$pi]['installments'][] = $inst;
         $months = count($db['savingsPlans'][$pi]['installments']);
         if ($months >= 11) $db['savingsPlans'][$pi]['bonusUnlockedAt'] = now_iso();
-        db_save($DB_FILE, $db); jout(200, ['ok' => true, 'installment' => $inst, 'months' => $months]);
+        audit_log($db, 'savings.installment', ['plan' => $planNo, 'receipt' => $inst['receiptNo'], 'amount' => $amt]);
+        db_save($DB_FILE, $db);
+        $live233 = current_rates($db);
+        jout(200, ['ok' => true, 'installment' => $inst, 'months' => $months,
+          'plan' => savings_view($db['savingsPlans'][$pi], $live233),
+          'receipt' => savings_view($db['savingsPlans'][$pi], $live233)['receipts'][$months - 1] ?? null]);
       }
       if ($mSP[2] === 'redeem') {
         $db['savingsPlans'][$pi]['status'] = 'redeemed';
         $db['savingsPlans'][$pi]['redeemedAt'] = now_iso();
         $db['savingsPlans'][$pi]['redeemNote'] = substr((string)($b['note'] ?? ''), 0, 300);
         $db['savingsPlans'][$pi]['redeemOrderId'] = substr((string)($b['orderId'] ?? ''), 0, 24);
-        audit_log($db, 'savings.redeemed', ['plan' => $p['id']]);
-        db_save($DB_FILE, $db); jout(200, ['ok' => true, 'plan' => $db['savingsPlans'][$pi]]);
+        savings_close_requests($db, $pi);
+        audit_log($db, 'savings.redeemed', ['plan' => savings_plan_no($db['savingsPlans'][$pi])]);
+        db_save($DB_FILE, $db);
+        jout(200, ['ok' => true, 'plan' => array_merge($db['savingsPlans'][$pi],
+          savings_view($db['savingsPlans'][$pi], current_rates($db)))]);
       }
       if ($mSP[2] === 'close') {
         $db['savingsPlans'][$pi]['status'] = 'closed-refund';
         $db['savingsPlans'][$pi]['closedAt'] = now_iso();
         $db['savingsPlans'][$pi]['closeNote'] = substr((string)($b['note'] ?? ''), 0, 300);
-        audit_log($db, 'savings.closed', ['plan' => $p['id']]);
-        db_save($DB_FILE, $db); jout(200, ['ok' => true, 'plan' => $db['savingsPlans'][$pi]]);
+        savings_close_requests($db, $pi);
+        audit_log($db, 'savings.closed', ['plan' => savings_plan_no($db['savingsPlans'][$pi])]);
+        db_save($DB_FILE, $db);
+        jout(200, ['ok' => true, 'plan' => array_merge($db['savingsPlans'][$pi],
+          savings_view($db['savingsPlans'][$pi], current_rates($db)))]);
       }
     }
     jout(404, ['error' => 'Plan not found']);

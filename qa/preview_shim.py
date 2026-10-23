@@ -132,7 +132,12 @@ DEV = {"otps": [], "tokens": {}, "users": [], "wishlist": {}, "orders": {},
        # document bytes live in RAM only: the sandbox has no private folder
        # beside a document root, and inventing one would hide the very failure
        # mode (503, nothing saved) the owner has to be told about.
-       "bills": []}
+       "bills": [],
+       # v233 — Swarna Nidhi plans opened through the shim, the desk's firm
+       # quotes and the bullion orders placed against them. In memory only.
+       "savings": [], "savingsSeq": 0,
+       "bullionQuotes": [], "bullionQuoteSeq": 0,
+       "bullionOrders": [], "bullionAlerts": []}
 PREVIEW_PASSWORD = "shivaa123"          # bcrypt is unavailable in the sandbox
 GST_STATES = {"08": "Rajasthan", "27": "Maharashtra", "29": "Karnataka", "24": "Gujarat",
               "07": "Delhi", "09": "UP", "33": "Tamil Nadu", "36": "Telangana",
@@ -303,6 +308,223 @@ def dev_add_months(iso, months):
     import calendar
     day = min(start.day, calendar.monthrange(year, month)[1])
     return start.replace(year=year, month=month, day=day).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+# ── v233 · Swarna Nidhi view (mirror of savings_view() in api.php) ───────
+def dev_savings_all(d):
+    return list(d.get("savingsPlans") or []) + DEV["savings"]
+
+
+def dev_plan_no(p):
+    stored = str(p.get("planNo") or "").strip().upper()
+    if re.fullmatch(r"SN\d{2}-[A-Z0-9]{3,8}", stored):
+        return stored
+    raw = re.sub(r"[^A-Za-z0-9]", "", str(p.get("id") or "")).upper()
+    tail = raw[-4:]
+    if len(tail) < 3:
+        tail = tail.rjust(3, "0")
+    try:
+        y = datetime.datetime.fromisoformat(str(p.get("startedAt") or "").replace("Z", "")).strftime("%y")
+    except ValueError:
+        y = time.strftime("%y")
+    return "SN%s-%s" % (y, tail)
+
+
+def dev_next_plan_no():
+    used = {str(p.get("planNo") or "").upper() for p in dev_savings_all(db())}
+    n = int(DEV.get("savingsSeq") or 0)
+    while True:
+        n += 1
+        no = "SN%s-%04d" % (time.strftime("%y"), n)
+        if no not in used:
+            break
+    DEV["savingsSeq"] = n
+    return no
+
+
+def dev_receipt_no(plan_no, seq):
+    return "%s-%02d" % (plan_no, max(1, int(seq)))
+
+
+def dev_add_months_iso(iso, months):
+    try:
+        start = datetime.datetime.fromisoformat(str(iso).replace("Z", ""))
+    except ValueError:
+        start = datetime.datetime.now()
+    total = start.month - 1 + max(0, int(months))
+    year, month = start.year + total // 12, total % 12 + 1
+    import calendar
+    day = min(start.day, calendar.monthrange(year, month)[1])
+    return start.replace(year=year, month=month, day=day).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def dev_mask_name(name):
+    name = str(name or "").strip()
+    if not name:
+        return "Shivaa customer"
+    out = []
+    for w in re.split(r"\s+", name):
+        if len(w) <= 2:
+            out.append(w)
+        else:
+            out.append(w[0] + "\u2022" * max(2, len(w) - 2) + w[-1])
+    return " ".join(out)
+
+
+def dev_savings_view(p, live):
+    no = dev_plan_no(p)
+    amount = int(round(float(p.get("monthlyAmount") or 0)))
+    receipts, paid, months, grams = [], 0, 0, 0.0
+    for i, q in enumerate(p.get("installments") or []):
+        seq = i + 1
+        amt = int(round(float(q.get("amount") or 0)))
+        rate = float(q.get("rate22") or 0)
+        ok = str(q.get("status") or "approved") == "approved"
+        g = (amt / rate) if rate > 0 else 0.0
+        if ok:
+            paid += amt
+            months += 1
+            grams += g
+        mode = str(q.get("mode") or "")
+        receipts.append({"seq": seq,
+                         "receiptNo": str(q.get("receiptNo") or dev_receipt_no(no, seq)),
+                         "id": str(q.get("id") or ""), "amount": amt, "mode": mode,
+                         "modeLabel": {"cash": "Cash", "bank": "Bank / RTGS", "upi": "UPI",
+                                       "card": "Card"}.get(mode, mode.capitalize() or "\u2014"),
+                         "at": str(q.get("at") or ""), "rate22": rate,
+                         "grams": round(g, 4), "status": "paid" if ok else "pending"})
+    bonus = amount if months >= 11 else 0
+    buying = paid + bonus
+    g22 = float(live.get("gold22") or 0)
+    started = str(p.get("startedAt") or p.get("createdAt") or "")
+    status = str(p.get("status") or "active")
+    schedule = []
+    for i in range(12):
+        if i == 11:
+            state = "gift" if months >= 11 else "gift-locked"
+        elif i < months:
+            state = "paid"
+        elif i == months and status == "active":
+            state = "due"
+        else:
+            state = "upcoming"
+        schedule.append({"month": i + 1,
+                         "dueAt": dev_add_months_iso(started, i) if started else "",
+                         "state": state})
+    next_due = None
+    if status == "active" and months < 11 and started:
+        next_due = dev_add_months_iso(started, months)
+    requests = list(p.get("requests") or [])
+    pending = next((r for r in reversed(requests) if str(r.get("status")) == "pending"), None)
+    labels = {"active": "Active", "matured": "Matured", "redeemed": "Redeemed",
+              "closed-refund": "Closed \u00b7 refunded"}
+    return {"id": str(p.get("id") or ""), "planNo": no, "monthlyAmount": amount,
+            "status": status, "statusLabel": labels.get(status, status.capitalize()),
+            "startedAt": started,
+            "maturesOn": dev_add_months_iso(started, 11)[:10] if started else "",
+            "monthsPaid": months, "progressPct": int(round(min(100, months / 11 * 100))),
+            "contributed": paid, "bonus": bonus, "bonusUnlocked": months >= 11,
+            "buyingPower": buying, "gramsAccrued": round(grams, 3),
+            "indicativeGrams": round(buying / g22, 3) if g22 > 0 else 0, "gold22": g22,
+            "nextDueAt": next_due, "receipts": receipts, "schedule": schedule,
+            "requests": requests, "pendingRequest": pending,
+            "redeemedAt": str(p.get("redeemedAt") or ""), "closedAt": str(p.get("closedAt") or "")}
+
+
+def dev_savings_track_view(v, name):
+    keep = ["planNo", "monthlyAmount", "status", "statusLabel", "startedAt", "maturesOn",
+            "monthsPaid", "progressPct", "contributed", "bonus", "bonusUnlocked",
+            "buyingPower", "gramsAccrued", "nextDueAt", "schedule", "redeemedAt", "gold22"]
+    out = {k: v[k] for k in keep if k in v}
+    out["holder"] = dev_mask_name(name)
+    out["receipts"] = [{"seq": r["seq"], "receiptNo": r["receiptNo"], "amount": r["amount"],
+                        "at": r["at"], "grams": r["grams"], "status": r["status"]}
+                       for r in v["receipts"]]
+    return out
+
+
+def bullion_purity_factor(purity):
+    p = str(purity or "").lower()
+    m = re.search(r"\b(999|995|993|990|980|916|750)\b", p)
+    if m:
+        return int(m.group(1)) / 1000.0
+    m = re.search(r"(\d{1,2}(?:\.\d+)?)\s*%", p)
+    if m:
+        f = float(m.group(1)) / 100.0
+        return f if 0.3 <= f <= 1.0 else 0.0
+    m = re.search(r"\b(\d{2})\s*k\b", p)
+    return int(m.group(1)) / 24.0 if m else 0.0
+
+
+def bullion_desk_view(rows):
+    out, best_g, best_s, gk, sk = {}, None, None, "", ""
+    for r in rows:
+        key = str(r.get("key") or "")
+        sil = "silver" in key.lower()
+        fine = bullion_purity_factor(r.get("purity"))
+        buy = float(r.get("buy") or 0)
+        sell = float(r.get("sell") or 0)
+        mid = (buy + sell) / 2 if buy > 0 and sell > 0 else max(buy, sell)
+        chg = float(r.get("change") or 0)
+        prev = buy - chg
+        fine_buy = round(buy / fine, 2) if fine > 0 and buy > 0 else 0.0
+        out[key] = {"metal": "silver" if sil else "gold", "unit": 1000 if sil else 10,
+                    "fine": round(fine, 4),
+                    "fineBuy": fine_buy,
+                    "fineSell": round(sell / fine, 2) if fine > 0 and sell > 0 else 0.0,
+                    "spread": round(sell - buy, 2) if buy > 0 and sell > 0 else 0.0,
+                    "spreadPct": round((sell - buy) / mid * 100, 3) if mid > 0 and buy > 0 and sell > 0 else 0.0,
+                    "chgPct": round(chg / prev * 100, 3) if prev > 0 else 0.0}
+        if fine_buy > 0:
+            if not sil and (best_g is None or fine_buy < best_g):
+                best_g, gk = fine_buy, key
+            if sil and (best_s is None or fine_buy < best_s):
+                best_s, sk = fine_buy, key
+    return {"rows": out, "best": {"gold": best_g, "goldKey": gk, "silver": best_s, "silverKey": sk}}
+
+
+def bullion_exposure(d, u, rows):
+    by_key = {str(r.get("key")): r for r in rows}
+    orders = DEV["bullionOrders"] + list(d.get("bullionOrders") or [])
+    pid = str(u.get("partnerId") or "")
+    ob, os_, value, mtm, opened, settled = 0.0, 0.0, 0, 0.0, 0, 0
+    for o in orders:
+        if str(o.get("partnerId") or "") != pid:
+            continue
+        st = str(o.get("status") or "").lower()
+        if st == "cancelled":
+            continue
+        grams = float(o.get("qty") or 0) * (1000 if str(o.get("unit") or "g") == "kg" else 1)
+        if st in ("delivered", "settled", "closed"):
+            settled += 1
+            continue
+        opened += 1
+        if str(o.get("side")) == "sell":
+            os_ += grams
+        else:
+            ob += grams
+        value += int(o.get("amount") or 0)
+        cur = by_key.get(str(o.get("metKey") or ""))
+        if cur:
+            now = float(cur.get("sell") if str(o.get("side")) == "buy" else cur.get("buy") or 0)
+            if now > 0:
+                direction = 1 if str(o.get("side")) == "buy" else -1
+                mtm += direction * (now - float(o.get("rate") or 0)) * grams
+    return {"openDeals": opened, "settledDeals": settled, "openBuyGrams": round(ob, 3),
+            "openSellGrams": round(os_, 3), "netGrams": round(ob - os_, 3),
+            "openValue": value, "mtm": int(round(mtm))}
+
+
+def dev_quote_no():
+    used = {str(q.get("id")) for q in DEV["bullionQuotes"]}
+    n = int(DEV.get("bullionQuoteSeq") or 0)
+    while True:
+        n += 1
+        qid = "BQ%s-%04d" % (time.strftime("%y%m%d"), n)
+        if qid not in used:
+            break
+    DEV["bullionQuoteSeq"] = n
+    return qid
 
 
 def dev_black_left(card):
@@ -957,6 +1179,251 @@ class Handler(SimpleHTTPRequestHandler):
             if not body.get("add"):
                 DEV["wishlist"][u["id"]] = [x for x in ids if x != pid]
             return self._json(200, {"wishlist": DEV["wishlist"][u["id"]]})
+        # ── v233 · Swarna Nidhi: open, trace, request, and the desk's ledger ──
+        if route == "savings" and True:
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Login required"})
+            d = db()
+            for p0 in dev_savings_all(d):
+                if p0.get("userId") == u["id"] and (p0.get("status") or "active") == "active":
+                    return self._json(400, {"error": "You already have an active Swarna Nidhi plan. Close or redeem it before starting another."})
+            amt = int(round(float(body.get("monthlyAmount") or 0)))
+            if amt < 500:
+                return self._json(400, {"error": "Monthly instalment must be at least \u20b9500"})
+            if amt > 1000000:
+                return self._json(400, {"error": "Monthly instalment is above the \u20b910,00,000 online limit \u2014 set this up at the shop."})
+            now = time.strftime("%Y-%m-%dT%H:%M:%S")
+            plan = {"id": "sp_" + secrets.token_hex(4), "planNo": dev_next_plan_no(),
+                    "userId": u["id"], "userName": u.get("name"), "phone": u.get("phone", ""),
+                    "monthlyAmount": amt, "status": "active", "installments": [], "requests": [],
+                    "startedAt": now, "createdAt": now}
+            DEV["savings"].append(plan)
+            return self._json(200, {"ok": True, "plan": plan,
+                                    "view": dev_savings_view(plan, current_rates(d))})
+        if route == "savings/track":
+            d = db()
+            want = re.sub(r"[^A-Za-z0-9-]", "", str(body.get("plan") or "")).upper()
+            contact = re.sub(r"\D", "", str(body.get("contact") or ""))
+            if len(want) < 5:
+                return self._json(400, {"error": "Enter your plan number (for example SN26-0001)."})
+            if len(contact) < 4:
+                return self._json(400, {"error": "Enter the last 4 digits of the mobile number on the plan."})
+            hit = None
+            for p0 in dev_savings_all(d):
+                if dev_plan_no(p0).upper() == want or str(p0.get("id") or "").upper() == want:
+                    hit = p0
+                    break
+            if not hit:
+                return self._json(404, {"error": "No plan with that number. Check the number printed on your receipt."})
+            phone = re.sub(r"\D", "", str(hit.get("phone") or ""))
+            if len(phone) < 4 or phone[-4:] != contact[-4:]:
+                return self._json(403, {"error": "That mobile number does not match this plan. Ask the store to update it if it changed."})
+            v = dev_savings_view(hit, current_rates(d))
+            return self._json(200, {"ok": True, "plan": dev_savings_track_view(v, str(hit.get("userName") or ""))})
+        if route == "savings/request":
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Login required"})
+            kind = str(body.get("kind") or "")
+            if kind not in ("redeem", "close", "transfer", "query"):
+                return self._json(400, {"error": "Choose what you need: redeem, close, transfer or a question."})
+            d = db()
+            target = str(body.get("planId") or "")
+            found = None
+            for p0 in dev_savings_all(d):
+                if p0.get("userId") != u["id"]:
+                    continue
+                if target and str(p0.get("id")) != target and dev_plan_no(p0).upper() != target.upper():
+                    continue
+                if (p0.get("status") or "active") != "active":
+                    continue
+                found = p0
+                break
+            if found is None:
+                return self._json(404, {"error": "No active Swarna Nidhi plan to act on."})
+            if any(str(r.get("status")) == "pending" for r in (found.get("requests") or [])):
+                return self._json(400, {"error": "You already have a request open on this plan \u2014 the desk will call you."})
+            req = {"id": "sr_" + secrets.token_hex(4), "kind": kind,
+                   "note": str(body.get("note") or "")[:300],
+                   "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "by": "customer", "status": "pending"}
+            found.setdefault("requests", []).append(req)
+            return self._json(200, {"ok": True, "request": req,
+                                    "plan": dev_savings_view(found, current_rates(d))})
+        if route == "admin/savings/open":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            d = db()
+            phone = re.sub(r"\D", "", str(body.get("phone") or ""))
+            amt = int(round(float(body.get("monthlyAmount") or 0)))
+            if len(phone) < 10:
+                return self._json(400, {"error": "Enter the customer's 10-digit registered mobile."})
+            if amt < 500 or amt > 1000000:
+                return self._json(400, {"error": "Monthly instalment must be between \u20b9500 and \u20b910,00,000."})
+            target = next((x for x in dev_all_users()
+                           if re.sub(r"\D", "", str(x.get("phone") or "")) == phone), None)
+            if not target:
+                return self._json(404, {"error": "No Shivaa account on that mobile. Ask the customer to sign in once, then open the plan."})
+            for p0 in dev_savings_all(d):
+                if p0.get("userId") == target["id"] and (p0.get("status") or "active") == "active":
+                    return self._json(400, {"error": "This customer already has an active plan (" + dev_plan_no(p0) + ")."})
+            now = time.strftime("%Y-%m-%dT%H:%M:%S")
+            plan = {"id": "sp_" + secrets.token_hex(4), "planNo": dev_next_plan_no(),
+                    "userId": target["id"], "userName": target.get("name"), "phone": target.get("phone", ""),
+                    "monthlyAmount": amt, "status": "active", "installments": [], "requests": [],
+                    "startedAt": now, "createdAt": now, "openedBy": u.get("name")}
+            DEV["savings"].append(plan)
+            return self._json(200, {"ok": True, "plan": plan,
+                                    "view": dev_savings_view(plan, current_rates(d))})
+        m_sv = re.match(r"^admin/savings/([\w-]+)/(installment|redeem|close)$", route)
+        if m_sv:
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            d = db()
+            hit = next((p0 for p0 in dev_savings_all(d) if str(p0.get("id")) == m_sv.group(1)), None)
+            if hit is None:
+                return self._json(404, {"error": "Plan not found"})
+            if m_sv.group(2) == "installment":
+                if (hit.get("status") or "active") != "active":
+                    return self._json(400, {"error": "Plan is not active"})
+                amt = int(round(float(body.get("amount") or hit.get("monthlyAmount") or 0)))
+                if amt <= 0:
+                    return self._json(400, {"error": "Enter the instalment amount"})
+                if amt > 10000000:
+                    return self._json(400, {"error": "Instalment amount is outside the allowed range (max \u20b910,00,000)."})
+                plan_no = str(hit.get("planNo") or dev_plan_no(hit))
+                hit["planNo"] = plan_no
+                seq = len(hit.get("installments") or []) + 1
+                rate22 = float(current_rates(d).get("gold22") or 0)
+                inst = {"id": "si_" + secrets.token_hex(4),
+                        "receiptNo": dev_receipt_no(plan_no, seq), "amount": amt,
+                        "mode": body.get("mode") if body.get("mode") in ("cash", "upi", "bank") else "upi",
+                        "at": str(body.get("at") or time.strftime("%Y-%m-%dT%H:%M:%S")),
+                        "rate22": rate22, "grams": round(amt / rate22, 4) if rate22 > 0 else 0.0,
+                        "status": "approved", "by": u.get("name")}
+                hit.setdefault("installments", []).append(inst)
+                v = dev_savings_view(hit, current_rates(d))
+                months = v["monthsPaid"]
+                return self._json(200, {"ok": True, "installment": inst, "months": months,
+                                        "plan": v, "receipt": v["receipts"][months - 1] if v["receipts"] else None})
+            hit["status"] = "redeemed" if m_sv.group(2) == "redeem" else "closed-refund"
+            hit["redeemedAt" if m_sv.group(2) == "redeem" else "closedAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            for rq in hit.get("requests") or []:
+                if str(rq.get("status")) == "pending":
+                    rq["status"] = "done"
+                    rq["doneAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            v = dev_savings_view(hit, current_rates(d))
+            return self._json(200, {"ok": True, "plan": dict(hit, **v)})
+        # ── v233 · the jeweller's desk: firm quote + server-priced order ──
+        if route == "bullion/quote":
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            d = db()
+            rows = bullion_rows(d)["rows"]
+            key = str(body.get("metKey") or "")
+            row = next((r for r in rows if str(r.get("key")) == key), None)
+            if not row:
+                return self._json(400, {"error": "Pick a metal from the board."})
+            side = "sell" if str(body.get("side")) == "sell" else "buy"
+            rate = float(row.get(side) or 0)
+            if rate <= 0:
+                return self._json(400, {"error": "This metal is not quoting on that side right now \u2014 refresh the board."})
+            unit = "kg" if str(body.get("unit")) == "kg" else "g"
+            try:
+                qty = float(body.get("qty") or 0)
+            except (TypeError, ValueError):
+                qty = 0.0
+            if qty <= 0 or qty > 1000:
+                return self._json(400, {"error": "Quantity must be between 0 and 1000 " + unit})
+            grams = qty * (1000 if unit == "kg" else 1)
+            fine = bullion_purity_factor(row.get("purity"))
+            amount = int(round(rate * grams))
+            tcs = int(round(amount * 0.001)) if side == "buy" else 0
+            q = {"id": dev_quote_no(), "userId": u.get("id"), "partnerId": u.get("partnerId") or "",
+                 "partnerName": u.get("name"), "metKey": key,
+                 "metal": str(row.get("label") or "")[:40], "purity": row.get("purity") or "",
+                 "mode": row.get("mode") or "", "side": side, "qty": round(qty, 3), "unit": unit,
+                 "grams": round(grams, 3), "fineGrams": round(grams * fine, 3) if fine > 0 else 0.0,
+                 "rate": rate, "amount": amount, "tcs": tcs, "total": amount + tcs,
+                 "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                 "expiresAt": time.strftime("%Y-%m-%dT%H:%M:%S",
+                                            time.localtime(time.time() + 90))}
+            DEV["bullionQuotes"].append(q)
+            return self._json(200, q)
+        if route == "bullion/order":
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            d = db()
+            rows = bullion_rows(d)["rows"]
+            key = str(body.get("metKey") or "")
+            row = next((r for r in rows if str(r.get("key")) == key), None)
+            side = str(body.get("side") or "")
+            if not row or side not in ("buy", "sell"):
+                return self._json(400, {"error": "side, metal & qty required"})
+            rate = float(row.get(side) or 0)
+            if rate <= 0:
+                return self._json(400, {"error": "This metal is not quoting right now \u2014 please refresh the board."})
+            unit = "kg" if str(body.get("unit")) == "kg" else "g"
+            try:
+                qty = float(body.get("qty") or 0)
+            except (TypeError, ValueError):
+                qty = 0.0
+            if qty <= 0:
+                return self._json(400, {"error": "Quantity must be between 0 and 1000 " + unit})
+            quote_no = str(body.get("quoteNo") or "")[:32]
+            quote = None
+            if quote_no:
+                quote = next((q for q in DEV["bullionQuotes"]
+                              if q["id"] == quote_no and q.get("partnerId") == (u.get("partnerId") or "")), None)
+                if not quote:
+                    return self._json(400, {"error": "That quote number is not on your desk \u2014 take a fresh quote."})
+                if quote.get("metKey") != key or quote.get("side") != side:
+                    return self._json(400, {"error": "That quote was priced for a different metal or side. Take a fresh quote."})
+                try:
+                    expired = datetime.datetime.fromisoformat(quote["expiresAt"]) < datetime.datetime.now()
+                except ValueError:
+                    expired = False
+                if expired:
+                    return self._json(400, {"error": "Quote " + quote_no + " has expired (firm quotes hold for 90 seconds). Take a fresh quote."})
+                if abs(rate - float(quote.get("rate") or 0)) / max(1.0, float(quote.get("rate") or 0)) > 0.002:
+                    return self._json(409, {"error": "The board moved since quote " + quote_no + " \u2014 take a fresh quote to trade at the new rate."})
+            grams = qty * (1000 if unit == "kg" else 1)
+            fine = bullion_purity_factor(row.get("purity"))
+            oid = "BL" + str(int(time.time()))[-8:] + secrets.token_hex(2).upper()
+            ordr = {"id": oid, "side": side, "metKey": key, "metal": str(body.get("metal") or "")[:40],
+                    "mode": row.get("mode") or "", "qty": round(qty, 3), "unit": unit,
+                    "rate": rate, "amount": int(round(rate * grams)),
+                    "note": str(body.get("note") or "")[:300],
+                    "quoteNo": quote_no if quote else "",
+                    "qtyGrams": round(grams, 3),
+                    "fineGrams": round(grams * fine, 3) if fine > 0 else 0.0,
+                    "partnerId": u.get("partnerId") or "", "partnerName": u.get("name"),
+                    "status": "New", "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S")}
+            DEV["bullionOrders"].append(ordr)
+            return self._json(200, ordr)
+        if route == "bullion/alert":
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            kind = "unfix" if str(body.get("kind")) == "unfix" else "rate"
+            al = {"id": "ba_" + secrets.token_hex(4), "userId": u.get("id"), "kind": kind,
+                  "key": str(body.get("key") or "")[:40], "label": str(body.get("label") or "")[:80],
+                  "side": "sell" if str(body.get("side")) == "sell" else "buy",
+                  "dir": "above" if str(body.get("dir")) == "above" else "below",
+                  "target": float(body.get("target") or 0), "note": str(body.get("note") or "")[:200],
+                  "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "removed": False}
+            DEV["bullionAlerts"].append(al)
+            return self._json(200, al)
+        m_ba = re.match(r"^bullion/alert/([\w-]+)/remove$", route)
+        if m_ba:
+            for a0 in DEV["bullionAlerts"]:
+                if a0["id"] == m_ba.group(1):
+                    a0["removed"] = True
+            return self._json(200, {"ok": True})
         if route == "orders":
             u = dev_token(self)
             if not u:
@@ -1221,7 +1688,47 @@ class Handler(SimpleHTTPRequestHandler):
             u = dev_token(self)
             if not u or u.get("role") not in ("partner", "admin"):
                 return self._json(403, {"error": "Jeweller access only"})
-            return self._json(200, bullion_rows(d))
+            # v233 — the jeweller's practical layer, same shapes as api.php:
+            # per-row fine-gram maths, the open metal marked to the board, and
+            # this partner's firm quotes.
+            out = bullion_rows(d)
+            out["desk"] = bullion_desk_view(out["rows"])
+            out["exposure"] = bullion_exposure(d, u, out["rows"])
+            out["quotes"] = [q for q in reversed(DEV["bullionQuotes"])
+                             if q.get("partnerId") == (u.get("partnerId") or "")][:12]
+            out["alerts"] = [a for a in DEV["bullionAlerts"]
+                             if a.get("userId") == u.get("id") and not a.get("removed")]
+            out["news"] = []
+            return self._json(200, out)
+        if route == "bullion/orders":
+            u = dev_token(self)
+            if not u or u.get("role") not in ("partner", "admin"):
+                return self._json(403, {"error": "Jeweller access only"})
+            mine = [o for o in DEV["bullionOrders"] + list(d.get("bullionOrders") or [])
+                    if u.get("role") == "admin" or o.get("partnerId") == (u.get("partnerId") or "")]
+            return self._json(200, {"orders": list(reversed(mine))})
+        if route == "savings/mine":
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Login required"})
+            live = current_rates(d)
+            mine = [p0 for p0 in dev_savings_all(d) if p0.get("userId") == u["id"]]
+            plans = [dict(p0, **dev_savings_view(p0, live)) for p0 in reversed(mine)]
+            return self._json(200, {"plans": plans})
+        if route == "admin/savings":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            live = current_rates(d)
+            out = []
+            for p0 in reversed(dev_savings_all(d)):
+                v = dev_savings_view(p0, live)
+                merged = dict(p0, **v)
+                merged.update({"paidMonths": v["monthsPaid"], "contributed": v["contributed"],
+                               "bonus": v["bonus"], "buyingPower": v["buyingPower"],
+                               "indicativeGrams22": v["indicativeGrams"]})
+                out.append(merged)
+            return self._json(200, {"plans": out, "seq": int(DEV.get("savingsSeq") or 0)})
         if route == "catalogues":
             return self._json(200, {"catalogues": d.get("catalogues", [])})
         if route == "coupons":
@@ -1257,7 +1764,12 @@ class Handler(SimpleHTTPRequestHandler):
             pid = u.get("partnerId") or (partners[0]["id"] if partners else "")
             pr = next((x for x in partners if x.get("id") == pid), None)
             if pr is None:
-                pr = DEV["partners"].get(u["id"])
+                # v233 — a partner created through partners/apply lives in
+                # DEV keyed by its partner id (and in by_partner by user id).
+                # This used to look up DEV["partners"] by USER id, so every
+                # jeweller who applied in the preview saw "partner record could
+                # not be loaded" on the portal the apply flow had just built.
+                pr = DEV["partners"].get(pid) or DEV["by_partner"].get(u["id"])
             setl = [x for x in d.get("settlements", []) if x.get("partnerId") == pid]
             return self._json(200, {"partner": pr, "settlements": setl})
         # ── v107 audit extras ─────────────────────────────────────────────

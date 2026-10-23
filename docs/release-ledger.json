@@ -1,182 +1,197 @@
 {
-  "schema": 1,
-  "project": "Shivaa Ecom",
-  "updated": "2026-10-21",
-  "release_branch": "arena/e8a470c6-shivaa-ecom",
-  "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 233,
-  "live": {
-    "release": 232,
-    "title": "The Idle Release",
-    "since": "2026-10-21",
-    "confirmed_by": "owner",
-    "owner_words": "I have applied each and every update to the website and it's fine",
-    "zip": "shivaa-update-v232.zip"
+ "schema": 1,
+ "project": "Shivaa Ecom",
+ "updated": "2026-10-23",
+ "release_branch": "arena/e8a470c6-shivaa-ecom",
+ "twin_branch": "arena/09f3c79f-shivaa-ecom",
+ "next_release": 234,
+ "live": {
+  "release": 233,
+  "title": "The Passbook Release",
+  "since": "2026-10-23",
+  "confirmed_by": null,
+  "owner_words": null,
+  "deployed_build": 232,
+  "note": "packaged 2026-10-23 and awaiting the owner's explicit yes; the last build the owner actually applied is v232 (21 Oct 2026)",
+  "zip": "shivaa-update-v233.zip"
+ },
+ "rules": {
+  "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
+  "deploy": "Only the owner deploys, and only after his explicit yes. A push, a merge or a green gate is not approval.",
+  "rollback": "Rolling back means the PREVIOUS ledger row, never an older tree than live.",
+  "guard": "Run `bash qa/where-am-i.sh` first in every chat, on any branch. Exit 3 means this tree is behind: stop and move to the release branch it names."
+ },
+ "live_history": [
+  {
+   "release": 205,
+   "since": "2026-10-11"
   },
-  "rules": {
-    "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
-    "deploy": "Only the owner deploys, and only after his explicit yes. A push, a merge or a green gate is not approval.",
-    "rollback": "Rolling back means the PREVIOUS ledger row, never an older tree than live.",
-    "guard": "Run `bash qa/where-am-i.sh` first in every chat, on any branch. Exit 3 means this tree is behind: stop and move to the release branch it names."
+  {
+   "release": 228,
+   "since": "2026-10-17"
   },
-  "live_history": [
-    {
-      "release": 205,
-      "since": "2026-10-11"
-    },
-    {
-      "release": 228,
-      "since": "2026-10-17"
-    },
-    {
-      "release": 232,
-      "since": "2026-10-21"
-    }
-  ],
-  "releases": [
-    {
-      "release": 221,
-      "commit": "5bf57a2",
-      "title": "The Clean-Up Release",
-      "zip": "shivaa-update-v221.zip",
-      "files": 349,
-      "bytes": 37044662,
-      "sha256": "0a1a8e0a620c73ac36ac46fc3c93bd8c4ae94b28c38516be454d63a0eb6850eb",
-      "status": "shipped",
-      "deployed": null,
-      "layer": null
-    },
-    {
-      "release": 222,
-      "commit": "1da18c0",
-      "title": "The Load Release",
-      "zip": "shivaa-update-v222.zip",
-      "files": 350,
-      "bytes": 37218811,
-      "sha256": "e05e08dd1bd550a4c04b8b4b59ca6884627b68122a34f6934b5348e6d9f77643",
-      "status": "shipped",
-      "deployed": null,
-      "layer": null
-    },
-    {
-      "release": 223,
-      "commit": "1f6eca7",
-      "title": "The Smooth Release",
-      "zip": "shivaa-update-v223.zip",
-      "files": 350,
-      "bytes": 37221175,
-      "sha256": "82c26f8a3261685d2a21223957abf19f00948131b58ed0176397ae633aec0218",
-      "status": "shipped",
-      "deployed": null,
-      "layer": null
-    },
-    {
-      "release": 224,
-      "commit": "52313d1",
-      "title": "The Every-Corner Release",
-      "zip": "shivaa-update-v224.zip",
-      "files": 351,
-      "bytes": 37227019,
-      "sha256": "abd3f873bd552052876e145ef4719f2ea3162d22fa6c384250e45e58cf3fc304",
-      "status": "shipped",
-      "deployed": null,
-      "layer": "v224.css"
-    },
-    {
-      "release": 225,
-      "commit": "e4cf8b4",
-      "title": "The App-Feel Release",
-      "zip": "shivaa-update-v225.zip",
-      "files": 353,
-      "bytes": 37238134,
-      "sha256": "3c943a937f8f6d52e8d447887ebefb188a980ccdf0d432a16cf9ed0c83b01ae0",
-      "status": "shipped",
-      "deployed": null,
-      "layer": null
-    },
-    {
-      "release": 226,
-      "commit": "136af8f",
-      "title": "The Butter Release",
-      "zip": "shivaa-update-v226.zip",
-      "files": 355,
-      "bytes": 37250664,
-      "sha256": "602a519266efa2e51936c42a99d997dc3933209139a700fd7f9a4550a89ef463",
-      "status": "shipped",
-      "deployed": null,
-      "layer": "v226.css"
-    },
-    {
-      "release": 227,
-      "commit": "4fddcdb",
-      "title": "The Reading Layer",
-      "zip": "shivaa-update-v227.zip",
-      "files": 357,
-      "bytes": 37266250,
-      "sha256": "c4cbf83d6efb06fc518a3882af9b6b8727a6dd1743e40ff5fe657602769ccc0f",
-      "status": "shipped",
-      "deployed": null,
-      "layer": "v227.css"
-    },
-    {
-      "release": 228,
-      "commit": "f6f5a7b",
-      "title": "The Play Store Gate",
-      "zip": "shivaa-update-v228.zip",
-      "files": 357,
-      "bytes": 37271610,
-      "sha256": "c9975a92f6498acfdff2f20b784e4be451bf9e072457e0ff3dc4582a2fedbab9",
-      "status": "applied",
-      "deployed": "2026-10-17",
-      "layer": null
-    },
-    {
-      "release": 229,
-      "commit": "a6103b6",
-      "title": "The Paperwork Release",
-      "zip": "shivaa-update-v229.zip",
-      "files": 358,
-      "bytes": 37317163,
-      "sha256": "c9c54cf09476be53f07b6a21eb3ed9f60852918177fe68cb4beb5f71a8a62d23",
-      "status": "applied",
-      "deployed": "2026-10-21",
-      "layer": "v229.css"
-    },
-    {
-      "release": 230,
-      "commit": "f7b2c1d",
-      "title": "The Legibility Release",
-      "zip": "shivaa-update-v230.zip",
-      "files": 359,
-      "bytes": 37326620,
-      "sha256": "371084903c4359ce069e08dfee63149f44475786c36a76b1fb7ba743342a4dfe",
-      "status": "applied",
-      "deployed": "2026-10-21",
-      "layer": "v230.css"
-    },
-    {
-      "release": 231,
-      "commit": "036e616",
-      "title": "The Engraved Layer",
-      "zip": "shivaa-update-v231.zip",
-      "files": 360,
-      "bytes": 37333506,
-      "sha256": "114394131d4033ca8e18dea9bf139bb8495b3691529f0b2fcb13c42647fb937c",
-      "status": "applied",
-      "deployed": "2026-10-21",
-      "layer": "v231.css"
-    },
-    {
-      "release": 232,
-      "commit": "b9f74bc",
-      "title": "The Idle Release",
-      "zip": "shivaa-update-v232.zip",
-      "files": 361,
-      "bytes": 37349816,
-      "sha256": "14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023",
-      "status": "live",
-      "deployed": "2026-10-21",
-      "layer": "v232.css"
-    }
-  ]
+  {
+   "release": 232,
+   "since": "2026-10-21"
+  }
+ ],
+ "releases": [
+  {
+   "release": 221,
+   "commit": "5bf57a2",
+   "title": "The Clean-Up Release",
+   "zip": "shivaa-update-v221.zip",
+   "files": 349,
+   "bytes": 37044662,
+   "sha256": "0a1a8e0a620c73ac36ac46fc3c93bd8c4ae94b28c38516be454d63a0eb6850eb",
+   "status": "shipped",
+   "deployed": null,
+   "layer": null
+  },
+  {
+   "release": 222,
+   "commit": "1da18c0",
+   "title": "The Load Release",
+   "zip": "shivaa-update-v222.zip",
+   "files": 350,
+   "bytes": 37218811,
+   "sha256": "e05e08dd1bd550a4c04b8b4b59ca6884627b68122a34f6934b5348e6d9f77643",
+   "status": "shipped",
+   "deployed": null,
+   "layer": null
+  },
+  {
+   "release": 223,
+   "commit": "1f6eca7",
+   "title": "The Smooth Release",
+   "zip": "shivaa-update-v223.zip",
+   "files": 350,
+   "bytes": 37221175,
+   "sha256": "82c26f8a3261685d2a21223957abf19f00948131b58ed0176397ae633aec0218",
+   "status": "shipped",
+   "deployed": null,
+   "layer": null
+  },
+  {
+   "release": 224,
+   "commit": "52313d1",
+   "title": "The Every-Corner Release",
+   "zip": "shivaa-update-v224.zip",
+   "files": 351,
+   "bytes": 37227019,
+   "sha256": "abd3f873bd552052876e145ef4719f2ea3162d22fa6c384250e45e58cf3fc304",
+   "status": "shipped",
+   "deployed": null,
+   "layer": "v224.css"
+  },
+  {
+   "release": 225,
+   "commit": "e4cf8b4",
+   "title": "The App-Feel Release",
+   "zip": "shivaa-update-v225.zip",
+   "files": 353,
+   "bytes": 37238134,
+   "sha256": "3c943a937f8f6d52e8d447887ebefb188a980ccdf0d432a16cf9ed0c83b01ae0",
+   "status": "shipped",
+   "deployed": null,
+   "layer": null
+  },
+  {
+   "release": 226,
+   "commit": "136af8f",
+   "title": "The Butter Release",
+   "zip": "shivaa-update-v226.zip",
+   "files": 355,
+   "bytes": 37250664,
+   "sha256": "602a519266efa2e51936c42a99d997dc3933209139a700fd7f9a4550a89ef463",
+   "status": "shipped",
+   "deployed": null,
+   "layer": "v226.css"
+  },
+  {
+   "release": 227,
+   "commit": "4fddcdb",
+   "title": "The Reading Layer",
+   "zip": "shivaa-update-v227.zip",
+   "files": 357,
+   "bytes": 37266250,
+   "sha256": "c4cbf83d6efb06fc518a3882af9b6b8727a6dd1743e40ff5fe657602769ccc0f",
+   "status": "shipped",
+   "deployed": null,
+   "layer": "v227.css"
+  },
+  {
+   "release": 228,
+   "commit": "f6f5a7b",
+   "title": "The Play Store Gate",
+   "zip": "shivaa-update-v228.zip",
+   "files": 357,
+   "bytes": 37271610,
+   "sha256": "c9975a92f6498acfdff2f20b784e4be451bf9e072457e0ff3dc4582a2fedbab9",
+   "status": "applied",
+   "deployed": "2026-10-17",
+   "layer": null
+  },
+  {
+   "release": 229,
+   "commit": "a6103b6",
+   "title": "The Paperwork Release",
+   "zip": "shivaa-update-v229.zip",
+   "files": 358,
+   "bytes": 37317163,
+   "sha256": "c9c54cf09476be53f07b6a21eb3ed9f60852918177fe68cb4beb5f71a8a62d23",
+   "status": "applied",
+   "deployed": "2026-10-21",
+   "layer": "v229.css"
+  },
+  {
+   "release": 230,
+   "commit": "f7b2c1d",
+   "title": "The Legibility Release",
+   "zip": "shivaa-update-v230.zip",
+   "files": 359,
+   "bytes": 37326620,
+   "sha256": "371084903c4359ce069e08dfee63149f44475786c36a76b1fb7ba743342a4dfe",
+   "status": "applied",
+   "deployed": "2026-10-21",
+   "layer": "v230.css"
+  },
+  {
+   "release": 231,
+   "commit": "036e616",
+   "title": "The Engraved Layer",
+   "zip": "shivaa-update-v231.zip",
+   "files": 360,
+   "bytes": 37333506,
+   "sha256": "114394131d4033ca8e18dea9bf139bb8495b3691529f0b2fcb13c42647fb937c",
+   "status": "applied",
+   "deployed": "2026-10-21",
+   "layer": "v231.css"
+  },
+  {
+   "release": 232,
+   "commit": "b9f74bc",
+   "title": "The Idle Release",
+   "zip": "shivaa-update-v232.zip",
+   "files": 361,
+   "bytes": 37349816,
+   "sha256": "14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023",
+   "status": "applied",
+   "deployed": "2026-10-21",
+   "layer": "v232.css"
+  },
+  {
+   "release": 233,
+   "commit": "8daee0b",
+   "title": "The Passbook Release",
+   "zip": "shivaa-update-v233.zip",
+   "files": 362,
+   "bytes": 37381263,
+   "sha256": "e5a9b9ffa410b5ea8a1735380fd10bfb60a85473648499144ddd8cb0b117984c",
+   "status": "live",
+   "deployed": null,
+   "awaiting": "the owner's explicit yes — packaged, not deployed",
+   "layer": "v233.css"
+  }
+ ]
 }

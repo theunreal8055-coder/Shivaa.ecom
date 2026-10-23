@@ -1,6 +1,73 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
 ---
+**v233 — THE PASSBOOK RELEASE** (2026-10-23). Two owner asks in one release:
+*"Make the Swarna Nidhi teacher fully functional and traceable for every
+customer"* and *"make the bullion feature for jewellers more practical and
+updated"*. Both were dead ends for a reason that had nothing to do with design —
+a plan had no number, a receipt had no number, and a jeweller could see a rate
+but could not get a firm price for it. This release gives the money a document
+and the desk a quotation.
+
+**A · Swarna Nidhi is a document now.** A plan is numbered `SN<yy>-<seq>`
+(`SN26-0001`) and every instalment is a numbered receipt
+(`SN26-0001-01`). **One** server view, `savings_view()`, feeds all three
+surfaces — the customer's passbook, the public lookup and the owner's ledger —
+so the receipt number on the counter slip is the number in the app and the
+number in the office. A passbook carries months paid, the amount and the
+**grams bought at the rate that was actually paid** for that instalment, the
+next due date, the bonus month (one month free, unlocked at 11 instalments) and
+the progress to maturity.
+
+*Tracing without a login.* `POST /api/savings/track` answers a plan number plus
+the **last four digits of the registered mobile**. It returns the masked holder
+(`A•••• Sharma`), never the phone, the email or a staff note, and it is
+rate-limited to **30 lookups an hour per IP**, then a 15-minute block — a
+counter customer, a father-in-law and a shop assistant can all check the same
+plan without any of them seeing who else is on it.
+
+*Asking from the app.* `POST /api/savings/request` records a redeem or close
+request from the passbook; it appears in the owner's Nidhi tab and is stamped
+`done` (with a timestamp) the moment the desk acts on the plan.
+
+*The desk.* The Nidhi tab is now a ledger: every plan with its receipts, a
+plain-language status, **⇢ Open plan** for a customer who paid at the counter
+(`POST /api/admin/savings/open`, admin only, refuses an unknown mobile and a
+customer who already has a live plan), instalment entry, a printable receipt,
+redeem, close, and CSV of the whole book.
+
+**B · The jeweller's desk prices metal instead of quoting a rate.** `GET
+/api/bullion` now carries a `desk` block — ₹ per **fine gram** for every row
+(the only way 995 is comparable with 999), the cheapest row per metal, spread
+and day change, purity factors for 999/995/916/750 — plus `exposure` (open
+deals, net grams, open value, **mark-to-market** against the live board) and the
+partner's own quote history.
+
+*Firm quotes.* `POST /api/bullion/quote` returns `BQ<yymd>-<nnnn>` — server
+priced, **90 seconds** of life, TCS at 0.1 % on a buy (none on a sell), fine
+grams computed from the row's purity. `POST /api/bullion/order` accepts
+`quoteNo` and refuses, with a sentence rather than a silent re-price, a quote
+that has expired, a quote whose metal has moved more than **0.2 %**, a quote for
+the other side, or somebody else's quote. An order placed without a quote still
+works — the old flow is untouched.
+
+*The desk screen.* Rate board with the fine-gram strip under it, the best row
+named, open metal marked to the board, and a calculator that takes grams or
+kilograms, a purity and a side and returns the live value **and** the firm quote
+number in one tap.
+
+Suites: new `qa/browser/t-v233-nidhi.mjs` (**146 assertions**, three surfaces
+against one database — it proves the grams in the passbook are the sum of the
+receipts, that the receipt number in the admin answer is the number on the
+customer's receipt, that a lookup with the wrong mobile is refused, and that the
+public answer leaks neither phone nor email nor staff note; it opens a plan,
+writes two receipts, redeems it, opens a second plan for another customer,
+prices a quote and places a quoted order). New gate **`bash qa/v233-gate.sh`** →
+**24 checks, 0 red**, with `t-v232-idle` 87/0, `t-v229-bills` 102/0,
+`t-v231-ink` 53/0, `t-v230-cert` 61/0, `t-v229-black` 88/0, `qa/v229-routes.py`
+61/0. **362 files** (adds `css/v233.css`; the bundle is **67 layers / 67
+blocks**, still **one** stylesheet request, 924,855 B raw).
+
 **v232 — THE IDLE RELEASE** (2026-10-18). The owner's report was one line:
 *"App is not feeling smooth, it should feel like buttery smooth and ultra smooth,
 without decreasing the quality."* So this release measured the app before
@@ -391,16 +458,19 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 232 pending owner review — nothing deployed without the
-owner's explicit yes.** Live today: **v228** (the owner uploaded it on 17 Oct
-2026 and reported it "working fine and good"; v206–v227 went live with it).
-Built and shipped to this repository, **not live**: **v229, v230, v231, v232**.
-**Deploy v232** — it contains all three; v229 on its own quotes 25% to members,
-which the owner has called a false claim, v230 on its own leaves the legibility
-fix one class-list edit away from dead, and v231 on its own still has two loops
-asking for 123 frames a second on a page nobody is touching.
+**COUNTDOWN: release 233 pending owner review — nothing deployed without the
+owner's explicit yes.** Live today: **v232** (the owner applied it on 21 Oct
+2026 — *"I have applied each and every update to the website and it's fine"*).
+Built and shipped to this repository, **not live**: **v233**. **Deploy v233** —
+it is the first release in which a Swarna Nidhi customer can prove what they
+paid and a jeweller can prove what they were quoted; nothing that is live today
+is renumbered or re-shipped.
 
-Last updated: 2026-10-18 (v232 "The Idle Release" — the two loops that never slept
+Last updated: 2026-10-23 (v233 "The Passbook Release" — a plan number and a receipt
+number for every rupee, one view behind the customer's passbook, the public lookup and
+the owner's ledger, a jeweller's board priced per fine gram, firm 90-second quotes with
+TCS and a 0.2 % staleness band, and exposure marked to the live board. Earlier, v232
+"The Idle Release" — the two loops that never slept
 now sleep, one delegated tilt engine replaces a listener and a layout read per card,
 the press answer v226 wrote for a phone comes back, nine card families stop reserving
 a GPU layer each, the quick-view pill every phone shows on every card stops blurring a
@@ -515,11 +585,11 @@ modified.
 
 ## 1 · The absolute rules (owner's — never break)
 
-1. **Forward-only.** Never reuse or renumber a shipped release. Live is **v228**;
-   **v229, v230, v231 and v232 are built and pending the owner's yes** (deploy
-   **v232** — it contains all three, corrects v229's 25% claim, makes the
-   certificate-name fix structural and takes the idle frame rate to zero); **the
-   next release is v233**.
+1. **Forward-only.** Never reuse or renumber a shipped release. Live is **v232**;
+   **v233 is built and pending the owner's yes** (it numbers every plan and every
+   receipt so a customer can trace every rupee, and turns the jeweller's board
+   into a priced desk with firm quotes and marked-to-market exposure); **the next
+   release is v234**.
    Never deploy an older tree over a newer live one. No reverts, no force-pushes,
    no resurrecting old zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -588,6 +658,7 @@ modified.
 | v226 | The Butter Release: every click answers. (1) **press physics** — the measurement above; each dead family now has a transform press, and on a finger the rules carry `!important` because `mobile.css`'s `*:hover{transform:none!important}` would otherwise erase them. (2) **ripple + haptic** — `js/v226.js` reuses the v89 `.rip` span: small controls ripple at touch-down, big surfaces (a product card, a list row) ripple only on a real tap so starting a scroll never lights them up, rail items ripple on release so a flick cannot fire a ripple on every chip it passes, and the host is clipped only for the 700 ms the ripple is alive. One 5 ms vibration on a real tap, gated like the house gates haptics (coarse AND not reduced-motion). (3) **rail centring** — tapping a chip, tab or step in a snapped rail glides that item to the middle of the rail. (4) **badges** — the wish and compare counters pop with the same `mBump` keyframe the cart badge has used since v89. (5) **route jump** — `html.route-jump` makes the router's scroll-to-top instant for that one navigation instead of animating a long slide of the page being left. (6) **pace bar** — a 2px gold hairline sweeps the top of the screen only when the next page takes longer than 180 ms; on a fast tap nothing is created. (7) **view transitions** — where `startViewTransition` exists the content cross-fades (6-10px, transform/opacity) while the chrome stays still and the entrance stands down for that navigation; skipped for reduced motion, for `au-lite` devices and for a link marked `data-no-vt`. New suite `qa/browser/t-v226-butter.mjs` (61 assertions). | built, delivered to owner |
 | v227 | The Reading Layer: (1) **the black-card claim works from every product page** — the reader demanded `[data-black-claim] [data-bc-intake]`, which only exists on `#/black-card`, so a PDP tap returned "Enter your name", stopped there, and the status writer had nowhere to write either; the reader is form-aware, the invite card carries its own status line, the claim falls back to the account name and sends a nameless account to the page that asks, and the post-login auto-claim prefills its form first. (2) **forgot-password is mobile-first** — 4-digit code to the registered mobile, then new password + repeat, real 30 s resend; `api.php` takes `{phone}` or `{email}` and always texts the registered mobile. (3) **home page** — the rate ribbon printed `₹₹` on every figure, the legacy hero hint was a bare `<div>` that ate taps, the home hero's "discover" measured 44 % white in 60 % opacity, and the news logo + mega feature art loaded eagerly with no intrinsic size. (4) **the reading layer** — footer bleed follows the nav's measured height, late mounts are still deferred, the rail centres its active chip without moving the page and stops animating under reduced motion, and the deepest footer gold is readable. Suites: blackcard 28, reset 31, design 41. Packaged as `shivaa-update-v227.zip`. |
 | v231→v232 note | v232 supersedes v231, v230 and v229; deploy **v232** only. | — |
+| v233 | **The Passbook Release**: the owner asked for a Swarna Nidhi that is fully functional and traceable for every customer, and a jeweller's bullion desk that is more practical. Neither was a design problem. (1) **A plan had no number and a receipt had no number**, so nothing could be traced outside the counter: a plan is `SN<yy>-<seq>` (`SN26-0001`), every instalment a numbered receipt (`SN26-0001-01`), and ONE builder (`savings_view()`) now feeds the customer passbook, the public lookup and the owner's ledger — the same view three times, so the three cannot disagree. The passbook carries grams bought **at the rate that instalment actually paid**, next due, the bonus month (unlocked at 11 instalments) and progress; `POST /api/savings/track` answers a plan number plus the **last four of the registered mobile** with a masked holder and **no** phone, email or staff note, 30 lookups an hour per IP then a 15-minute block; `POST /api/savings/request` lets the customer raise a redeem/close request that the desk stamps `done`; the Nidhi tab is a ledger (receipts, `⇢ Open plan` for a counter payment via `POST /api/admin/savings/open`, printable receipt, CSV). (2) **The desk could see a rate but not buy one**: `GET /api/bullion` now carries ₹ per **fine gram** per row (the only way 995 compares with 999), the best row per metal, purity factors 999/995/916/750, and mark-to-market `exposure`; `POST /api/bullion/quote` returns `BQ<yymd>-<nnnn>`, **90 s** of life, TCS 0.1 % on a buy (0 on a sell); `POST /api/bullion/order` takes `quoteNo` and refuses — in words — an expired quote, one whose metal moved **>0.2 %**, one for the other side, or somebody else's, while the old quote-less flow still works. New `qa/browser/t-v233-nidhi.mjs` (**146**), gate `bash qa/v233-gate.sh` → **24 checks, 0 red** with v232 87/0, v231 53/0, v230 61/0, v229 bills 102/0, black 88/0, routes 61/0. **362 files** (adds `css/v233.css`; 67 layers / 67 blocks, still one stylesheet request). | built, awaiting the owner's yes — **deploy this** |
 | v232 | **The Idle Release**: the owner said the app does not feel smooth. Measured first: a silent home page asked for **1264 animation frames in twelve seconds**, **1148 of them from two loops that never stop** — `_msTick` (the bullion interpolator, two `document.querySelector` calls per frame, forever, hidden tabs included) and the cursor glow (which wrote **`style.left`/`style.top`** at 60 fps, a forced layout of a 340 px `mix-blend-mode:screen` layer per frame, with the mouse parked). Idle rate **123 frames/s → 0**. `bindTilt()` hung a mousemove **per card** and read a rect **per event**; `init3DCardTilts()` hung a touchmove on four families, i.e. a layout read per touch event *while scrolling* — one delegated engine now takes **one rect per card visit** and **one write per frame**, and a scroll gesture stands the tilt down. **A press answer dead on every phone since v226**: `styles.css:4637` (`transform:none !important` at ≤820px) and `v219.css:129` beat v226's `.p-card:active`/`.cat-card:active`/offer-card rules, so the three things a shopper taps most never answered a finger — restored with v226's own values, important, gated on `no-preference`. Nine card families stop reserving a permanent GPU layer each (promoted only while a pointer is over them, flat on touch); the quick-view pill every phone shows on every card stops carrying `backdrop-filter:blur(6px)` behind a fill that is already 96 % opaque (and closes to .98, so it reads *more* solid); 56 of 68 `<img>` literals get `decoding="async"` except the LCP set; a hidden tab stops polling the gold rate every second. `content-visibility` deliberately untouched — v217 sealed it after the page-jump bug. New `qa/browser/t-v232-idle.mjs` (**87** — counts frames in a silent window, counts layout reads per pointer move, proves the counter is live, hides the tab); gate `bash qa/v232-gate.sh` → **23 checks, 0 red** with v231 53/0, v230 61/0, v229 bills 102/0, black 88/0, routes 61/0. **361 files** (adds `css/v232.css`; **no new request** — the governors live in `app.js`). | built, awaiting the owner's yes — **deploy this** |
 | v231 | **The Engraved Layer**: the owner asked for the graphics to go further and the app to be smoother, after v230 fixed his two reports. (1) **The ink fix became structural** — v230 keyed its reset on `.bc-certificate.v230 .bc-cert-name`, which is one class-list edit away from dead, so v231 states the same four-mechanism reset on the **bare** `.bc-cert-name` with `!important` and gives every other line of the document `-webkit-text-fill-color: currentColor` + `background-clip: border-box`; that guard restates **no colours**, so a future layer can still restyle the sheet. (2) **Microtext**: one 9px band of 5.5px letterspaced text under the top border, rendered from `data-microtext` via `content: attr()` (no text node, nothing duplicated), reading `SHIVAA FAMILY · PRESTIGIOUS MEMBER · SHIVAA JEWELS JAIPUR · NOT A FINANCIAL INSTRUMENT` — the banknote cue the HTML sheet never had. One band only: a pseudo-element of a 9px parent cannot reach the foot of a 600px sheet. (3) **Paint**: the guilloche was a full-sheet element whose gradients were merely *positioned* as bands, so the browser rasterised ~900×600; it is now two **58px** elements (44px on a phone) with a `.bc-guilloche-foot` modifier — same artwork, about a fifth of the area, and the suite asserts the height because "less paint" is a claim about a number. Plus engraved corner diamonds (still exactly four), a pressed rather than glowed title, and crisp ink on the card's benefit plate. Still **no keyframes / transitions / will-change / filter**; `contain:paint` from v230 still isolates the sheet. New `qa/browser/t-v231-ink.mjs` (**53** — recomputes both WCAG ratios, checks the bare-selector reset lands **after** the foil rule in the shipped bundle, counts the guilloche nodes, and proves 20 is a default by moving the setting to 21); gate `bash qa/v231-gate.sh` → **22 checks, 0 red** with v230 61/0, v229 bills 102/0, black 88/0, routes 61/0. **360 files** (adds `css/v231.css`). | built, awaiting the owner's yes — **deploy this** |
 | v230 | **The Legibility Release**: the owner reported that the member's name on the certificate was the same colour as the background. It was — `v201`/`v205` clipped a gold foil into `.bc-cert-name` (`background-clip:text` + `color:transparent` + a dark `drop-shadow`) for the **dark** stage those releases shipped, and the paper certificate is cream, so it measured ~**1.4:1**. v229 had set a colour, which won the cascade but left the treatment in place; `css/v230.css` removes all four mechanisms (`background`, `background-clip`, `-webkit-text-fill-color`, `filter`) with `!important` scoped to ink/foil/print only, and puts ink `#2b1a05` on paper at **15.4:1 / 9.6:1** (AAA), with the same ink in the A4 download and pure black in print. Second report: **25% is a false claim — prestigious members are 20% off making charges**; since v229 the rate is ONE setting, so the *default* moved in `api.php`, `app.js`, the Admin field and the dev mirror, the clamp (0-40) and the owner's control did not, and the fixture now stores 25 so the override is still proven. Graphics taken further (seal with a conic tick band and two rings, engraved double-rule border, denser guilloche, record boxes with an accent edge, the promise line in a cartouche, a signature rule, a hairlined verify strip, a flourish under the name), and smoothness as subtraction: a per-glyph filter and a glyph-clipped gradient removed from the most painted element on the member page, `contain:paint` added, **no keyframes, no transitions, no will-change**. New `qa/browser/t-v230-cert.mjs` (61 assertions — it computes WCAG contrast for both the failing foil and the fixed ink, and proves 20 is a default by moving the setting to 22); new gate `bash qa/v230-gate.sh` → **21 checks, 0 red** with v229 still green (bills 102/0, black 88/0, routes 61/0). **358 files** (adds `css/v230.css`). | built, awaiting the owner's yes — **deploy this, not v229** |
@@ -625,11 +696,12 @@ modified.
   (`window.__blobStore`) so a suite can prove that opening a second file revokes
   the first. `getContext` still returns null by design — the canvas savers always
   take their toast-guard path, so assert the guard, never a blob.
-- **`bash qa/v232-gate.sh`** — the current release gate in one command: bundle
-  proof (66 layers / 66 blocks), `qa/phpbal.py cms/api.php`, `node --check` ×6, the
+- **`bash qa/v233-gate.sh`** — the current release gate in one command: bundle
+  proof (67 layers / 67 blocks), `qa/phpbal.py cms/api.php`, `node --check` ×7, the
   sixteen historic suites plus `t-v232-idle` on the plain fixture,
-  `qa/v229-routes.py`, then the four stateful suites each on a **fresh staffed
-  shim**, then `playstore/verify.mjs`. **23 checks, 0 red** at v232.
+  `qa/v229-routes.py`, then the five stateful suites each on a **fresh staffed
+  shim** (the new one is `t-v233-nidhi`, 146), then `playstore/verify.mjs`.
+  **24 checks, 0 red** at v233.
   (`qa/v231-gate.sh`, `qa/v230-gate.sh` and `qa/v229-gate.sh` are the previous
   gates, kept for the same reason the older suites are kept.)
 - `node qa/browser/t-v232-idle.mjs` — the idle release (**87 assertions**, ~45 s,

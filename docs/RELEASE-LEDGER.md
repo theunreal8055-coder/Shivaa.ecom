@@ -17,13 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Live release** | **v232 — “The Idle Release”** |
-| Live since | **21 Oct 2026** — the owner applied every update and reported *“it's fine”* |
-| Live package | `shivaa-update-v232.zip` · 361 files · 37,349,816 B · `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023` |
-| **Next release** | **v233** |
+| **Newest release** | **v233 — “The Passbook Release”** (packaged 23 Oct 2026, **awaiting the owner's yes**) |
+| Package | `shivaa-update-v233.zip` · 362 files · 37,381,263 B · `e5a9b9ffa410b5ea8a1735380fd10bfb60a85473648499144ddd8cb0b117984c` |
+| **Applied on the site** | **v232 — “The Idle Release”**, applied **21 Oct 2026** — the owner reported *“it's fine”* |
+| Applied package | `shivaa-update-v232.zip` · 361 files · 37,349,816 B · `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023` |
+| **Next release** | **v234** |
 | Work branch | `arena/e8a470c6-shivaa-ecom` (the Arena session is hard-wired to it) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Live chain | v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct)** |
+| Release chain | v205 (11 Oct) → v228 (17 Oct) → **v232 (21 Oct, applied)** → **v233 (23 Oct, packaged)** |
 
 ---
 
@@ -42,7 +43,8 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v229 | `a6103b6` | The Paperwork Release | 358 | 37,317,163 | `c9c54cf09476be53…1a8a62d23` | applied 21 Oct |
 | v230 | `f7b2c1d` | The Legibility Release | 359 | 37,326,620 | `371084903c4359ce…342a4dfe` | applied 21 Oct |
 | v231 | `036e616` | The Engraved Layer | 360 | 37,333,506 | `114394131d4033ca…47fb937c` | applied 21 Oct |
-| **v232** | **`b9f74bc`** | **The Idle Release** | **361** | **37,349,816** | **`14b9e9ca24571b05…5a5a4b4023`** | **LIVE 21 Oct** |
+| v232 | `b9f74bc` | The Idle Release | 361 | 37,349,816 | `14b9e9ca24571b05…5a5a4b4023` | applied 21 Oct |
+| **v233** | **`8daee0b`** | **The Passbook Release** | **362** | **37,381,263** | **`e5a9b9ffa410b5ea…b117984c`** | **packaged 23 Oct — awaiting the owner's yes** |
 
 Full 64-character hashes, byte counts and status live in `docs/release-ledger.json`.
 v205 and everything before v221 are in the older `DEPLOY-v*.md` notes; they are not needed to
@@ -56,9 +58,9 @@ place this tree, because v221's zip already contains every file they shipped.
    with different bytes, never ship it twice, never “restore” an old zip over a newer site.
 2. **Never work on a tree below the newest row.** If `bash qa/where-am-i.sh` exits 3, that tree
    is behind: stop, fetch the release branch it names, reset to it, and only then work.
-3. **A new release is always `next_release`.** Today that is **v233**. When it ships, append it
-   here, move `live`, and set `next_release` to 234 — in the same commit as the zip.
-4. **Rollback is the previous row, never an arbitrary older one.** From v232 that is v231;
+3. **A new release is always `next_release`.** Today that is **v234**. When it ships, append it
+   here, move `live`, and set `next_release` to 235 — in the same commit as the zip.
+4. **Rollback is the previous row, never an arbitrary older one.** From v233 that is v232;
    a full rollback past v229 also has to account for the private bills folder (`DEPLOY-v229.md` §2).
 5. **The owner deploys, and only after his explicit yes.** A push, a merge, a green gate or a
    finished zip is not approval. Nothing in this repo goes live by itself.

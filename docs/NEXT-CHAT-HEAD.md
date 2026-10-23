@@ -1,7 +1,13 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-**Written 21 Oct 2026 (Asia/Calcutta), after the owner applied every update.**
-**Live: v232 “The Idle Release”. Next release: v233. Work branch: `arena/e8a470c6-shivaa-ecom`.**
+**Written 23 Oct 2026 (Asia/Calcutta), after v233 was packaged and the gate went green.**
+**Newest release: v233 “The Passbook Release” — packaged, awaiting the owner's yes.
+Applied build on the site: v232. Next release: v234. Work branch: `arena/e8a470c6-shivaa-ecom`.**
+
+**v233 package:** `shivaa-update-v233.zip` · 362 files · 37,381,263 B · sha256
+`e5a9b9ffa410b5ea8a1735380fd10bfb60a85473648499144ddd8cb0b117984c` · gate `bash qa/v233-gate.sh`
+→ **24 checks, 0 red**. The v233 session itself ran on `arena/800194ed-shivaa-ecom` (child of the
+release branch at the same base commit `fd90c0f`).
 
 ---
 
@@ -15,7 +21,8 @@ Before anything else run: bash qa/where-am-i.sh
   exit 0 → forward, work here.   exit 3 → this tree is BEHIND: stop and run the
   three commands it prints; never work, build a zip or write docs on an old tree.
 Then: git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD
-Live is v232. Next release is v233. Never rebuild, renumber or re-ship v232 or older.
+Newest release is v233 (packaged, awaiting the owner's yes). Next release is v234.
+Never rebuild, renumber or re-ship v233 or older.
 Machine truth: docs/release-ledger.json. After any doc edit: python3 qa/check-handoff.py
 ```
 
@@ -139,11 +146,11 @@ The zips are **committed in git** — `check-handoff.py` fails if a ledger zip i
 
 ---
 
-## 5 · The release ritual (v233 and everything after)
+## 5 · The release ritual (v234 and everything after)
 
 1. `bash qa/where-am-i.sh` → exit 0 on the session branch.
 2. Write code in coherent stages; **commit after each stage**.
-3. Copy the previous gate (`cp qa/v232-gate.sh qa/v233-gate.sh`), roll its header, its
+3. Copy the previous gate (`cp qa/v233-gate.sh qa/v234-gate.sh`), roll its header, its
    `node --check` list and its suite list; run it until **0 red**.
 4. Roll the stamps **and** the suites' own pinned literals in the same commit:
    `cms/index.html` (`?v=` + `__SHIVAA_REL`), `cms/sw.js` (`SHELL` / `REL` / precache),
@@ -154,7 +161,7 @@ The zips are **committed in git** — `check-handoff.py` fails if a ledger zip i
 6. `python3 qa/make-update-zip.py 233` → record files, bytes, sha256.
 7. Append the row to `docs/release-ledger.json`, move `live`, set `next_release` to 234,
    and add the row to `docs/RELEASE-LEDGER.md` — **same commit as the zip**.
-8. Write `DEPLOY-v233.md`, update `docs/NEXT-CHAT-HEAD.md`, `MEMORY.md`, `AGENTS.md`,
+8. Write `DEPLOY-v234.md`, update `docs/NEXT-CHAT-HEAD.md`, `MEMORY.md`, `AGENTS.md`,
    `ARENA-STATE.md`, `docs/AGENT-HANDOFF.md`.
 9. `python3 qa/check-handoff.py` green → commit → push to the session branch.
 
@@ -172,7 +179,7 @@ gitignored and must never be in the zip. Never ship `.htaccess` or `config.php`.
 
 **A note on the two shipped countdown docs:** they still say “awaiting the owner's yes”
 because they travel inside the package, and editing them without shipping a new package would
-make the repo disagree with the live site. **v233's step 5 rolls them.** Do not “fix” them in
+make the repo disagree with the live site. **v234's step 5 rolls them.** Do not “fix” them in
 a docs-only commit.
 
 ---
@@ -180,23 +187,25 @@ a docs-only commit.
 ## 6 · QA commands (sequential, never in parallel)
 
 ```
-bash qa/v232-gate.sh            # THE WHOLE GATE, one command (23 checks)
+bash qa/v233-gate.sh            # THE WHOLE GATE, one command (24 checks)
 ```
 
-It builds its own fixtures, owns port 8090, and runs, in order: bundle proof (**66 layers /
-66 blocks**), `qa/phpbal.py`, `node --check` ×6, both member-percentage defaults, **seventeen**
-historic suites on the plain fixture, `qa/v229-routes.py` (61), **four** stateful suites each on
-a **fresh staffed shim** (`t-v229-bills` 102, `t-v231-ink` 53, `t-v230-cert` 61, `t-v229-black` 88),
+It builds its own fixtures, owns port 8090, and runs, in order: bundle proof (**67 layers /
+67 blocks**), `qa/phpbal.py`, `node --check` ×7, both member-percentage defaults, **seventeen**
+historic suites on the plain fixture, `qa/v229-routes.py` (61), **five** stateful suites each on
+a **fresh staffed shim** (`t-v233-nidhi` **146** — the Nidhi passbook, the public trace, the desk
+quote and the order it pins — `t-v229-bills` 102, `t-v231-ink` 53, `t-v230-cert` 61,
+`t-v229-black` 88),
 then `playstore/verify.mjs` (exit 2 by design while the fingerprints are owed).
 
-Expected individual totals at v232: `t-v232-idle` 87/0 · `t-v229-black` 88/0 · `t-v229-bills`
+Expected individual totals at v233: `t-v233-nidhi` 146/0 · `t-v232-idle` 87/0 · `t-v229-black` 88/0 · `t-v229-bills`
 102/0 · `t-v230-cert` 61/0 · `t-v231-ink` 53/0 · `qa/v229-routes.py` 61/0 · `t-v228-play` 52/0 ·
 `t-v227-blackcard` 28/28 · `t-v227-design` 41/41 · `t-v227-reset` 31/31 · `t-v226-butter` 61/0 ·
 `t-v225-appfeel` 80/0 · `t-v224-corners` 64/0 · `t-v223-smooth` 39/0 · `t-v222-bundle` 36/0 ·
 `t-v221-cleanup` 34/0 · `t-v220-billing-gone` 13/0 · `t-v209-alive` 96/0 · `t-v206-flip` ALL PASS ·
 `t7-audit` 4/0 · `t-v218-sidebar` 13/0 · `t-v219-depth` 22/0.
 
-Single suites are still listed, in order, inside `qa/v232-gate.sh` — read the script rather
+Single suites are still listed, in order, inside `qa/v233-gate.sh` — read the script rather
 than trusting a copy here. `qa/v230-gate.sh`, `v231-gate.sh` and `v229-gate.sh` are kept as
 history.
 
@@ -381,7 +390,7 @@ is the injected hint only.
 ## 12 · Open items (as of v232 live, 21 Oct 2026)
 
 1. **Nothing is pending deployment.** v232 is live and the tree is committed and pushed. The
-   next thing that ships is **v233**, and only after the owner's yes.
+   next thing that ships is **v234**, and only after the owner's yes.
 2. **Post-deploy spot checks the owner can do in three minutes** (the sandbox cannot reach
    `shivaa.in`): (a) `https://shivaa.in/api/version` should answer with `rel` **232**;
    (b) a member's card/price should show the **20 %** off making charges, never 25 %;
@@ -430,10 +439,26 @@ is the injected hint only.
 
 ---
 
-## 13 · What v233 actually is (not started — do not begin by rebuilding anything)
+## 13 · What v233 is (shipped as a package) and what v234 could be
 
-**v233 does not exist yet.** There is no branch, no commit, no zip, and no number reserved
-beyond the ledger's `next_release`. The first move of the v233 session is a decision, not code:
+**v233 shipped as a package on 23 Oct 2026 and is awaiting the owner's yes.** It closed the two
+candidates the owner picked: the Swarna Nidhi passbook (C) and the jeweller's bullion desk (C).
+What it contains, in one line each:
+
+| Piece | Number |
+|---|---|
+| plan number | `SN<yy>-<seq>` — `SN26-0001` |
+| instalment receipt | `<planNo>-<nn>` — `SN26-0001-01` |
+| one builder for three surfaces | `savings_view()` — passbook, public lookup, owner ledger |
+| public lookup | plan + last 4 of the registered mobile, masked name, 30/hour/IP |
+| customer request | `POST /api/savings/request`, stamped `done` by the desk |
+| desk open-a-plan | `POST /api/admin/savings/open` |
+| fine-gram board | ₹ per fine gram per row, best row per metal, purity 999/995/916/750 |
+| firm quote | `BQ<yymd>-<nnnn>`, 90 s, TCS 0.1 % on a buy, 0.2 % staleness band → 409 |
+| exposure | open deals, net grams, open value, mark-to-market |
+| proof | `t-v233-nidhi` 146 · gate 24 checks 0 red |
+
+**v234 candidates — pick one with the owner, never alone:**
 
 | Candidate | Size | Who is blocking |
 |---|---|---|
@@ -442,11 +467,11 @@ beyond the ledger's `next_release`. The first move of the v233 session is a deci
 | **C. The next owner report** — whatever he asks for next, measured first | unknown | owner |
 | **D. The bills desk hardening** — the vault check above, an admin “vault unavailable” banner, CSV of bills | medium | server access for verification |
 | **E. Exclusivity decision** — `bannerOfferOn=false` or split percentages | tiny code, big business choice | owner |
+| **F. Nidhi follow-through** — SMS/WhatsApp on an instalment receipt and a due-date reminder | medium | an SMS/WhatsApp provider the owner has |
 
-Rules for starting it: run the guard, read this file, pick one candidate **with the owner**, and
-measure before writing a rule (the v232 lesson: the app was telling us where the frames went).
-Do **not** start v233 by re-deriving v229–v232, by “restoring” an old zip, or by editing a spent
-release's files to “tidy” them.
+Rules for starting v234: run the guard, read this file, pick one candidate **with the owner**, and
+measure before writing a rule. Do **not** start v234 by re-deriving v229–v233, by “restoring” an old
+zip, or by editing a spent release's files to “tidy” them.
 
 ---
 

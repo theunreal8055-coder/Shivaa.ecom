@@ -64,7 +64,7 @@ T('shim: mirrors api.php\'s two black-card routes for this sandbox',
   SHIM.includes('if route == "black-card/claim":') && SHIM.includes('if route == "black-card":') &&
   SHIM.includes('def dev_black_claim(u, body):') && SHIM.includes('"blackCard": dev_black_public'));
 T('stamp: v227.js is loaded by the page and precached by the shell',
-  INDEX.includes('/js/v227.js?v=232') && SW.includes("'/js/v227.js?v=232'"));
+  INDEX.includes('/js/v227.js?v=233') && SW.includes("'/js/v227.js?v=233'"));
 
 /* ── 2 · live: signed out, from a product page ─────────────────────────── */
 const PDP = '#/product/p_smp_rings_01';

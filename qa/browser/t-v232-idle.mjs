@@ -246,20 +246,20 @@ T('layer: every !important in it is a transform, a transition or a display — n
   V232.split('\n').filter(l => l.includes('!important') && !/transform|transition|display|will-change/.test(l)).join(' | '));
 
 /* ── 6 · stamps, bundle ───────────────────────────────────────────────── */
-T('stamps: every carrier is at 232',
-  (INDEX.match(/\?v=232/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*232/.test(INDEX) &&
-  /shivaa-shell-v232/.test(SW) && /const REL = 232/.test(SW) && (SW.match(/\?v=232/g) || []).length === 31 &&
-  /APP_REL = 232/.test(APP) && /'rel' => 232/.test(API));
+T('stamps: every carrier is at 233',
+  (INDEX.match(/\?v=233/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*233/.test(INDEX) &&
+  /shivaa-shell-v233/.test(SW) && /const REL = 233/.test(SW) && (SW.match(/\?v=233/g) || []).length === 31 &&
+  /APP_REL = 233/.test(APP) && /'rel' => 233/.test(API));
 T('stamps: no carrier was left behind at 231',
   !/\?v=231/.test(INDEX) && !/\?v=231/.test(SW) && !/__SHIVAA_REL=231/.test(INDEX) &&
   !/shivaa-shell-v231/.test(SW) && !/APP_REL = 231/.test(APP) && !/'rel' => 231/.test(API));
-T('bundle: v232.css is last in the cascade order, and in the bundle exactly once',
-  ORDER[ORDER.length - 1] === 'v232.css' && ORDER[ORDER.length - 2] === 'v231.css' &&
+T('bundle: v233.css is last in the cascade order, and in the bundle exactly once',
+  ORDER[ORDER.length - 1] === 'v233.css' && ORDER[ORDER.length - 2] === 'v232.css' &&
   (BUNDLE.match(/^\/\* v232\.css \*\/$/gm) || []).length === 1 &&
-  BUNDLE.lastIndexOf('/* v232.css */') > BUNDLE.lastIndexOf('/* v231.css */'),
+  BUNDLE.lastIndexOf('/* v233.css */') > BUNDLE.lastIndexOf('/* v232.css */'),
   ORDER.slice(-2).join(' → '));
 T('bundle: still exactly one blocking stylesheet',
-  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=232'));
+  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=233'));
 T('bundle: this release adds no new request — the governors live in app.js',
   !INDEX.includes('/js/v232.js') && !SW.includes('/js/v232.js') &&
   (INDEX.match(/<script src="\/js\//g) || []).length === 24,
