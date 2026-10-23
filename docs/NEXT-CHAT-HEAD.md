@@ -1,13 +1,13 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-**Written 23 Oct 2026 (Asia/Calcutta), after v235 was packaged and the gate went green.**
-**Newest release: v235 “The Millisecond Desk” — packaged, awaiting the owner's yes.
-Applied build on the site: v234 (23 Oct 2026). Next release: v236.
-Work branch for the v233–v235 sessions: `arena/800194ed-shivaa-ecom` (base `fd90c0f`).**
+**Written 23 Oct 2026 (Asia/Calcutta), after v236 was packaged and the gate went green.**
+**Newest release: v236 “The Counter Book” — packaged, awaiting the owner's yes.
+Applied build on the site: v234 (23 Oct 2026); v235 is also packaged and waiting. Next release: v237.
+Work branch for the v233–v236 sessions: `arena/800194ed-shivaa-ecom` (base `fd90c0f`).**
 
-**v235 package:** `shivaa-update-v235.zip` · 367 files · 37,424,830 B · sha256
-`f5b14e8a274a1911ed87875992de43a144402e48930f4702553e8ad09b26ec35` · gate `bash qa/v235-gate.sh`
-→ **26 checks, 0 red**.
+**v236 package:** `shivaa-update-v236.zip` · 368 files · 37,445,481 B · sha256
+`b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655` · gate `bash qa/v236-gate.sh`
+→ **27 checks, 0 red**.
 
 ---
 
@@ -21,8 +21,8 @@ Before anything else run: bash qa/where-am-i.sh
   exit 0 → forward, work here.   exit 3 → this tree is BEHIND: stop and run the
   three commands it prints; never work, build a zip or write docs on an old tree.
 Then: git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD
-Newest release is v235 (packaged, awaiting the owner's yes). Next release is v236.
-Never rebuild, renumber or re-ship v235 or older.
+Newest release is v236 (packaged, awaiting the owner's yes). Next release is v237.
+Never rebuild, renumber or re-ship v236 or older.
 Machine truth: docs/release-ledger.json. After any doc edit: python3 qa/check-handoff.py
 ```
 
@@ -146,11 +146,11 @@ The zips are **committed in git** — `check-handoff.py` fails if a ledger zip i
 
 ---
 
-## 5 · The release ritual (v236 and everything after)
+## 5 · The release ritual (v237 and everything after)
 
 1. `bash qa/where-am-i.sh` → exit 0 on the session branch.
 2. Write code in coherent stages; **commit after each stage**.
-3. Copy the previous gate (`cp qa/v235-gate.sh qa/v236-gate.sh`), roll its header, its
+3. Copy the previous gate (`cp qa/v236-gate.sh qa/v237-gate.sh`), roll its header, its
    `node --check` list and its suite list; run it until **0 red**.
 4. Roll the stamps **and** the suites' own pinned literals in the same commit:
    `cms/index.html` (`?v=` + `__SHIVAA_REL`), `cms/sw.js` (`SHELL` / `REL` / precache),
@@ -161,7 +161,7 @@ The zips are **committed in git** — `check-handoff.py` fails if a ledger zip i
 6. `python3 qa/make-update-zip.py 233` → record files, bytes, sha256.
 7. Append the row to `docs/release-ledger.json`, move `live`, set `next_release` to 234,
    and add the row to `docs/RELEASE-LEDGER.md` — **same commit as the zip**.
-8. Write `DEPLOY-v236.md`, update `docs/NEXT-CHAT-HEAD.md`, `MEMORY.md`, `AGENTS.md`,
+8. Write `DEPLOY-v237.md`, update `docs/NEXT-CHAT-HEAD.md`, `MEMORY.md`, `AGENTS.md`,
    `ARENA-STATE.md`, `docs/AGENT-HANDOFF.md`.
 9. `python3 qa/check-handoff.py` green → commit → push to the session branch.
 
@@ -179,7 +179,7 @@ gitignored and must never be in the zip. Never ship `.htaccess` or `config.php`.
 
 **A note on the two shipped countdown docs:** they still say “awaiting the owner's yes”
 because they travel inside the package, and editing them without shipping a new package would
-make the repo disagree with the live site. **v236's step 5 rolls them.** Do not “fix” them in
+make the repo disagree with the live site. **v237's step 5 rolls them.** Do not “fix” them in
 a docs-only commit.
 
 ---
@@ -187,19 +187,20 @@ a docs-only commit.
 ## 6 · QA commands (sequential, never in parallel)
 
 ```
-bash qa/v235-gate.sh            # THE WHOLE GATE, one command (26 checks)
+bash qa/v236-gate.sh            # THE WHOLE GATE, one command (27 checks)
 ```
 
-It builds its own fixtures, owns port 8090, and runs, in order: bundle proof (**69 layers /
-69 blocks**), `qa/phpbal.py`, `node --check` ×10, both member-percentage defaults, **seventeen**
-historic suites on the plain fixture, `qa/v229-routes.py` (61), **seven** stateful suites each on
-a **fresh staffed shim** (`t-v235-live` **71** — the poll hint over real HTTP, one paint per frame,
-the millisecond clock, the amber/red age states, the dimmed board and zero layout reads —
-`t-v234-desk` 111, `t-v233-nidhi` 146, `t-v229-bills` 102, `t-v231-ink` 53, `t-v230-cert` 61,
-`t-v229-black` 88),
+It builds its own fixtures, owns port 8090, and runs, in order: bundle proof (**70 layers /
+70 blocks**), `qa/phpbal.py`, `node --check` ×11, both member-percentage defaults, **seventeen**
+historic suites on the plain fixture, `qa/v229-routes.py` (61), **eight** stateful suites each on
+a **fresh staffed shim** (`t-v236-book` **109** — money on a deal over real HTTP, the ledger's
+opening balance, the GST invoice's HSN/TCS/words, the one-shot alert claim, the rate-lock queue,
+the credit limit refusing a deal, and the screen: strip, filters, pay form, invoice, print —
+`t-v235-live` 71, `t-v234-desk` 111, `t-v233-nidhi` 146, `t-v229-bills` 102, `t-v231-ink` 53,
+`t-v230-cert` 61, `t-v229-black` 88),
 then `playstore/verify.mjs` (exit 2 by design while the fingerprints are owed).
 
-Expected individual totals at v235: `t-v235-live` 71/0 · `t-v234-desk` 111/0 · `t-v233-nidhi` 146/0 ·
+Expected individual totals at v236: `t-v236-book` 109/0 · `t-v235-live` 71/0 · `t-v234-desk` 111/0 · `t-v233-nidhi` 146/0 ·
 `t-v232-idle` 87/0 · `t-v229-black` 88/0 · `t-v229-bills`
 102/0 · `t-v230-cert` 61/0 · `t-v231-ink` 53/0 · `qa/v229-routes.py` 61/0 · `t-v228-play` 52/0 ·
 `t-v227-blackcard` 28/28 · `t-v227-design` 41/41 · `t-v227-reset` 31/31 · `t-v226-butter` 61/0 ·
@@ -207,7 +208,7 @@ Expected individual totals at v235: `t-v235-live` 71/0 · `t-v234-desk` 111/0 ·
 `t-v221-cleanup` 34/0 · `t-v220-billing-gone` 13/0 · `t-v209-alive` 96/0 · `t-v206-flip` ALL PASS ·
 `t7-audit` 4/0 · `t-v218-sidebar` 13/0 · `t-v219-depth` 22/0.
 
-Single suites are still listed, in order, inside `qa/v235-gate.sh` — read the script rather
+Single suites are still listed, in order, inside `qa/v236-gate.sh` — read the script rather
 than trusting a copy here. `qa/v230-gate.sh`, `v231-gate.sh` and `v229-gate.sh` are kept as
 history.
 
@@ -392,7 +393,7 @@ is the injected hint only.
 ## 12 · Open items (as of v232 live, 21 Oct 2026)
 
 1. **Nothing is pending deployment.** v232 is live and the tree is committed and pushed. The
-   next thing that ships is **v236**, and only after the owner's yes.
+   next thing that ships is **v237**, and only after the owner's yes.
 2. **Post-deploy spot checks the owner can do in three minutes** (the sandbox cannot reach
    `shivaa.in`): (a) `https://shivaa.in/api/version` should answer with `rel` **232**;
    (b) a member's card/price should show the **20 %** off making charges, never 25 %;
@@ -441,43 +442,43 @@ is the injected hint only.
 
 ---
 
-## 13 · What v235 is (shipped as a package) and what v236 could be
+## 13 · What v236 is (shipped as a package) and what v237 could be
 
-**v235 shipped as a package on 23 Oct 2026 and is awaiting the owner's yes.** The
-owner asked, straight after installing v234, for the desk to be "updated every
-millisecond". The honest shape of that answer is the release:
+**v236 shipped as a package on 23 Oct 2026 and is awaiting the owner's yes.** The
+owner asked for six improvements to the bullion app, in one release, with no
+mistakes. Six, and nothing that moves a price:
 
 | Piece | Number |
 |---|---|
-| paint | at most **one per animation frame**, newest tick wins (8 ticks → 1 paint) |
-| layout cost of a price change | **0** forced reads (was one per changed number) |
-| clock | `HH:MM:SS.mmm`, IST, every frame, text only |
-| age of the numbers | server `ageMs` + time to reach the frame; amber ≥1.5 s, red ≥5 s |
-| stale board | dims, states its age, never hides |
-| rate | measured arrivals per second, 2 s window |
-| wire | `nowMs`, `cacheAgeMs`, `poll{minMs,maxMs,why}` on `/api/bullion/tick` |
-| poll | 250 ms (relay) · 1000 ms (cache) · 5000 ms (stale) — was a flat 800 ms |
-| scope | `index.html` pays nothing: no board → no loop, hidden tab → no frames |
-| proof | `t-v235-live` 71 · gate 26 checks, 0 red |
+| money on a deal | `POST /api/bullion/orders/<id>/pay` — cash/UPI/RTGS/cheque + reference; `paid + due = value + TCS` |
+| refusals | overpay (states the open figure) · UPI/RTGS with no reference · any money on a cancelled deal |
+| party ledger | `GET /api/bullion/ledger?from&to` — opening carried from before the window, `closing = opening + window due` |
+| tax invoice | `GET /api/bullion/slips/<no>/invoice` — HSN 7108 gold / 7106 silver, TCS 206C(1H) @ 0.1 % on a buy, amount in words |
+| alerts | `POST /api/bullion/alerts/claim` — `notifiedAt` server-side, so one alert is announced once |
+| rate lock | a **request queue** the office answers (`/unfix/<id>/resolve`); no string promises more |
+| credit limit | `PUT /api/bullion/limit` (office only) — a deal that would cross it is refused with all three figures |
+| the book | server-side filter by text, date range and status, remembered on the device |
+| proof | `t-v236-book` 109 · gate 27 checks, 0 red · css 70 layers, 942,329 B / 185,156 B gz |
 
-**What v235 deliberately does NOT do:** invent prices between exchange ticks. The
-feed is ~1/s; a smoother price would be a lie. If the owner wants a *faster*
-feed, the route is the push relay (`settings.angelRelayUrl`), which already
-writes ~10 frames/s and which the desk now polls at 250 ms.
+**What v236 deliberately does NOT do:** move a rate, invent a price, or pretend a
+rate lock happened. The unfix queue records a request and the office's answer;
+nothing is locked until a human confirms it. The service-worker `push` handler is
+wired but **nothing sends a push yet** — the 20 s claim loop is what announces an
+alert today.
 
-**v236 candidates — pick one with the owner, never alone:**
+**v237 candidates — pick one with the owner, never alone:**
 
 | Candidate | Size | Who is blocking |
 |---|---|---|
 | **A. The Play unblock** — fingerprints, screenshots, UGC decision, AAB build, version bump | docs + config, no site code | owner (keystore on his machine, Console decisions) |
 | **B. The relay release** — stand the push relay up, prove 10 frames/s end to end, surface relay health on the desk | medium | owner (a small Node host + Angel credentials) |
-| **C. `partnerWatch` housekeeping** — add the key to the `$db` init list, with a migration note | tiny | nobody *(known nit, deliberately left out of a spent v234/v235)* |
-| **D. Desk paperwork+** — a GST invoice from a slip, party ledger per jeweller, WhatsApp a slip | medium | the owner's CA for invoice wording |
+| **C. Real push for alerts** — the sender behind the `push` handler v236 wired (VAPID keys, a queue, a host) | medium | owner (keys + a host) |
+| **D. `partnerWatch` housekeeping** — add the key to the `$db` init list, with a migration note | tiny | nobody *(known nit, deliberately left out of a spent v234–v236)* |
 | **E. The next owner report** — whatever he asks for next, measured first | unknown | owner |
 | **F. Bills desk hardening** — vault check, "vault unavailable" banner, CSV of bills | medium | server access to verify |
 
-Rules for starting v236: run the guard, read this file, pick one candidate **with the owner**, and
-measure before writing a rule. Do **not** start v236 by re-deriving v229–v235, by "restoring" an old
+Rules for starting v237: run the guard, read this file, pick one candidate **with the owner**, and
+measure before writing a rule. Do **not** start v237 by re-deriving v229–v236, by "restoring" an old
 zip, or by editing a spent release's files to "tidy" them.
 
 ---

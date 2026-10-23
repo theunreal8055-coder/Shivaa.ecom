@@ -17,14 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Newest release** | **v235 — “The Millisecond Desk”** (packaged 23 Oct 2026, **awaiting the owner's yes**) |
-| Package | `shivaa-update-v235.zip` · 367 files · 37,424,830 B · `f5b14e8a274a1911ed87875992de43a144402e48930f4702553e8ad09b26ec35` |
+| **Newest release** | **v236 — “The Counter Book”** (packaged 23 Oct 2026, **awaiting the owner's yes**) |
+| Package | `shivaa-update-v236.zip` · 368 files · 37,445,481 B · `b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655` |
 | **Applied on the site** | **v234 — “The Desk App”**, applied **23 Oct 2026** |
 | Applied package | `shivaa-update-v234.zip` · 366 files · 37,416,420 B · `16adae14b9745f5d0560145775221d329ab304c1c688d64244885726585e1b84` |
-| **Next release** | **v236** |
+| **Next release** | **v237** |
 | Work branch | `arena/e8a470c6-shivaa-ecom` (the Arena session is hard-wired to it) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Release chain | v228 (17 Oct) → v232 (21 Oct) → v233 (23 Oct) → **v234 (23 Oct, applied)** → **v235 (23 Oct, packaged)** |
+| Release chain | v228 (17 Oct) → v232 (21 Oct) → v233 (23 Oct) → **v234 (23 Oct, applied)** → v235 (23 Oct, packaged) → **v236 (23 Oct, packaged)** |
 
 ---
 
@@ -46,7 +46,8 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v232 | `b9f74bc` | The Idle Release | 361 | 37,349,816 | `14b9e9ca24571b05…5a5a4b4023` | applied 21 Oct |
 | **v233** | **`a5cd382`** | **The Passbook Release** | **362** | **37,381,263** | **`e5a9b9ffa410b5ea…b117984c`** | **applied 23 Oct** |
 | **v234** | **`5337f26`** | **The Desk App** | **366** | **37,416,420** | **`16adae14b9745f5d…585e1b84`** | **applied 23 Oct** |
-| **v235** | **`67e48a1`** | **The Millisecond Desk** | **367** | **37,424,830** | **`f5b14e8a274a1911e…8ad09b26ec35`** | **packaged 23 Oct — awaiting the owner's yes** |
+| v235 | `67e48a1` | The Millisecond Desk | 367 | 37,424,830 | `f5b14e8a274a1911e…8ad09b26ec35` | packaged 23 Oct — superseded by v236 before the owner applied it |
+| **v236** | **`PENDING`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 
 Full 64-character hashes, byte counts and status live in `docs/release-ledger.json`.
 v205 and everything before v221 are in the older `DEPLOY-v*.md` notes; they are not needed to
@@ -62,7 +63,8 @@ place this tree, because v221's zip already contains every file they shipped.
    is behind: stop, fetch the release branch it names, reset to it, and only then work.
 3. **A new release is always `next_release`.** Today that is **v236**. When it ships, append it
    here, move `live`, and set `next_release` to 237 — in the same commit as the zip.
-4. **Rollback is the previous row, never an arbitrary older one.** From v235 that is v234;
+4. **Rollback is the previous row, never an arbitrary older one.** From v236 that is v235,
+   which supersedes v234 (the last build the owner applied);
    a full rollback past v229 also has to account for the private bills folder (`DEPLOY-v229.md` §2).
 5. **The owner deploys, and only after his explicit yes.** A push, a merge, a green gate or a
    finished zip is not approval. Nothing in this repo goes live by itself.

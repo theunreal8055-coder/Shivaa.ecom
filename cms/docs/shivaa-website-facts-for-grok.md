@@ -1,6 +1,76 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+**v236 — THE COUNTER BOOK** (2026-10-23). Six things a working bullion counter
+was still missing, each with a number behind it. Nothing here prices anything:
+every figure is derived from a deal the desk already wrote, at a rate the board
+already quoted.
+
+**1 · Money on a deal.** A deal recorded its value and nothing else, so "kitna
+baaki hai" had no answer. `POST /api/bullion/orders/<id>/pay` now records a
+receipt — cash, UPI, RTGS or cheque, each with the reference the bank will ask
+for — and the deal carries `paid`, `due` and `total = value + TCS`. Overpaying is
+refused with the figure still open (`Only ₹70,792 is outstanding on BL…`), a UPI
+or RTGS receipt without a reference is refused, and a cancelled deal takes no
+money. `paid + due = total`, to the rupee, asserted over real HTTP.
+
+**2 · A party ledger that does not reset.** `GET /api/bullion/ledger?from&to`
+returns every deal in the window with value, TCS, total, paid and due — plus an
+**opening balance carried from before the window**, so the closing figure is the
+real balance and not a fresh count from zero (`closing = opening + window due`).
+One function, `bullion_order_due()`, feeds the ledger, the day book, the credit
+limit and the invoice, so they cannot disagree.
+
+**3 · The tax invoice.** A dealing slip is not a tax document.
+`GET /api/bullion/slips/<slipNo>/invoice` renders the slip as a GST invoice —
+HSN 7108 for gold (7106 for silver), place of supply, the partner's GSTIN, TCS
+206C(1H) @ 0.1 % on a buy (and an explicit "not applicable" on a sell), the total,
+and the amount **in words** with Indian numbering (`Twenty-eight thousand seven
+hundred seventeen rupees only`). Printed by the app, one slip at a time.
+
+**4 · Being told, once.** A rate alert used to fire only while the page was open
+and in front of the jeweller. `POST /api/bullion/alerts/claim` hands out reached
+alerts **once** — `notifiedAt` is written server-side, so the second claim gets
+nothing and no phone, tab or reload can announce the same alert twice. The desk
+asks for notification permission once, keeps a 20 s claim loop while it is open,
+and draws the alert through the service worker (`message`, plus `push` and
+`notificationclick` wired for the day a real push sender exists). No permission →
+the old in-page toast, and the desk keeps working.
+
+**5 · A limit, not just a measurement.** Exposure was reported and never bounded.
+The office can set a rupee limit per partner (`PUT /api/bullion/limit`); a deal
+that would cross it is refused **before it is written**, with all three figures:
+*"This deal would take your account to ₹X against a limit of ₹Y — ₹Z is already
+outstanding."* Zero means no limit. A jeweller can read their limit and cannot
+set it (403).
+
+**6 · A book you can search.** Deals filter server-side by text, date range and
+status, and the filter is remembered on the device, so a counter keeps the same
+view all morning. Every deal row carries paid and due, its slips are buttons that
+open the invoice, and the CSV carries the money columns.
+
+**The honesty fix.** The board advertised "unfix (rate-lock)" while the code only
+filed a note. It is now a **request with a queue**: the jeweller asks, the office
+answers or declines (`POST /api/bullion/unfix/<id>/resolve`, admin only), and the
+jeweller sees the answer. Every string that claimed a facility the code did not
+run has been rewritten to say what actually happens — the desk confirms on call,
+and nothing is locked until it does.
+
+New suite `qa/browser/t-v236-book.mjs` (**109 assertions**): money maths over real
+HTTP, the ledger's opening/closing rule, the invoice's HSN/TCS/words, the
+one-shot claim, the rate-lock queue with the office's answer, the limit refusing a
+900 g deal and accepting a 1 g one, the server-side filters, and then the screen —
+the money strip, the filter that hides and restores the book, a payment recorded
+from the form (the due on that same card drops by exactly what was typed), the
+invoice opening with its number and words, the ledger's rows and print, and
+notifications drawn by the worker (and not claimed when permission is denied).
+New gate **`bash qa/v236-gate.sh`** → **27 checks, 0 red**, with `t-v235-live`
+71/0, `t-v234-desk` 111/0, `t-v233-nidhi` 146/0, `t-v232-idle` 87/0,
+`t-v229-bills` 102/0, `t-v231-ink` 53/0, `t-v230-cert` 61/0, `t-v229-black` 88/0,
+`qa/v229-routes.py` 61/0, `t-v222-bundle` 36/0, `t-v225-appfeel` 80/0.
+**368 files** (adds `css/v236.css`; the stylesheet is **70 layers / 70 blocks**,
+still **one** request, 942,329 B raw / 185,156 B gzipped).
+
 **v235 — THE MILLISECOND DESK** (2026-10-23). The owner's ask: *"keep it
 updated every millisecond"*. No exchange on earth sends a price a thousand times
 a second, and pretending otherwise would put a number on a jeweller's screen

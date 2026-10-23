@@ -4487,7 +4487,10 @@ function bullion_daybook(array $db, array $u, array $rows): array {
 
   $tot = ['deals' => 0, 'buyGrams' => 0.0, 'sellGrams' => 0.0, 'buyFineGrams' => 0.0, 'sellFineGrams' => 0.0,
     'buyValue' => 0, 'sellValue' => 0, 'tcs' => 0, 'settledGrams' => 0.0, 'settledValue' => 0,
-    'settledDeals' => 0, 'openDeals' => 0, 'openGrams' => 0.0, 'openValue' => 0, 'mtm' => 0];
+    'settledDeals' => 0, 'openDeals' => 0, 'openGrams' => 0.0, 'openValue' => 0, 'mtm' => 0,
+    /* v236 — money, not just metal. `due` is today's unpaid value, so the day
+       book and the ledger cannot disagree about what the day owes. */
+    'paid' => 0, 'due' => 0];
   $deals = [];
   foreach (($db['bullionOrders'] ?? []) as $o) {
     if (!$isAdmin && (string)($o['partnerId'] ?? '') !== $pid) continue;
@@ -4507,6 +4510,8 @@ function bullion_daybook(array $db, array $u, array $rows): array {
     else { $tot['buyGrams'] += $grams; $tot['buyFineGrams'] += $grams * $fine; $tot['buyValue'] += $amount; $tot['tcs'] += $tcs; }
     $tot['settledGrams'] += $settled;
     $tot['settledValue'] += (int)round((float)($o['rate'] ?? 0) * $settled);
+    $tot['paid'] += bullion_order_paid($o);
+    $tot['due'] += bullion_order_due($o);
     if ($low !== 'cancelled') {
       if ($remaining > 0.0005) {
         $tot['openDeals']++; $tot['openGrams'] += $remaining; $tot['openValue'] += (int)round((float)($o['rate'] ?? 0) * $remaining);
@@ -4525,6 +4530,9 @@ function bullion_daybook(array $db, array $u, array $rows): array {
       'amount' => $amount, 'tcs' => $tcs, 'status' => $st,
       'quoteNo' => (string)($o['quoteNo'] ?? ''), 'createdAt' => $at,
       'settledGrams' => $settled, 'remainingGrams' => $remaining,
+      'paid' => bullion_order_paid($o), 'due' => bullion_order_due($o),
+      'total' => bullion_order_total($o),
+      'payments' => count((array)($o['payments'] ?? [])),
       'slips' => array_map(fn($s) => (string)($s['id'] ?? ''), array_values((array)($o['settlements'] ?? [])))];
   }
   foreach ($tot as $k => $v) {
@@ -4546,6 +4554,148 @@ function bullion_daybook(array $db, array $u, array $rows): array {
 function bullion_watch_of(array $db, array $u): array {
   $w = $db['partnerWatch'][(string)($u['partnerId'] ?? '')] ?? [];
   return is_array($w) ? array_values($w) : [];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v236 · THE COUNTER BOOK — six things a working desk was still missing
+   ──────────────────────────────────────────────────────────────────────────
+   v234 gave the desk paperwork; v235 made it current. What neither fixed is
+   what a jeweller asks at six in the evening:
+
+     1 · MONEY.  A deal recorded its value and nothing else. A deal now carries
+         its own payments (cash / UPI / RTGS / cheque, each with a reference),
+         so "kitna baaki hai" has one answer that the party ledger and the month
+         total both read from the same function.
+     2 · BEING TOLD.  A rate alert only fired while the page was open. Alerts
+         that have been reached can now be *claimed* by the desk or by the
+         service worker, once — so a notification is never sent twice, and a
+         phone in a pocket still hears about it.
+     3 · THE INVOICE.  A dealing slip is not a tax document. A slip can now be
+         rendered as a GST tax invoice (HSN, place of supply, TCS 0.1 %, amount
+         in words) built from the same numbers the slip already carries.
+     4 · UNFIX, HONESTLY.  The board advertised "unfix (rate-lock)" while the
+         code only filed a request. Rate-lock requests are now a real queue the
+         office works through, with a status the jeweller can see.
+     5 · THE LIMIT.  Exposure was measured and never bounded. A partner can be
+         given a rupee limit; a deal that would break it is refused in words.
+     6 · THE BOOK ITSELF.  Deals can be searched and date-ranged, because a
+         counter does not remember numbers, it remembers days and names.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* What an order is worth to the counter: value + TCS on a buy, value on a sell.
+   One function, so the invoice, the ledger and the limit check can never differ. */
+function bullion_order_total(array $o): int {
+  $amount = (int)($o['amount'] ?? 0);
+  $tcs = ((string)($o['side'] ?? '')) === 'buy' ? (int)round($amount * 0.001) : 0;
+  return $amount + $tcs;
+}
+function bullion_order_paid(array $o): int {
+  $p = 0;
+  foreach ((array)($o['payments'] ?? []) as $x) $p += (int)($x['amount'] ?? 0);
+  return $p;
+}
+/* Rupees still owed on a deal. A cancelled deal owes nothing; a settled one
+   still owes whatever has not been paid — metal moving is not money moving. */
+function bullion_order_due(array $o): int {
+  if (strtolower((string)($o['status'] ?? '')) === 'cancelled') return 0;
+  return max(0, bullion_order_total($o) - bullion_order_paid($o));
+}
+
+/* Rupees owed by this partner across every deal that is not cancelled. This is
+   the number a credit limit is measured against and the number the ledger
+   closes on, so both call this. */
+function bullion_outstanding(array $db, string $pid): int {
+  $sum = 0;
+  foreach (($db['bullionOrders'] ?? []) as $o) {
+    if ((string)($o['partnerId'] ?? '') !== $pid) continue;
+    $sum += bullion_order_due($o);
+  }
+  return $sum;
+}
+
+/* The party ledger: every deal in a date window with what it was worth, what
+   was paid and what is left, plus a closing balance that includes deals from
+   BEFORE the window (a ledger that starts at zero every fortnight is a lie). */
+function bullion_ledger(array $db, array $u, string $from, string $to): array {
+  $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+  $pid = (string)($u['partnerId'] ?? '');
+  $rows = [];
+  $inWindow = ['deals' => 0, 'value' => 0, 'paid' => 0, 'tcs' => 0, 'due' => 0];
+  $opening = 0;
+  foreach (($db['bullionOrders'] ?? []) as $o) {
+    if (!$isAdmin && (string)($o['partnerId'] ?? '') !== $pid) continue;
+    if (strtolower((string)($o['status'] ?? '')) === 'cancelled') continue;
+    $day = substr((string)($o['createdAt'] ?? ''), 0, 10);
+    $due = bullion_order_due($o);
+    if ($day !== '' && $day < $from) { $opening += $due; continue; }
+    if ($day !== '' && $day > $to) continue;
+    $paid = bullion_order_paid($o);
+    $tcs = (int)round((float)($o['amount'] ?? 0) * (((string)($o['side'] ?? '')) === 'buy' ? 0.001 : 0));
+    $rows[] = ['id' => (string)($o['id'] ?? ''), 'date' => $day, 'side' => (string)($o['side'] ?? ''),
+      'metal' => (string)($o['metal'] ?? ''), 'grams' => bullion_order_grams($o),
+      'value' => (int)($o['amount'] ?? 0), 'tcs' => $tcs, 'total' => bullion_order_total($o),
+      'paid' => $paid, 'due' => $due, 'status' => (string)($o['status'] ?? ''),
+      'payments' => array_values((array)($o['payments'] ?? []))];
+    $inWindow['deals']++;
+    $inWindow['value'] += (int)($o['amount'] ?? 0);
+    $inWindow['tcs'] += $tcs;
+    $inWindow['paid'] += $paid;
+    $inWindow['due'] += $due;
+  }
+  usort($rows, fn($a, $b) => strcmp($b['date'] . $b['id'], $a['date'] . $a['id']));
+  $inWindow['closing'] = $opening + $inWindow['due'];
+  return ['from' => $from, 'to' => $to, 'opening' => $opening, 'totals' => $inWindow,
+    'rows' => $rows, 'outstanding' => $isAdmin ? null : bullion_outstanding($db, $pid),
+    'limit' => $isAdmin ? null : (int)($db['partnerLimits'][$pid]['amount'] ?? 0)];
+}
+
+/* Rupees in words, Indian numbering, the way an invoice prints them. */
+function bullion_words(int $n): string {
+  if ($n === 0) return 'Zero rupees only';
+  if ($n < 0) return 'Minus ' . bullion_words(-$n);
+  $ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  $tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  $two = static function (int $x) use ($ones, $tens): string {
+    if ($x < 20) return $ones[$x];
+    return $tens[intdiv($x, 10)] . ($x % 10 ? '-' . $ones[$x % 10] : '');
+  };
+  $parts = [];
+  foreach ([[10000000, 'crore'], [100000, 'lakh'], [1000, 'thousand'], [100, 'hundred']] as [$div, $name]) {
+    if ($n >= $div) {
+      $q = intdiv($n, $div);
+      $parts[] = ($q >= 100 ? bullion_words($q) : $two($q)) . ' ' . $name;
+      $n %= $div;
+    }
+  }
+  if ($n > 0) $parts[] = $two($n);
+  $w = implode(' ', $parts);
+  return ucfirst($w) . ' rupees only';
+}
+
+/* A dealing slip as a GST tax invoice. No new money is invented here: every
+   number is taken from the slip the counter already stamped. */
+function bullion_invoice(array $db, array $u, array $slip): array {
+  $amount = (int)($slip['amount'] ?? 0);
+  $tcs = (int)($slip['tcs'] ?? 0);
+  $total = $amount + $tcs;
+  $side = (string)($slip['side'] ?? 'buy');
+  $partner = ['firm' => (string)($slip['partnerName'] ?? ''),
+    'gstin' => (string)($u['gstin'] ?? ''), 'city' => (string)($u['city'] ?? '')];
+  return ['invoiceNo' => 'INV/' . (string)($slip['slipNo'] ?? ''),
+    'slipNo' => (string)($slip['slipNo'] ?? ''), 'date' => substr((string)($slip['at'] ?? ''), 0, 10),
+    'at' => (string)($slip['at'] ?? ''), 'partner' => $partner,
+    'orderId' => (string)($slip['orderId'] ?? ''), 'metal' => (string)($slip['metal'] ?? ''),
+    'hsn' => preg_match('/silver/i', (string)($slip['metal'] ?? '')) ? '7106' : '7108',
+    'purity' => (string)($slip['purity'] ?? ''), 'grams' => (float)($slip['grams'] ?? 0),
+    'fineGrams' => (float)($slip['fineGrams'] ?? 0), 'rate' => (float)($slip['rate'] ?? 0),
+    'amount' => $amount, 'tcs' => $tcs, 'total' => $total,
+    'tcsRate' => 0.1, 'side' => $side, 'quoteNo' => (string)($slip['quoteNo'] ?? ''),
+    'amountWords' => bullion_words($total),
+    'by' => (string)($slip['by'] ?? ''), 'note' => (string)($slip['note'] ?? ''),
+    /* TCS applies to a buy (the counter collects it); a sell invoice is the
+       jeweller's own sale to the desk, so the tax column is zero and says so. */
+    'tcsLabel' => $side === 'buy' ? 'TCS 206C(1H) @ 0.1%' : 'TCS not applicable on a sell to the desk'];
 }
 
 /* v57 ── personal occasion coupons (birthday / anniversary) ──
@@ -5070,7 +5220,7 @@ $db = db_load($DB_FILE);
 $GLOBALS['shv_black_pct'] = black_pct_setting($db);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','bullionSlips','bullionQuotes','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit','storeBills'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','bullionSlips','bullionQuotes','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit','storeBills','partnerWatch','partnerLimits'] as $__k) $db[$__k] = $db[$__k] ?? [];
 
 /* v60 — lightweight audit trail for money/status actions */
 function audit_log(array &$db, string $what, array $meta = []): void {
@@ -7304,7 +7454,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 235,
+      'rel' => 236,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8460,6 +8610,21 @@ try {
       if ($qRate > 0 && abs($rate - $qRate) / $qRate > 0.002)
         jout(409, ['error' => 'The board moved since quote ' . $quoteNo . ' — take a fresh quote to trade at the new rate.']);
     }
+    /* v236 — the limit is checked against what this partner already owes, at
+       the moment the deal is written. It is a refusal with numbers, never a
+       silent trim: the jeweller is told the figure that would break it. */
+    $pid = (string)($u['partnerId'] ?? '');
+    $limit = (int)($db['partnerLimits'][$pid]['amount'] ?? 0);
+    if ($limit > 0) {
+      $amt = (int)round($rate * $qty * $mult);
+      $newTotal = $amt + ($side === 'buy' ? (int)round($amt * 0.001) : 0);
+      $owed = bullion_outstanding($db, $pid);
+      if ($owed + $newTotal > $limit) {
+        jout(400, ['error' => 'This deal would take your account to ₹' . number_format($owed + $newTotal)
+          . ' against a limit of ₹' . number_format($limit) . ' — ₹' . number_format($owed)
+          . ' is already outstanding. Settle a deal or ask the office to raise the limit.']);
+      }
+    }
     $ord = ['id' => biz_id('BL'), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
             'qty' => round($qty, 3), 'unit' => $unit, 'rate' => $rate,
             'purity' => (string)($br['purity'] ?? ''),   // v234 — a slip needs it
@@ -8485,7 +8650,35 @@ try {
     $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $list = $db['bullionOrders'] ?? [];
     if ($u['role'] !== 'admin') $list = array_values(array_filter($list, fn($o) => ($o['partnerId'] ?? '') === ($u['partnerId'] ?? '')));
-    jout(200, ['orders' => array_reverse($list)]);
+    /* v236 — a counter remembers days and names, not deal numbers. Filters are
+       applied here, on the server, so the same query answers in the app, in the
+       SPA and in the CSV. Each deal also carries what is owed on it. */
+    $qFrom = substr(trim((string)($_GET['from'] ?? '')), 0, 10);
+    $qTo = substr(trim((string)($_GET['to'] ?? '')), 0, 10);
+    $qTxt = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 60);
+    $qSt = mb_substr(trim((string)($_GET['status'] ?? '')), 0, 30);
+    if ($qFrom !== '' || $qTo !== '' || $qTxt !== '' || $qSt !== '') {
+      $list = array_values(array_filter($list, function ($o) use ($qFrom, $qTo, $qTxt, $qSt) {
+        $day = substr((string)($o['createdAt'] ?? ''), 0, 10);
+        if ($qFrom !== '' && $day < $qFrom) return false;
+        if ($qTo !== '' && $day > $qTo) return false;
+        if ($qSt !== '' && strcasecmp((string)($o['status'] ?? ''), $qSt) !== 0) return false;
+        if ($qTxt !== '') {
+          $hay = mb_strtolower(implode(' ', [(string)($o['id'] ?? ''), (string)($o['metal'] ?? ''),
+            (string)($o['quoteNo'] ?? ''), (string)($o['note'] ?? ''), (string)($o['partnerName'] ?? '')]));
+          if (mb_strpos($hay, mb_strtolower($qTxt)) === false) return false;
+        }
+        return true;
+      }));
+    }
+    $out = [];
+    foreach (array_reverse($list) as $o) {
+      $o['paid'] = bullion_order_paid($o);
+      $o['total'] = bullion_order_total($o);
+      $o['due'] = bullion_order_due($o);
+      $out[] = $o;
+    }
+    jout(200, ['orders' => $out, 'outstanding' => ((string)($u['role'] ?? '')) === 'admin' ? null : bullion_outstanding($db, (string)($u['partnerId'] ?? ''))]);
   }
 
   /* ── v234 · the desk app: day book, dealing slips, watchlist ─────────────
@@ -8610,6 +8803,187 @@ try {
     audit_log($db, 'bullion.watch', ['partner' => $pid, 'keys' => implode(',', $keys)]);
     db_save($DB_FILE, $db);
     jout(200, ['watch' => $keys]);
+  }
+
+  /* ── v236 · THE COUNTER BOOK ──────────────────────────────────────────
+     Money on a deal, the party ledger, the tax invoice, the rate-lock queue,
+     the credit limit and the filters the book needed. No new price source:
+     every number here is derived from a deal the desk already wrote. */
+
+  /* Money against a deal. Cash, UPI, RTGS or cheque, each with the reference
+     the bank will ask for. Overpaying is refused with the figure still due. */
+  if (preg_match('#^bullion/orders/([\w-]+)/pay$#', $route, $mBP) && $method === 'POST') {
+    $u = require_partner_approved($db, req_user($db));
+    $b = body_json();
+    $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+    $amount = is_numeric($b['amount'] ?? null) ? (int)round((float)$b['amount']) : 0;
+    if ($amount <= 0) jout(400, ['error' => 'Enter the amount received.']);
+    if ($amount > 500000000) jout(400, ['error' => 'That amount is outside a sane range for one receipt.']);
+    $mode = strtolower(trim((string)($b['mode'] ?? 'cash')));
+    if (!in_array($mode, ['cash', 'upi', 'rtgs', 'cheque'], true)) $mode = 'cash';
+    $ref = mb_substr(trim((string)($b['ref'] ?? '')), 0, 60);
+    if (in_array($mode, ['upi', 'rtgs', 'cheque'], true) && $ref === '')
+      jout(400, ['error' => 'A ' . strtoupper($mode) . ' receipt needs its reference (UTR / cheque no.).']);
+    $idx = null;
+    foreach (($db['bullionOrders'] ?? []) as $i1 => $o1) {
+      if ((string)($o1['id'] ?? '') !== $mBP[1]) continue;
+      if (!$isAdmin && (string)($o1['partnerId'] ?? '') !== (string)($u['partnerId'] ?? ''))
+        jout(403, ['error' => 'That deal belongs to another jeweller.']);
+      $idx = $i1; break;
+    }
+    if ($idx === null) jout(404, ['error' => 'That deal is not on the book.']);
+    $o = $db['bullionOrders'][$idx];
+    if (strtolower((string)($o['status'] ?? '')) === 'cancelled')
+      jout(400, ['error' => 'Deal ' . $o['id'] . ' was cancelled — there is nothing to pay on it.']);
+    $due = bullion_order_due($o);
+    if ($due <= 0) jout(400, ['error' => 'Deal ' . $o['id'] . ' is already fully paid.']);
+    if ($amount > $due)
+      jout(400, ['error' => 'Only ₹' . number_format($due) . ' is outstanding on ' . $o['id'] . ' — enter that or less.']);
+    $pay = ['id' => 'BP' . date('ymd') . '-' . substr(bin2hex(random_bytes(3)), 0, 5),
+      'amount' => $amount, 'mode' => $mode, 'ref' => $ref,
+      'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 160),
+      'by' => (string)($u['name'] ?? ''), 'byRole' => $isAdmin ? 'office' : 'desk',
+      'at' => now_iso()];
+    $db['bullionOrders'][$idx]['payments'][] = $pay;
+    $left = bullion_order_due($db['bullionOrders'][$idx]);
+    $db['bullionOrders'][$idx]['paidAt'] = $left === 0 ? now_iso() : ($db['bullionOrders'][$idx]['paidAt'] ?? null);
+    audit_log($db, 'bullion.pay', ['order' => (string)$o['id'], 'amount' => $amount,
+      'mode' => $mode, 'by' => $u['name']]);
+    db_save($DB_FILE, $db);
+    $after = $db['bullionOrders'][$idx];
+    $after['paid'] = bullion_order_paid($after);
+    $after['total'] = bullion_order_total($after);
+    $after['due'] = $left;
+    jout(200, ['payment' => $pay, 'order' => $after,
+      'outstanding' => bullion_outstanding($db, (string)($o['partnerId'] ?? ''))]);
+  }
+
+  /* The party ledger — deals in a window, what was paid, what is left, and an
+     opening balance that carries what was already owed when the window began. */
+  if ($route === 'bullion/ledger' && $method === 'GET') {
+    $u = require_partner_approved($db, req_user($db));
+    $from = substr(trim((string)($_GET['from'] ?? '')), 0, 10);
+    $to = substr(trim((string)($_GET['to'] ?? '')), 0, 10);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) $from = date('Y-m-01');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to = date('Y-m-d');
+    if ($from > $to) { $t0 = $from; $from = $to; $to = $t0; }
+    $led = bullion_ledger($db, $u, $from, $to);
+    $led['partner'] = ['firm' => (string)($u['name'] ?? ''), 'city' => (string)($u['city'] ?? ''),
+      'gstin' => (string)($u['gstin'] ?? '')];
+    $led['isAdmin'] = ((string)($u['role'] ?? '')) === 'admin';
+    jout(200, $led);
+  }
+
+  /* A dealing slip as a GST tax invoice. Built from the slip, printed by the
+     app; the server owns the numbers and the words. */
+  if (preg_match('#^bullion/slips/([\w-]+)/invoice$#', $route, $mBI) && $method === 'GET') {
+    $u = require_partner_approved($db, req_user($db));
+    $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+    $slip = null;
+    foreach (($db['bullionSlips'] ?? []) as $s1) {
+      if ((string)($s1['id'] ?? '') !== $mBI[1]) continue;
+      if (!$isAdmin && (string)($s1['partnerId'] ?? '') !== (string)($u['partnerId'] ?? ''))
+        jout(403, ['error' => 'That slip belongs to another jeweller.']);
+      $slip = $s1; break;
+    }
+    if (!$slip) jout(404, ['error' => 'No slip with that number.']);
+    jout(200, bullion_invoice($db, $u, bullion_slip_view($slip)));
+  }
+
+  /* Alerts that have been reached and not yet announced, claimed once. The
+     service worker and the page both call this; whoever asks first gets the
+     alert and the other never repeats it. */
+  if ($route === 'bullion/alerts/claim' && $method === 'POST') {
+    $u = require_partner_approved($db, req_user($db));
+    $rows = bullion_rows($db)['rows'];
+    $byKey = []; foreach ($rows as $r2) $byKey[(string)($r2['key'] ?? '')] = $r2;
+    $out = [];
+    foreach ($db['bullionAlerts'] as $i2 => $a2) {
+      if ((string)($a2['userId'] ?? '') !== (string)($u['id'] ?? '')) continue;
+      if (!empty($a2['removed']) || !empty($a2['notifiedAt'])) continue;
+      $cur = 0.0;
+      if ((string)($a2['kind'] ?? 'rate') === 'rate') {
+        $row = $byKey[(string)($a2['key'] ?? '')] ?? null;
+        if ($row) $cur = (float)(((string)($a2['side'] ?? 'buy')) === 'sell' ? ($row['sell'] ?? 0) : ($row['buy'] ?? 0));
+      }
+      $target = (float)($a2['target'] ?? 0);
+      if ($cur <= 0 || $target <= 0) continue;
+      $hit = ((string)($a2['dir'] ?? 'below')) === 'below' ? $cur <= $target : $cur >= $target;
+      if (!$hit) continue;
+      $db['bullionAlerts'][$i2]['notifiedAt'] = now_iso();
+      $out[] = ['id' => (string)($a2['id'] ?? ''), 'label' => (string)($a2['label'] ?? ''),
+        'kind' => (string)($a2['kind'] ?? 'rate'), 'target' => $target, 'now' => $cur,
+        'dir' => (string)($a2['dir'] ?? 'below')];
+    }
+    if ($out) db_save($DB_FILE, $db);
+    jout(200, ['alerts' => $out]);
+  }
+
+  /* Rate-lock (unfix) requests. The board says "on request"; this is the
+     request — a queue the office works through, with a status the jeweller sees
+     instead of a promise nobody is holding. */
+  if ($route === 'bullion/unfix' && $method === 'GET') {
+    $u = require_partner_approved($db, req_user($db));
+    $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+    $out = [];
+    foreach (($db['bullionAlerts'] ?? []) as $a3) {
+      if ((string)($a3['kind'] ?? '') !== 'unfix' || !empty($a3['removed'])) continue;
+      if (!$isAdmin && (string)($a3['userId'] ?? '') !== (string)($u['id'] ?? '')) continue;
+      $out[] = ['id' => (string)($a3['id'] ?? ''), 'partnerName' => (string)($a3['partnerName'] ?? ''),
+        'label' => (string)($a3['label'] ?? ''), 'key' => (string)($a3['key'] ?? ''),
+        'qty' => (string)($a3['qty'] ?? ''), 'note' => (string)($a3['note'] ?? ''),
+        'at' => (string)($a3['at'] ?? ''), 'status' => (string)($a3['status'] ?? 'open'),
+        'resolvedAt' => (string)($a3['resolvedAt'] ?? ''), 'resolvedBy' => (string)($a3['resolvedBy'] ?? '')];
+    }
+    jout(200, ['requests' => array_reverse($out), 'isAdmin' => $isAdmin]);
+  }
+  if (preg_match('#^bullion/unfix/([\w-]+)/resolve$#', $route, $mBU) && $method === 'POST') {
+    $u = req_user($db);
+    if (!$u || (string)($u['role'] ?? '') !== 'admin') jout(403, ['error' => 'Only the office can answer a rate-lock request.']);
+    $b = body_json();
+    $status = strtolower(trim((string)($b['status'] ?? 'answered')));
+    if (!in_array($status, ['answered', 'declined', 'open'], true)) $status = 'answered';
+    $hitU = false;
+    foreach ($db['bullionAlerts'] as &$a4) {
+      if ((string)($a4['id'] ?? '') !== $mBU[1] || (string)($a4['kind'] ?? '') !== 'unfix') continue;
+      $a4['status'] = $status;
+      $a4['answer'] = mb_substr(trim((string)($b['note'] ?? '')), 0, 240);
+      $a4['resolvedAt'] = $status === 'open' ? '' : now_iso();
+      $a4['resolvedBy'] = (string)($u['name'] ?? '');
+      $hitU = true; break;
+    }
+    unset($a4);
+    if (!$hitU) jout(404, ['error' => 'No rate-lock request with that number.']);
+    audit_log($db, 'bullion.unfix.resolve', ['request' => $mBU[1], 'status' => $status, 'by' => $u['name']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'status' => $status]);
+  }
+
+  /* The credit limit: the office sets it, the jeweller can read it. */
+  if ($route === 'bullion/limit') {
+    $u = require_partner_approved($db, req_user($db));
+    $isAdmin = ((string)($u['role'] ?? '')) === 'admin';
+    if ($method === 'GET') {
+      $pid = (string)($u['partnerId'] ?? '');
+      $lim = (int)($db['partnerLimits'][$pid]['amount'] ?? 0);
+      $owed = bullion_outstanding($db, $pid);
+      jout(200, ['limit' => $lim, 'outstanding' => $owed,
+        'available' => $lim > 0 ? max(0, $lim - $owed) : null,
+        'usedPct' => $lim > 0 ? (int)round($owed / $lim * 100) : 0]);
+    }
+    if ($method === 'PUT') {
+      if (!$isAdmin) jout(403, ['error' => 'Only the office can set a credit limit.']);
+      $b = body_json();
+      $pid = substr(trim((string)($b['partnerId'] ?? '')), 0, 60);
+      if ($pid === '') jout(400, ['error' => 'Which jeweller?']);
+      $amt = is_numeric($b['amount'] ?? null) ? (int)round((float)$b['amount']) : -1;
+      if ($amt < 0 || $amt > 1000000000) jout(400, ['error' => 'A limit between ₹0 (no limit) and ₹100 crore.']);
+      if ($amt === 0) unset($db['partnerLimits'][$pid]);
+      else $db['partnerLimits'][$pid] = ['amount' => $amt, 'setBy' => (string)($u['name'] ?? ''), 'at' => now_iso()];
+      audit_log($db, 'bullion.limit', ['partner' => $pid, 'amount' => $amt, 'by' => $u['name']]);
+      db_save($DB_FILE, $db);
+      jout(200, ['ok' => true, 'partnerId' => $pid, 'limit' => $amt]);
+    }
   }
 
   /* v187 — private, admin-only business-card streaming. Partner IDs are

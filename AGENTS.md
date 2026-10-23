@@ -1,19 +1,29 @@
-> ## CURRENT STATE — **v235 PACKAGED, AWAITING THE OWNER'S YES** (23 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v236 PACKAGED, AWAITING THE OWNER'S YES** (23 Oct 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v235 “The Millisecond Desk” is the newest release** — packaged 23 Oct 2026, **not deployed**.
->   `shivaa-update-v235.zip` — **367 files · 37,424,830 B ·
->   `f5b14e8a274a1911ed87875992de43a144402e48930f4702553e8ad09b26ec35`**. **Next release number: v236.**
->   The build the owner actually applied is **v234** (23 Oct 2026), and he asked for this one straight
->   after installing it. Chain: v228 (17 Oct) → v232 (21 Oct) → v233 (23 Oct) → v234 (23 Oct, applied) →
->   **v235 (23 Oct, packaged)**.
-> - **What v235 does.** The desk repaints on the frame a tick lands (one paint per frame, newest wins —
->   `t-v235-live` counts 8 ticks → 1 paint) and a price change now costs **0** forced layout reads. A
->   millisecond clock, the true age of every number on screen and the measured arrival rate are written by
->   one rAF loop that only touches text; past 1.5 s the chip is amber, past 5 s it is red and the board
->   dims. `/api/bullion/tick` carries `nowMs`, `cacheAgeMs` and a `poll` hint (250 ms with a push relay,
->   1 s against the exchange cache, 5 s when stale) and the desk obeys it. **Honest limitation, stated
->   everywhere:** the exchange itself updates about once a second; the millisecond is the *paint and the
->   measurement*, never a fabricated price.
+> - **v236 “The Counter Book” is the newest release** — packaged 23 Oct 2026, **not deployed**.
+>   `shivaa-update-v236.zip` — **368 files · 37,445,481 B ·
+>   `b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655`**. **Next release number: v237.**
+>   The build the owner actually applied is **v234** (23 Oct 2026); v235 and v236 are both packaged and
+>   waiting. Chain: v228 (17 Oct) → v232 (21 Oct) → v233 (23 Oct) → v234 (23 Oct, applied) →
+>   v235 (23 Oct, packaged) → **v236 (23 Oct, packaged)**.
+> - **What v236 does.** Six things a working counter was missing, none of which moves a price.
+>   **Money:** `POST /api/bullion/orders/<id>/pay` records cash / UPI / RTGS / cheque with a reference and
+>   the deal carries `paid`, `due`, `total = value + TCS` — overpaying is refused with the figure still
+>   open, a bank receipt without a reference is refused, a cancelled deal takes nothing. **Ledger:**
+>   `GET /api/bullion/ledger?from&to` carries an **opening balance from before the window**, so the closing
+>   figure is the real one (`closing = opening + window due`); one function `bullion_order_due()` feeds the
+>   ledger, day book, limit and invoice so they cannot disagree. **Invoice:** a slip becomes a GST invoice
+>   with HSN 7108 (gold) / 7106 (silver), place of supply, TCS 206C(1H) @ 0.1 % on a buy, and the amount in
+>   words. **Told once:** `POST /api/bullion/alerts/claim` hands each reached alert out exactly once
+>   (`notifiedAt` written server-side) and the desk draws it through the service worker. **Limit:** the
+>   office sets a rupee limit per partner; a deal that would cross it is refused *before it is written* with
+>   all three figures. **Book:** deals filter server-side by text, date and status, and the filter survives
+>   a reload. Plus the honesty fix: “unfix” is a **request queue with a status**, answered by the office —
+>   every string that promised a rate lock the code did not deliver is rewritten.
+> - **Proof:** `qa/browser/t-v236-book.mjs` (**109**), new gate `bash qa/v236-gate.sh` → **27 checks, 0 red**
+>   (v235-live 71, v234-desk 111, v233-nidhi 146, v232-idle 87, v229-bills 102, v231-ink 53, v230-cert 61,
+>   v229-black 88, `qa/v229-routes.py` 61, bundle 36, appfeel 80 — all 0 red). Stylesheet is **70 layers /
+>   70 blocks**, still one request: 942,329 B raw / 185,156 B gzipped.
 > - **Work branch: `arena/800194ed-shivaa-ecom`** — the Arena session's branch, based on the release
 >   branch `arena/e8a470c6-shivaa-ecom` at `fd90c0f` (v232 content). `qa/where-am-i.sh` names
 >   `e8a470c6` as the release line and reports this tree as "newest content, wrong branch" (exit 2) —
@@ -29,27 +39,35 @@
 > - **Machine truth: `docs/release-ledger.json`** (readable twin `docs/RELEASE-LEDGER.md`). `live` there
 >   means *newest release in the ledger*; whether the owner has applied it is the `deployed`/`awaiting`
 >   fields and the docs' countdown. `python3 qa/check-handoff.py` proves ledger ⟷ stamps ⟷ zips (sha256,
->   bytes, file count, committed in git) ⟷ these docs. **167 checks, 0 red** at v234's close.
+>   bytes, file count, committed in git) ⟷ these docs. **172 checks, 0 red** at v236's close.
 > - **Forward-only (absolute):** a release number is spent the moment it is in the ledger. Never renumber
 >   it, rebuild it with different bytes, re-ship it, revert or force-push. `qa/make-update-zip.py` refuses
 >   a spent number, and its `ADDED` map is where a release declares any new file other than its css layer
->   (v234 declared `desk.html`, `desk.webmanifest`, `js/v234.js`; v235 adds only `css/v235.css`). Owner
->   approval before anything goes live; rollback is the previous ledger row (v234).
-> - **Sandbox resets between turns** — twice now the tree came back at the base commit with the branch
->   name intact. First `git fetch origin arena/800194ed-shivaa-ecom && git reset --hard FETCH_HEAD`, then
->   `bash qa/where-am-i.sh`, then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
->   `python3 qa/build-test-db.py --with-staff`, `python3 qa/preview_shim.py --port 8090`.
->   **`pkill -f preview_shim` kills your own shell** (the pattern matches your command line) — scan
->   `/proc/*/cmdline` instead, or just use the gate script, which owns the port.
+>   (v234 declared `desk.html`, `desk.webmanifest`, `js/v234.js`; v235 and v236 add only their css
+>   layer). Owner approval before anything goes live; rollback is the previous ledger row (v235).
+> - **Sandbox resets between turns** — more than twice now the tree came back at the base commit with the
+>   branch name intact. First `git fetch origin arena/800194ed-shivaa-ecom && git reset --hard FETCH_HEAD`,
+>   then `bash qa/where-am-i.sh`, then `npm install --prefix /tmp jsdom@26 --no-audit --no-fund`,
+>   `python3 qa/build-test-db.py --with-staff`, `python3 qa/preview_shim.py --port 8090` — or just run
+>   `bash qa/v236-gate.sh`, which owns the port and rebuilds the database between phases.
+>   **`pkill -f preview_shim` kills your own shell** (the pattern matches your command line) — use the
+>   process tool or let the gate own the port.
 > - **The rules that never change** (full text in `docs/NEXT-CHAT-HEAD.md` §7–§10): one stylesheet — never
 >   hand-edit `cms/css/shivaa.css`, edit the layer and run `python3 tools/build-css-bundle.py --write`;
->   the order in `tools/css-bundle-order.txt` is load-bearing (**69 positions**, `v186.css` twice,
->   `v235.css` last); never hand-edit `cms/desk.html` — **regenerate** it with
+>   the order in `tools/css-bundle-order.txt` is load-bearing (**70 positions**, `v186.css` twice,
+>   `v236.css` last); never hand-edit `cms/desk.html` — **regenerate** it with
 >   `python3 tools/build-desk-shell.py`; films load only via `wake()`; never animate a layout property, a
 >   `filter` or `background-position` in a loop; **no markup rebuild inside a timer** (v224) and **no
 >   forced layout read to restart an animation** (v235 — use `flashClass()`); zero idle frames and no
 >   per-event `getBoundingClientRect()` in any move listener; the member percentage is one setting, ships
 >   **20**; `content-visibility` stays sealed (v217); `cms/data/db.json` is never committed, never ships.
+> - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
+>   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
+>   × 14 days), the private bills folder `.shivaa-private-bills` **beside** `public_html`
+>   (`DEPLOY-v229.md` §2), and who answers a rate-lock request and a credit-limit change **on the phone**
+>   (v236 makes both a real queue; a human still has to answer it). The service-worker `push` handler is
+>   wired but **nothing sends a push** until a sender exists — the 20 s claim loop is what announces an
+>   alert today. Details: `docs/NEXT-CHAT-HEAD.md` §12.
 > - **Open, waiting on the owner rather than on code:** Google Play fingerprints (both SHA-256 into both
 >   `assetlinks.json` copies), the UGC/reviews declaration, the Play account type (personal ⇒ 12 testers
 >   × 14 days), the private bills folder `.shivaa-private-bills` **beside** `public_html`

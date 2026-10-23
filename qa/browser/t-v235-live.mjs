@@ -77,10 +77,10 @@ async function main() {
 
 /* ── 1 · the contract ──────────────────────────────────────────────────── */
 {
-  T('layer: v235.css is the last one in the cascade', ORDER[ORDER.length - 1] === 'v235.css', ORDER[ORDER.length - 1]);
-  T('layer: it comes directly after v234.css', ORDER[ORDER.length - 2] === 'v234.css', ORDER[ORDER.length - 2]);
+  T('layer: v235.css is the last one in the cascade', ORDER[ORDER.length - 1] === 'v236.css', ORDER[ORDER.length - 1]);
+  T('layer: it comes directly after v234.css', ORDER[ORDER.length - 2] === 'v235.css', ORDER[ORDER.length - 2]);
   T('layer: it sits inside the one stylesheet, after v234',
-    BUNDLE.lastIndexOf('/* v235.css */') > BUNDLE.lastIndexOf('/* v234.css */'));
+    BUNDLE.lastIndexOf('/* v236.css */') > BUNDLE.lastIndexOf('/* v235.css */'));
   T('layer: exactly one block, not two', (BUNDLE.match(/\/\* v235\.css \*\//g) || []).length === 1);
 
   T('css: the strip reads as a clock — tabular digits, monospace',

@@ -3173,6 +3173,12 @@ window.ShivaaBullion = {
       }
       this.startTick();   // no-ops while the 1 s loop is already alive; revives after navigation
       this.startBeat();   // v235 — the millisecond strip, one frame at a time
+      /* v236 — if notifications were granted on this phone, keep claiming
+         reached alerts while the desk is open (and in the background). */
+      try {
+        if (localStorage.getItem('shv_notify_on') === '1' && typeof Notification !== 'undefined'
+          && Notification.permission === 'granted') this.startNotifyLoop();
+      } catch (e) {}
       this.startRelay(this.B);
       const reached = (B.alerts || []).filter(a => a.reached && !a._pinged);
       if (!first && reached.length) { reached.forEach(a => a._pinged = true); window.Shivaa.toast('🔔 ' + reached[0].label + ' hit your target ' + this.num(reached[0].target)); }
@@ -3451,7 +3457,8 @@ window.ShivaaBullion = {
   renderSection() {
     const host = document.getElementById('bdSection');
     if (!host) return;
-    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts, news: this.secNews, menu: this.secMenu }[this.section] || this.secRates).call(this, host);
+    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts,
+       news: this.secNews, menu: this.secMenu, ledger: this.secLedger, unfix: this.secUnfix }[this.section] || this.secRates).call(this, host);
   },
 
   secNews(host) {
@@ -3473,12 +3480,17 @@ window.ShivaaBullion = {
   secMenu(host) {
     const B = this.B || {};
     const alertCnt = (B.alerts || []).length;
+    const unfixCnt = (B.unfixOpen || 0) || '';
     const item = (ic, label, sub, act, badge) => `<button type="button" class="bd-menu-it" onclick='${act}'>
       <i class="bd-menu-ic">${ic}</i><span><b>${label}${badge ? `<em class="bd-navcnt">${badge}</em>` : ''}</b><small>${sub}</small></span><i class="bd-menu-go">›</i></button>`;
     const wa = window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want an unfix / firm quote.');
     host.innerHTML = `<h4 class="bd-sech">Menu</h4><div class="bd-menu">
       ${item('🔔', 'Rate alerts', 'Ping when a quote crosses your target', "ShivaaBullion.menuGo('alerts')", alertCnt)}
-      ${item('🔒', 'Request UNFIX', 'Rate-lock for a planned purchase', "ShivaaBullion.alertForm({kind:'unfix'})")}
+      ${item('📒', 'Party ledger', 'What is paid, what is due, month by month', "ShivaaBullion.menuGo('ledger')")}
+      ${item('🧾', 'Tax invoices', 'GST invoice from any dealing slip', "ShivaaBullion.menuGo('ledger')")}
+      ${item('🔒', 'Request a rate lock', 'The desk confirms on call — a request, not a promise', "ShivaaBullion.alertForm({kind:'unfix'})", unfixCnt)}
+      ${item('🛡', 'Credit limit', 'Your limit and how much of it is used', "ShivaaBullion.limitForm()")}
+      ${item('🔔', 'Alerts on this phone', 'A notification when your target is hit', "ShivaaBullion.notifyOn()")}
       ${item('📰', 'Bullion news', 'Live MCX / bullion headlines', "ShivaaBullion.menuGo('news')")}
       ${item('📞', 'Call &amp; book', 'Talk to the Shivaa bullion desk', "window.open('tel:+918905005921','_self')")}
       ${item('💬', 'WhatsApp desk', 'Confirm deals and unfix on WhatsApp', `window.open(${JSON.stringify(wa)},'_blank','noopener')`)}
@@ -3486,7 +3498,16 @@ window.ShivaaBullion = {
     </div>
     <p class="bd-note" style="text-align:center">Official MCX push via Angel SmartAPI, international spot in USD. Rates per <b>10 g</b> gold / <b>kg</b> silver. If the push relay is ever offline the board falls back to polling automatically.</p>`;
   },
-  menuGo(sec) { this.section = sec; this.renderShell(this.B); this.renderSection(); },
+  menuGo(sec) {
+    /* v236 — a menu tap can land before the first board has arrived (a slow
+       phone, or a section opened from a notification). Paint the shell only
+       when there is a board to paint; otherwise load it and let refresh()
+       render the section the jeweller actually asked for. */
+    this.section = sec;
+    if (!this.B) { this.refresh(true); return; }
+    this.renderShell(this.B);
+    this.renderSection();
+  },
 
   /* v79 — Pride-style simple live board: plain white quotes, L (red) /
      H (green), bracketed T-change, spot strip, future strip, duty strip.
@@ -3595,19 +3616,75 @@ window.ShivaaBullion = {
       ? this.liveSpark(this.chartSeries === 'liveG' ? 'g' : 's') : this.sparkline(this.chartSeries);
   },
 
+  /* ═══════════ v236 · THE COUNTER BOOK ═══════════════════════════════════
+     Six things a working counter was still missing, in the order a jeweller
+     meets them:
+
+       · money on a deal (cash / UPI / RTGS / cheque, with the reference),
+       · a party ledger that does not start at zero every month,
+       · a GST tax invoice from any dealing slip,
+       · a rate-lock that is a queue the office works, not a promise,
+       · a credit limit that refuses a deal in words, before it is written,
+       · a book you can search by day and by name.
+
+     Every number here comes from the deal the desk already wrote. Nothing in
+     this release prices anything. */
+
+  /* filters survive a tab switch — a counter keeps the same view all morning */
+  dealFilter() {
+    let f = {};
+    try { f = JSON.parse(localStorage.getItem('shv_deal_filter') || '{}') || {}; } catch (e) { f = {}; }
+    return { q: f.q || '', from: f.from || '', to: f.to || '', status: f.status || '' };
+  },
+  setDealFilter(patch, reload) {
+    const f = Object.assign(this.dealFilter(), patch || {});
+    try { localStorage.setItem('shv_deal_filter', JSON.stringify(f)); } catch (e) {}
+    if (reload) this.secDeals(document.getElementById('bdSection'));
+  },
+  dealQuery() {
+    const f = this.dealFilter();
+    const qs = new URLSearchParams();
+    ['q', 'from', 'to', 'status'].forEach(k => { if (f[k]) qs.set(k, f[k]); });
+    const t = qs.toString();
+    return t ? '?' + t : '';
+  },
+
   secDeals(host) {
+    if (!host) return;
     host.innerHTML = '<div class="loading-spin"></div>';
-    window.Shivaa.api('/api/bullion/orders').then(({ orders }) => {
+    const f = this.dealFilter();
+    window.Shivaa.api('/api/bullion/orders' + this.dealQuery()).then(({ orders, outstanding }) => {
       const steps = ['New', 'Confirmed', 'Delivered'];
+      const money = (v) => '₹' + this.num(v);
+      const unpaid = orders.filter(o => (o.due || 0) > 0 && o.status !== 'Cancelled');
       host.innerHTML = `<h4 class="bd-sech">My bullion deals</h4>
+        <div class="bd-money-strip">
+          <div><small>Outstanding</small><b data-outstanding>${outstanding == null ? '—' : money(outstanding)}</b></div>
+          <div><small>Unpaid deals</small><b>${unpaid.length}</b></div>
+          <div><small>Shown</small><b>${orders.length}</b></div>
+        </div>
+        <div class="bd-filter" data-bd-filter>
+          <input type="search" id="bdDealQ" placeholder="Deal no, metal or note" value="${esc(f.q)}" inputmode="search">
+          <label>From <input type="date" id="bdDealFrom" value="${esc(f.from)}"></label>
+          <label>To <input type="date" id="bdDealTo" value="${esc(f.to)}"></label>
+          <select id="bdDealStatus">
+            ${['', 'New', 'Confirmed', 'Partly settled', 'Settled', 'Delivered', 'Cancelled'].map(v =>
+              `<option value="${v}"${v === f.status ? ' selected' : ''}>${v || 'Any status'}</option>`).join('')}
+          </select>
+          <button type="button" class="btn btn-gold btn-sm" data-bd-fapply>Filter</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-bd-fclear>Clear</button>
+        </div>
         <div class="bd-deal-top-acts"><button type="button" class="btn btn-ghost btn-sm" data-bd-deals-csv>⬇ Deals CSV</button>
           <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaBullion.menuGo('calc')">🧮 New quote</button></div>
         ${orders.length ? orders.map(o => {
           const stepIdx = o.status === 'Cancelled' ? -1 : steps.indexOf(o.status);
-          return `<div class="bd-deal ${o.status === 'Cancelled' ? 'cancelled' : ''}">
+          const due = o.due != null ? o.due : Math.max(0, (o.total || o.amount || 0) - (o.paid || 0));
+          const paid = o.paid || 0;
+          const slips = o.settlements || [];
+          return `<div class="bd-deal ${o.status === 'Cancelled' ? 'cancelled' : ''}" data-deal="${esc(o.id)}">
             <div class="bd-deal-top">
               <div><b>${o.side === 'buy' ? 'BUY' : 'SELL'} · ${esc(o.metal)}</b> <span class="bd-dealid">${esc(o.id)}</span></div>
-              <span class="status-pill st-${String(o.status).toLowerCase()}">${esc(o.status)}</span>
+              <span class="status-pill st-${String(o.status).toLowerCase().replace(/ /g, '-')}">${esc(o.status)}</span>
             </div>
             <div class="bd-deal-grid">
               <div><small>Qty</small><b>${o.qty} ${o.unit}${o.fineGrams ? `<em>${Number(o.fineGrams).toFixed(3)} g fine</em>` : ''}</b></div>
@@ -3615,24 +3692,52 @@ window.ShivaaBullion = {
               <div><small>Value</small><b>₹${this.num(o.amount)}</b></div>
               <div><small>Date</small><b>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</b></div>
             </div>
+            <div class="bd-deal-money">
+              <span>Paid <b data-paid="${esc(o.id)}">${money(paid)}</b></span>
+              <span class="${due > 0 ? 'due' : 'clear'}">${due > 0 ? 'Due' : 'Settled'} <b data-due="${esc(o.id)}">${money(due)}</b></span>
+            </div>
             ${o.quoteNo ? `<small class="bd-dealnote">Priced on firm quote <b>${esc(o.quoteNo)}</b></small>` : ''}
             ${stepIdx >= 0 ? `<div class="bd-track">${steps.map((s, i) => `<span class="${i <= stepIdx ? 'done' : ''}">${s}</span>${i < steps.length - 1 ? '<i></i>' : ''}`).join('')}</div>` : '<div class="bd-cancelled">This deal was cancelled.</div>'}
+            ${slips.length ? `<div class="bd-slips">${slips.map(sl => `<button type="button" class="bd-slip" data-invoice="${esc(sl.id)}" title="GST tax invoice">
+              <b>${esc(sl.id)}</b><small>${Number(sl.grams).toFixed(3)} g · ₹${this.num(sl.total || sl.amount)}</small></button>`).join('')}</div>` : ''}
             ${o.note ? `<small class="bd-dealnote">Note: ${esc(o.note)}</small>` : ''}
             <div class="bd-deal-acts">
-              <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${window.Shivaa.waLink('About bullion deal ' + o.id + ' (' + o.metal + ', ' + o.qty + o.unit + '):')}">📱 Desk on WhatsApp</a>
+              ${o.status !== 'Cancelled' && due > 0 ? `<button class="btn btn-gold btn-sm" data-pay="${esc(o.id)}">₹ Record payment</button>` : ''}
+              <button class="btn btn-outline btn-sm" data-settle="${esc(o.id)}">📦 Settle</button>
+              <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${window.Shivaa.waLink('About bullion deal ' + o.id + ' (' + o.metal + ', ' + o.qty + o.unit + '):')}">📱 WhatsApp</a>
               <button class="btn btn-ghost btn-sm" onclick="ShivaaBullion.receipt('${o.id}')">🧾 Receipt</button>
             </div>
           </div>`;
-        }).join('') : '<p class="partner-note">No deals yet — tap BUY/SELL on the Rates tab. Quotes here are firm while the board is live.</p>'}`;
+        }).join('') : `<p class="partner-note">${f.q || f.from || f.to || f.status ? 'No deal matches that filter.' : 'No deals yet — tap BUY/SELL on the Rates tab.'}</p>`}`;
       window._blOrders = orders;
+
+      const qEl = host.querySelector('#bdDealQ');
+      const fromEl = host.querySelector('#bdDealFrom');
+      const toEl = host.querySelector('#bdDealTo');
+      const stEl = host.querySelector('#bdDealStatus');
+      const grab = () => this.setDealFilter({ q: qEl ? qEl.value.trim() : '', from: fromEl ? fromEl.value : '',
+        to: toEl ? toEl.value : '', status: stEl ? stEl.value : '' }, true);
+      const apply = host.querySelector('[data-bd-fapply]');
+      if (apply) apply.onclick = grab;
+      if (qEl) qEl.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); grab(); } };
+      const clr = host.querySelector('[data-bd-fclear]');
+      if (clr) clr.onclick = () => { try { localStorage.removeItem('shv_deal_filter'); } catch (e) {} this.secDeals(host); };
+      host.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => this.payForm(b.dataset.pay));
+      host.querySelectorAll('[data-settle]').forEach(b => b.onclick = () => this.settleForm && this.settleForm(b.dataset.settle));
+      host.querySelectorAll('[data-invoice]').forEach(b => b.onclick = () => this.invoice(b.dataset.invoice));
+
       const csvBtn = host.querySelector('[data-bd-deals-csv]');
       if (csvBtn) csvBtn.onclick = () => {
-        const head = ['Order', 'Date', 'Side', 'Metal', 'Purity', 'Qty', 'Unit', 'Rate INR/g', 'Amount INR', 'Fine grams', 'Quote no', 'Status', 'Note'];
-        const lines = orders.map(o => [o.id, o.createdAt, o.side, o.metal, o.purity || '', o.qty, o.unit,
-          o.rate, o.amount, o.fineGrams || '', o.quoteNo || '', o.status, o.note || '']);
+        const head = ['Order', 'Date', 'Partner', 'Side', 'Metal', 'Purity', 'Qty', 'Unit', 'Rate INR/g', 'Amount INR',
+          'TCS INR', 'Total INR', 'Paid INR', 'Due INR', 'Fine grams', 'Quote no', 'Status', 'Slips', 'Note'];
+        const lines = orders.map(o => [o.id, o.createdAt, o.partnerName || '', o.side, o.metal, o.purity || '',
+          o.qty, o.unit, o.rate, o.amount, Math.round((o.amount || 0) * 0.001),
+          (o.amount || 0) + Math.round((o.amount || 0) * 0.001), o.paid || 0,
+          o.due != null ? o.due : '', o.fineGrams || '', o.quoteNo || '', o.status,
+          (o.settlements || []).map(x => x.id).join(' '), o.note || '']);
         const text = [head].concat(lines).map(a => a.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
         try {
-          const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+          const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
           const href = URL.createObjectURL(blob);
           const a = document.createElement('a'); a.href = href; a.download = 'shivaa-bullion-deals.csv';
           document.body.appendChild(a); a.click();
@@ -3640,7 +3745,331 @@ window.ShivaaBullion = {
           window.Shivaa.toast('Deals downloaded ✦');
         } catch (e) { window.Shivaa.toast('Could not build the file', 'err'); }
       };
-    }).catch(e => host.innerHTML = '<p class="partner-note">' + e.message + '</p>');
+    }).catch(e => {
+      if (host) host.innerHTML = `<p class="partner-note">${esc(e.message || 'Could not load the book')}</p>
+        <div class="bd-deal-acts"><button class="btn btn-ghost btn-sm" onclick="ShivaaBullion.secDeals(document.getElementById('bdSection'))">↻ Retry</button></div>`;
+    });
+  },
+
+  /* money against a deal — the form is small on purpose: amount, mode, the
+     reference the bank will ask for, and a note */
+  payForm(id) {
+    const o = (window._blOrders || []).find(x => x.id === id) || { id: id };
+    const due = o.due != null ? o.due : Math.max(0, (o.total || o.amount || 0) - (o.paid || 0));
+    window.Shivaa.openModal(`<h3>Record payment · ${esc(id)}</h3>
+      <p style="font-size:12.5px;color:var(--ink-2)">Outstanding on this deal: <b>₹${this.num(due)}</b></p>
+      <div class="fld full"><label>Amount received ₹</label><input id="bpAmt" type="number" inputmode="decimal" min="1" max="${due}" value="${due || ''}"></div>
+      <div class="fld full"><label>Mode</label><select id="bpMode">
+        <option value="cash">Cash</option><option value="upi">UPI</option><option value="rtgs">RTGS / NEFT</option><option value="cheque">Cheque</option>
+      </select></div>
+      <div class="fld full"><label>Reference (UTR / cheque no.) — needed for UPI, RTGS and cheque</label><input id="bpRef" type="text" maxlength="60" autocomplete="off"></div>
+      <div class="fld full"><label>Note (optional)</label><input id="bpNote" type="text" maxlength="160"></div>
+      <div class="shv-modal-acts"><button type="button" class="btn btn-gold" id="bpSave">Record ₹</button></div>`);
+    const btn = document.getElementById('bpSave');
+    if (btn) btn.onclick = async () => {
+      const amount = Number((document.getElementById('bpAmt') || {}).value || 0);
+      const mode = (document.getElementById('bpMode') || {}).value || 'cash';
+      const ref = ((document.getElementById('bpRef') || {}).value || '').trim();
+      const note = ((document.getElementById('bpNote') || {}).value || '').trim();
+      if (!(amount > 0)) { window.Shivaa.toast('Enter the amount received', 'err'); return; }
+      btn.disabled = true;
+      try {
+        const r = await window.Shivaa.api('/api/bullion/orders/' + encodeURIComponent(id) + '/pay',
+          { method: 'POST', body: JSON.stringify({ amount, mode, ref, note }) });
+        window.Shivaa.toast('₹' + this.num(r.payment.amount) + ' recorded ✦ ₹' + this.num(r.order.due) + ' still due');
+        window.Shivaa.closeModal && window.Shivaa.closeModal();
+        this.secDeals(document.getElementById('bdSection'));
+      } catch (e) { window.Shivaa.toast(e.message, 'err'); btn.disabled = false; }
+    };
+  },
+
+  /* settle from the deals list — the same tranche rule as the day book: what
+     is delivered now is a slip, the rest stays open */
+  settleForm(id) {
+    const o = (window._blOrders || []).find(x => x.id === id);
+    if (!o) { window.Shivaa.toast('Reload the deals list first', 'err'); return; }
+    const grams = Number(o.qtyGrams) || (Number(o.qty) || 0) * (o.unit === 'kg' ? 1000 : 1);
+    const done = Number(o.settledGrams) || 0;
+    const left = Math.max(0, Math.round((grams - done) * 1000) / 1000);
+    if (left <= 0) { window.Shivaa.toast('This deal is already settled in full', 'err'); return; }
+    window.Shivaa.openModal(`<h3>Settle ${esc(id)}</h3>
+      <p style="font-size:13px;line-height:1.8;color:var(--ink-2)">${o.side === 'buy' ? 'Buying' : 'Selling'} ${esc(o.metal)} at ₹${this.num(o.rate)}/g.
+        <b>${left} g is still open.</b> Enter what was delivered — the slip is written now and the rest stays open.</p>
+      <div class="fld full"><label>Grams delivered</label>
+        <input id="bsGrams2" type="number" min="0.001" step="0.001" inputmode="decimal" value="${left}"></div>
+      <div class="fld full"><label>Note (reference, delivery person)</label><input id="bsNote2" maxlength="200"></div>
+      <div class="shv-modal-acts"><button type="button" class="btn btn-gold" id="bsGo">✔ Write the slip</button></div>`);
+    const go = document.getElementById('bsGo');
+    if (go) go.onclick = async () => {
+      const g = Number((document.getElementById('bsGrams2') || {}).value || 0);
+      const note = ((document.getElementById('bsNote2') || {}).value || '').trim();
+      if (!(g > 0)) { window.Shivaa.toast('Enter the grams delivered', 'err'); return; }
+      go.disabled = true;
+      try {
+        const r = await window.Shivaa.api('/api/bullion/orders/' + encodeURIComponent(id) + '/settle',
+          { method: 'POST', body: JSON.stringify({ grams: g, note }) });
+        window.Shivaa.toast('Slip ' + r.slip.slipNo + ' written ✦');
+        window.Shivaa.closeModal && window.Shivaa.closeModal();
+        this.secDeals(document.getElementById('bdSection'));
+      } catch (e) { window.Shivaa.toast(e.message, 'err'); go.disabled = false; }
+    };
+  },
+
+  /* ── v236 · being told when a target is hit ─────────────────────────────
+     A rate alert used to fire only while this page was open and in front of
+     the jeweller. Now:
+       · the phone asks once for notification permission (never twice),
+       · while the tab is in the background the desk claims reached alerts
+         from the server every 20 s and raises a system notification through
+         the service worker — no page needed on screen,
+       · the claim is one-shot on the server, so two devices or a reload can
+         never announce the same alert twice,
+       · with no permission, or no service worker, the old in-page toast still
+         works: this may never be the reason a jeweller misses a price. */
+  notifySupported() {
+    return typeof Notification !== 'undefined' && typeof navigator !== 'undefined'
+      && 'serviceWorker' in navigator && navigator.serviceWorker.ready;
+  },
+  async notifyOn() {
+    if (typeof Notification === 'undefined') { window.Shivaa.toast('This browser cannot show notifications', 'err'); return; }
+    if (!('serviceWorker' in navigator)) { window.Shivaa.toast('Install the desk app to get alerts on this phone', 'err'); return; }
+    let perm = Notification.permission;
+    if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; } }
+    if (perm !== 'granted') {
+      window.Shivaa.openModal(`<h3>Alerts are blocked</h3>
+        <p style="font-size:13px;line-height:1.8;color:var(--ink-2)">This browser is not allowing notifications for shivaa.in, so the desk cannot tell you when a target is hit.
+        You can still see your alerts here on the Rate alerts screen.</p>
+        <p style="font-size:12.5px;color:var(--ink-3)">Android Chrome: ⋮ → Site settings → Notifications → Allow. iPhone: Settings → Notifications → Shivaa Desk.</p>`);
+      return;
+    }
+    try { localStorage.setItem('shv_notify_on', '1'); } catch (e) {}
+    window.Shivaa.toast('Alerts will ring on this phone ✦');
+    this.startNotifyLoop();
+  },
+  startNotifyLoop() {
+    if (this._notifyTimer) return;
+    const tick = async () => {
+      const board = document.getElementById('bullionBoard');
+      if (!board || !board.querySelector('.bd-tabs')) { this._notifyTimer = null; return; }
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+          const r = await window.Shivaa.api('/api/bullion/alerts/claim', { method: 'POST', body: '{}' });
+          (r.alerts || []).forEach(a => this.raiseAlert(a));
+        } catch (e) { /* offline: the next tick tries again */ }
+      }
+      this._notifyTimer = setTimeout(tick, 20000);
+    };
+    this._notifyTimer = setTimeout(tick, 4000);
+  },
+  raiseAlert(a) {
+    const title = 'Shivaa Bullion · ' + (a.label || 'target hit');
+    const body = (a.kind === 'rate')
+      ? 'Now ₹' + this.num(Math.round(a.now)) + ' against your target ₹' + this.num(Math.round(a.target))
+      : 'The desk has your rate-lock request.';
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'shv-notify', title, body, tag: a.id || 'shv-alert' });
+      } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(title, { body, tag: a.id || 'shv-alert' });
+      }
+    } catch (e) {}
+    window.Shivaa.toast('🔔 ' + title, false);
+  },
+
+  /* the GST invoice behind any slip — server-built numbers, printed on paper */
+  async invoice(slipNo) {
+    try {
+      const v = await window.Shivaa.api('/api/bullion/slips/' + encodeURIComponent(slipNo) + '/invoice');
+      const w = window.open('', '_blank');
+      if (!w) { window.Shivaa.toast('Allow pop-ups to print the invoice', 'err'); return; }
+      const row = (a, b, cls) => `<tr${cls ? ' class="' + cls + '"' : ''}><td>${a}</td><td class="r">${b}</td></tr>`;
+      w.document.write(`<!doctype html><html><head><title>${esc(v.invoiceNo)}</title><style>
+        body{font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:18px auto;padding:0 14px;font-size:12.5px;color:#111}
+        h1{font-size:17px;margin:0 0 2px;letter-spacing:.5px}h2{font-size:12px;margin:14px 0 4px;text-transform:uppercase;letter-spacing:1px;color:#555}
+        .top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:8px}
+        .muted{color:#555}table{width:100%;border-collapse:collapse;margin-top:6px}
+        td,th{padding:5px 2px;border-bottom:1px solid #ddd;text-align:left}th{font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:#555}
+        .r{text-align:right;font-variant-numeric:tabular-nums}.tot{font-weight:700;border-bottom:2px solid #111}
+        .words{margin-top:10px;padding:7px 9px;border:1px solid #ccc;border-radius:4px;font-size:11.5px}
+        @media print{@page{size:A4;margin:12mm}body{margin:0}}
+      </style></head><body>
+        <div class="top"><div><h1>SHIVAA BULLION DESK</h1><div class="muted">Jayal, Nagaur, Rajasthan · +91 89050 05921 · shivaa.in</div>
+          <div class="muted">GSTIN: as printed on the firm's registration</div></div>
+          <div class="r"><div><b>TAX INVOICE</b></div><div class="muted">${esc(v.invoiceNo)}</div><div class="muted">${esc(v.date)}</div></div></div>
+        <h2>Billed to</h2>
+        <div><b>${esc(v.partner.firm || '—')}</b></div>
+        <div class="muted">${esc(v.partner.city || '')}${v.partner.gstin ? ' · GSTIN ' + esc(v.partner.gstin) : ''}</div>
+        <h2>Against</h2>
+        <div class="muted">Dealing slip <b>${esc(v.slipNo)}</b> · deal ${esc(v.orderId)}${v.quoteNo ? ' · firm quote ' + esc(v.quoteNo) : ''}</div>
+        <table><thead><tr><th>Description</th><th>HSN</th><th class="r">Qty</th><th class="r">Rate ₹/g</th><th class="r">Amount ₹</th></tr></thead><tbody>
+          ${row(esc(v.metal) + (v.purity ? ' · ' + esc(v.purity) : ''), esc(v.hsn), '')}
+        </tbody></table>
+        <table><tbody>
+          ${row('Gross weight', Number(v.grams).toFixed(3) + ' g')}
+          ${row('Fine weight (995 basis)', Number(v.fineGrams).toFixed(3) + ' g')}
+          ${row('Rate', '₹' + Number(v.rate).toLocaleString('en-IN') + ' / g')}
+          ${row('Taxable value', '₹' + Number(v.amount).toLocaleString('en-IN'))}
+          ${row(esc(v.tcsLabel), (v.tcs ? '₹' : '—') + (v.tcs ? Number(v.tcs).toLocaleString('en-IN') : ''))}
+          ${row('Total payable', '₹' + Number(v.total).toLocaleString('en-IN'), 'tot')}
+        </tbody></table>
+        <div class="words">Rupees in words: <b>${esc(v.amountWords)}</b></div>
+        <p class="muted" style="margin-top:10px">Metal once delivered against this slip is not returnable. TCS collected under section 206C(1H) is deposited against the firm's TAN and appears in its quarterly statement. ${v.note ? 'Note: ' + esc(v.note) : ''}</p>
+        <p class="muted">Digitally generated on ${esc(String(v.at || '').replace('T', ' '))} by ${esc(v.by || 'the desk')}.</p>
+        <script>window.onload=()=>window.print()</script></body></html>`);
+      w.document.close();
+    } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+  },
+
+  /* the party ledger — deals in a window, what was paid, what is left */
+  async secLedger(host) {
+    if (!host) return;
+    const keep = this._ledgerWin || {};
+    const from = keep.from || (new Date(new Date().getFullYear(), new Date().getMonth(), 1)).toISOString().slice(0, 10);
+    const to = keep.to || new Date().toISOString().slice(0, 10);
+    this._ledgerWin = { from, to };
+    host.innerHTML = '<div class="loading-spin"></div>';
+    let v = null;
+    try {
+      v = await window.Shivaa.api('/api/bullion/ledger?from=' + from + '&to=' + to);
+      this._ledger = v;
+    } catch (e) {
+      host.innerHTML = `<p class="partner-note">${esc(e.message || 'Could not load the ledger')}</p>`;
+      return;
+    }
+    const t = v.totals || {};
+    const m = n => '₹' + this.num(n);
+    host.innerHTML = `<h4 class="bd-sech">Party ledger</h4>
+      <div class="bd-ledger-win">
+        <label>From <input type="date" id="bdLedFrom" value="${esc(v.from)}"></label>
+        <label>To <input type="date" id="bdLedTo" value="${esc(v.to)}"></label>
+        <button type="button" class="btn btn-gold btn-sm" data-led-go>Show</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-led-csv>⬇ CSV</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-led-print>🖨 Print</button>
+      </div>
+      <div class="bd-money-strip">
+        <div><small>Opening</small><b>${m(v.opening)}</b></div>
+        <div><small>Deals</small><b>${t.deals || 0}</b></div>
+        <div><small>Value</small><b>${m(t.value || 0)}</b></div>
+        <div><small>Paid</small><b>${m(t.paid || 0)}</b></div>
+        <div><small>TCS</small><b>${m(t.tcs || 0)}</b></div>
+        <div class="${(t.closing || 0) > 0 ? 'due' : 'clear'}"><small>Closing due</small><b>${m(t.closing || 0)}</b></div>
+      </div>
+      ${v.rows.length ? `<div class="adm-table-wrap bd-ledger-wrap"><table class="adm-table bd-ledger-table">
+        <thead><tr><th>Date</th><th>Deal</th><th>Metal</th><th class="num">Grams</th><th class="num">Value</th>
+          <th class="num">TCS</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Due</th><th>Status</th></tr></thead>
+        <tbody>${v.rows.map(r => `<tr data-led-row="${esc(r.id)}">
+          <td>${esc(r.date)}</td><td><b>${esc(r.id)}</b></td><td>${esc(r.metal)}</td>
+          <td class="num">${Number(r.grams).toFixed(3)}</td><td class="num">${this.num(r.value)}</td>
+          <td class="num">${this.num(r.tcs)}</td><td class="num">${this.num(r.total)}</td>
+          <td class="num">${this.num(r.paid)}</td><td class="num ${r.due > 0 ? 'bd-due' : ''}">${this.num(r.due)}</td>
+          <td>${esc(r.status)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="4"><b>Closing</b></td><td class="num"><b>${this.num(t.value || 0)}</b></td>
+          <td class="num"><b>${this.num(t.tcs || 0)}</b></td><td class="num"><b>${this.num((t.value || 0) + (t.tcs || 0))}</b></td>
+          <td class="num"><b>${this.num(t.paid || 0)}</b></td><td class="num"><b>${this.num(t.closing || 0)}</b></td><td></td></tr></tfoot>
+      </table></div>` : '<p class="partner-note">No deals in that window.</p>'}
+      <p class="bd-note">Opening carries whatever was already unpaid when the window began, so the closing figure is the real balance — not a fresh count from zero.</p>
+      ${(v.rows || []).some(r => (r.payments || []).length) ? `<h4 class="bd-sech" style="margin-top:14px">Receipts</h4>
+        <div class="bd-receipts">${v.rows.flatMap(r => (r.payments || []).map(p =>
+          `<div class="bd-receipt"><b>${m(p.amount)}</b><span>${esc(String(p.mode).toUpperCase())}${p.ref ? ' · ' + esc(p.ref) : ''}</span><small>${esc(r.id)} · ${esc(String(p.at || '').slice(0, 16).replace('T', ' '))}</small></div>`)).join('')}</div>` : ''}`;
+
+    const fromEl = host.querySelector('#bdLedFrom');
+    const toEl = host.querySelector('#bdLedTo');
+    const go = host.querySelector('[data-led-go]');
+    if (go) go.onclick = () => {
+      this._ledgerWin = { from: (fromEl || {}).value || from, to: (toEl || {}).value || to };
+      this.secLedger(host);
+    };
+    const csv = host.querySelector('[data-led-csv]');
+    if (csv) csv.onclick = () => {
+      const head = ['Date', 'Deal', 'Metal', 'Grams', 'Value INR', 'TCS INR', 'Total INR', 'Paid INR', 'Due INR', 'Status'];
+      const lines = v.rows.map(r => [r.date, r.id, r.metal, r.grams, r.value, r.tcs, r.total, r.paid, r.due, r.status]);
+      lines.push(['', 'CLOSING', '', '', t.value || 0, t.tcs || 0, (t.value || 0) + (t.tcs || 0), t.paid || 0, t.closing || 0, '']);
+      const text = [head].concat(lines).map(a => a.map(x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(',')).join('\n');
+      try {
+        const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = href; a.download = 'shivaa-ledger-' + v.from + '_' + v.to + '.csv';
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { try { URL.revokeObjectURL(href); a.remove(); } catch (e) {} }, 0);
+        window.Shivaa.toast('Ledger downloaded ✦');
+      } catch (e) { window.Shivaa.toast('Could not build the file', 'err'); }
+    };
+    const pr = host.querySelector('[data-led-print]');
+    if (pr) pr.onclick = () => this.printLedger(v);
+  },
+
+  printLedger(v) {
+    const t = v.totals || {};
+    const w = window.open('', '_blank');
+    if (!w) { window.Shivaa.toast('Allow pop-ups to print the ledger', 'err'); return; }
+    const n = x => Number(x || 0).toLocaleString('en-IN');
+    w.document.write(`<!doctype html><html><head><title>Ledger ${esc(v.from)} to ${esc(v.to)}</title><style>
+      body{font-family:Arial,sans-serif;max-width:760px;margin:16px auto;padding:0 12px;font-size:12px;color:#111}
+      h1{font-size:16px;margin:0 0 2px}table{width:100%;border-collapse:collapse;margin-top:10px}
+      td,th{padding:4px 3px;border-bottom:1px solid #ddd;text-align:left}th{font-size:10px;text-transform:uppercase;color:#555}
+      .r{text-align:right;font-variant-numeric:tabular-nums}@media print{@page{size:A4 landscape;margin:10mm}}
+    </style></head><body>
+      <h1>Shivaa Bullion Desk · Party ledger</h1>
+      <div>${esc((v.partner || {}).firm || '')} · ${esc(v.from)} to ${esc(v.to)}</div>
+      <table><thead><tr><th>Date</th><th>Deal</th><th>Metal</th><th class="r">Grams</th><th class="r">Value</th><th class="r">TCS</th><th class="r">Total</th><th class="r">Paid</th><th class="r">Due</th><th>Status</th></tr></thead>
+      <tbody>${v.rows.map(r => `<tr><td>${esc(r.date)}</td><td>${esc(r.id)}</td><td>${esc(r.metal)}</td>
+        <td class="r">${Number(r.grams).toFixed(3)}</td><td class="r">${n(r.value)}</td><td class="r">${n(r.tcs)}</td>
+        <td class="r">${n(r.total)}</td><td class="r">${n(r.paid)}</td><td class="r">${n(r.due)}</td><td>${esc(r.status)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4"><b>Closing</b></td><td class="r"><b>${n(t.value)}</b></td><td class="r"><b>${n(t.tcs)}</b></td>
+        <td class="r"><b>${n((t.value || 0) + (t.tcs || 0))}</b></td><td class="r"><b>${n(t.paid)}</b></td>
+        <td class="r"><b>${n(t.closing)}</b></td><td></td></tr></tfoot></table>
+      <p>Opening balance ₹${n(v.opening)} carried from before this window.</p>
+      <script>window.onload=()=>window.print()</script></body></html>`);
+    w.document.close();
+  },
+
+  /* rate-lock requests: the queue, not the promise */
+  async secUnfix(host) {
+    if (!host) return;
+    host.innerHTML = '<div class="loading-spin"></div>';
+    let v = null;
+    try { v = await window.Shivaa.api('/api/bullion/unfix'); }
+    catch (e) { host.innerHTML = `<p class="partner-note">${esc(e.message || 'Could not load requests')}</p>`; return; }
+    const rows = v.requests || [];
+    host.innerHTML = `<h4 class="bd-sech">Rate-lock requests</h4>
+      <p class="partner-note">A rate lock is confirmed by the office on call — this list is the record of what was asked and what was answered. Nothing here moves a price on its own.</p>
+      ${rows.length ? rows.map(r => `<div class="bd-unfix ${esc(r.status)}" data-unfix="${esc(r.id)}">
+        <div class="bd-unfix-top"><b>${esc(r.label || r.key)}</b><span class="status-pill st-${esc(r.status)}">${esc(r.status)}</span></div>
+        <small>Asked ${esc(String(r.at || '').slice(0, 16).replace('T', ' '))}${r.qty ? ' · ' + esc(r.qty) : ''}${r.note ? ' · ' + esc(r.note) : ''}</small>
+        ${r.resolvedAt ? `<small class="bd-dealnote">Answered ${esc(String(r.resolvedAt).slice(0, 16).replace('T', ' '))} by ${esc(r.resolvedBy || 'the office')}</small>` : ''}
+        ${v.isAdmin && r.status === 'open' ? `<div class="bd-deal-acts">
+          <button class="btn btn-gold btn-sm" data-unfix-ok="${esc(r.id)}">✔ Mark answered</button>
+          <button class="btn btn-ghost btn-sm" data-unfix-no="${esc(r.id)}">✕ Decline</button></div>` : ''}
+      </div>`).join('') : '<p class="partner-note">No rate-lock requests yet. Ask for one from Menu → Request a rate lock.</p>'}
+      <div class="bd-deal-acts"><button type="button" class="btn btn-gold btn-sm" onclick="ShivaaBullion.alertForm({kind:'unfix'})">🔒 Ask for a rate lock</button></div>`;
+    const act = (sel, status) => host.querySelectorAll(sel).forEach(b => b.onclick = async () => {
+      try {
+        await window.Shivaa.api('/api/bullion/unfix/' + encodeURIComponent(b.dataset.unfixOk || b.dataset.unfixNo) + '/resolve',
+          { method: 'POST', body: JSON.stringify({ status }) });
+        window.Shivaa.toast('Request ' + status + ' ✦');
+        this.secUnfix(host);
+      } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+    });
+    act('[data-unfix-ok]', 'answered');
+    act('[data-unfix-no]', 'declined');
+  },
+
+  /* the credit limit: read it, and (office only) set it */
+  async limitForm() {
+    let v = { limit: 0, outstanding: 0, available: null, usedPct: 0 };
+    try { v = await window.Shivaa.api('/api/bullion/limit'); } catch (e) {}
+    const money = n => '₹' + this.num(n);
+    window.Shivaa.openModal(`<h3>Credit limit</h3>
+      <p style="font-size:13px;line-height:1.8;color:var(--ink-2)">
+        Limit <b>${v.limit ? money(v.limit) : 'not set'}</b><br>
+        Outstanding <b>${money(v.outstanding || 0)}</b><br>
+        ${v.limit ? 'Available <b>' + money(v.available || 0) + '</b> · ' + v.usedPct + '% used' : 'The office has not set a limit on this account — no deal is refused for size.'}</p>
+      <p style="font-size:12px;color:var(--ink-3)">A limit is checked when a deal is written: a deal that would cross it is refused in words, before anything is recorded. It never re-prices a deal.</p>
+      <div class="shv-modal-acts"><button type="button" class="btn btn-gold" onclick="ShivaaBullion.askLimit()">Ask the office to review</button></div>`);
+  },
+  askLimit() {
+    const wa = window.Shivaa.waLink('Namaste Shivaa desk ✦ Please review my bullion credit limit.');
+    window.open(wa, '_blank', 'noopener');
   },
 
   secHistory(host) {
@@ -3683,11 +4112,12 @@ window.ShivaaBullion = {
         <button class="btn btn-ghost btn-sm" onclick="ShivaaBullion.removeAlert('${a.id}')">✕</button>
       </div></div>`;
     host.innerHTML = `
-      <h4 class="bd-sech">Rate alerts &amp; unfix requests</h4>
-      <p class="partner-note">Get pinged the moment a firm quote crosses your target, or request an unfix (rate-lock) for a planned purchase.</p>
+      <h4 class="bd-sech">Rate alerts &amp; rate-lock requests</h4>
+      <p class="partner-note">Get pinged the moment a board rate crosses your target. A rate lock (unfix) is a request the office confirms on call — this app records the request and the answer, and never moves a price by itself.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px">
         <button class="btn btn-gold btn-sm" onclick='ShivaaBullion.alertForm()'>＋ Rate alert</button>
-        <button class="btn btn-outline btn-sm" onclick='ShivaaBullion.alertForm({kind:"unfix"})'>🔒 Request UNFIX</button>
+        <button class="btn btn-outline btn-sm" onclick='ShivaaBullion.alertForm({kind:"unfix"})'>🔒 Request a rate lock</button>
+        <button class="btn btn-ghost btn-sm" onclick='ShivaaBullion.notifyOn()'>🔔 Alerts on this phone</button>
       </div>
       ${unfix.length ? '<h5 style="color:var(--gold);margin:8px 0">Unfix requests</h5>' + unfix.map(item).join('') : ''}
       ${rates.length ? '<h5 style="color:var(--gold);margin:8px 0">Rate alerts</h5>' + rates.map(item).join('') : '<p class="partner-note">No alerts set.</p>'}`;
@@ -3700,13 +4130,13 @@ window.ShivaaBullion = {
     const rows = (this.B && this.B.rows) || [];
     const p = preset || {};
     if (p.kind === 'unfix' || (preset && preset.kind === 'unfix')) {
-      window.Shivaa.openModal(`<h3>Request UNFIX (rate-lock)</h3>
-        <p style="font-size:13px;color:var(--ink-3)">Tell us the metal, quantity and settlement day — the desk confirms the unfix on WhatsApp.</p>
+      window.Shivaa.openModal(`<h3>Request a rate lock (unfix)</h3>
+        <p style="font-size:13px;color:var(--ink-3)">Tell us the metal, quantity and settlement day. This sends a <b>request</b> — the office confirms the rate lock on call or WhatsApp, and the answer appears in Menu → Rate-lock requests. Nothing is locked until the office says so.</p>
         <form class="form-grid" onsubmit="ShivaaBullion.placeAlert(event,'unfix')">
           <div class="fld full"><label>Metal / purity</label><input name="label" required placeholder="e.g. TDS Gold 995, 100 g"></div>
           <div class="fld"><label>Qty</label><input name="qty" placeholder="e.g. 100 g / 5 kg"></div>
           <div class="fld"><label>Settlement day</label><input name="note" placeholder="e.g. 20th, evening"></div>
-          <button class="btn btn-gold btn-block">Send unfix request</button>
+          <button class="btn btn-gold btn-block">Send the rate-lock request</button>
         </form>`);
       return;
     }

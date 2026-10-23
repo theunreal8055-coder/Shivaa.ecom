@@ -59,12 +59,12 @@ styles are in /css/v184-amrita.css (precached); the visual polish is in
 by the polish. MEDIA stays at v168.
 */
 'use strict';
-const SHELL = 'shivaa-shell-v235';
+const SHELL = 'shivaa-shell-v236';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 235;
+const REL = 236;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -84,14 +84,14 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = [
-  '/css/shivaa.css?v=235', '/',
+  '/css/shivaa.css?v=236', '/',
   '/index.html',
-  '/js/otp-autofill.js?v=235', '/js/app.js?v=235', '/js/hallmark.js?v=235',
-  '/js/trust.js?v=235', '/js/auth.js?v=235', '/js/v219.js?v=235', '/js/motion.js?v=235',
-  '/js/aurum.js?v=235', '/js/v107.js?v=235', '/js/boost.js?v=235',
-  '/js/v116.js?v=235', '/js/v117.js?v=235', '/js/v118.js?v=235', '/js/v119.js?v=235', '/js/v120.js?v=235', '/js/v122.js?v=235', '/js/v125.js?v=235', '/js/v127.js?v=235', '/js/v139.js?v=235', '/js/v140.js?v=235', '/js/v166.js?v=235', '/js/v167.js?v=235',
-  '/js/v178.js?v=235', '/js/v194.js?v=235', '/js/v225.js?v=235', '/js/v226.js?v=235', '/js/v227.js?v=235', '/fonts/jost.woff2?v=235', '/fonts/cormorant-garamond.woff2?v=235', '/fonts/marcellus-400.woff2?v=235',
-  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=235',
+  '/js/otp-autofill.js?v=236', '/js/app.js?v=236', '/js/hallmark.js?v=236',
+  '/js/trust.js?v=236', '/js/auth.js?v=236', '/js/v219.js?v=236', '/js/motion.js?v=236',
+  '/js/aurum.js?v=236', '/js/v107.js?v=236', '/js/boost.js?v=236',
+  '/js/v116.js?v=236', '/js/v117.js?v=236', '/js/v118.js?v=236', '/js/v119.js?v=236', '/js/v120.js?v=236', '/js/v122.js?v=236', '/js/v125.js?v=236', '/js/v127.js?v=236', '/js/v139.js?v=236', '/js/v140.js?v=236', '/js/v166.js?v=236', '/js/v167.js?v=236',
+  '/js/v178.js?v=236', '/js/v194.js?v=236', '/js/v225.js?v=236', '/js/v226.js?v=236', '/js/v227.js?v=236', '/fonts/jost.woff2?v=236', '/fonts/cormorant-garamond.woff2?v=236', '/fonts/marcellus-400.woff2?v=236',
+  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=236',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
@@ -237,4 +237,73 @@ self.addEventListener('fetch', (e) => {
   }).catch(() => shellFallback(key, documentRequest));
   e.waitUntil(response.then(() => {}, () => {}));
   e.respondWith(response);
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+   v236 · BEING TOLD — notifications about a rate target
+   ──────────────────────────────────────────────────────────────────────
+   The desk used to announce a reached target only if the jeweller was
+   looking at the page. Three small handlers fix that, and none of them
+   changes how a single byte of the site is cached:
+
+     · `message` from the desk page — the page decides WHO and WHAT (the
+       server claim decides that, once per alert), this worker only draws
+       the notification. Nothing here fetches, prices or writes anything.
+     · `push` — the same drawing, from a real push service. It is wired now
+       so that the day the owner stands up a VAPID sender (v237, with the
+       relay) there is nothing left to change in the client.
+     · `notificationclick` — always lands on the desk, never on a random
+       tab: a jeweller tapping an alert wants the board, not the shop.
+
+   If a browser supports none of this, the page falls back to its own toast
+   and the desk keeps working. Notifications may never be the reason a
+   trade cannot be made.
+   ══════════════════════════════════════════════════════════════════════ */
+
+self.addEventListener('message', (e) => {
+  const d = e.data || {};
+  if (d.type !== 'shv-notify') return;
+  const opts = {
+    body: String(d.body || '').slice(0, 240),
+    tag: String(d.tag || 'shv-alert').slice(0, 64),
+    renotify: true,
+    data: { url: '/desk.html#/partner?view=bullion' },
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    vibrate: [120, 60, 120],
+  };
+  e.waitUntil(self.registration.showNotification(String(d.title || 'Shivaa Bullion Desk').slice(0, 80), opts));
+});
+
+self.addEventListener('push', (e) => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch (_) { try { p = { body: e.data.text() }; } catch (_) { p = {}; } }
+  const title = String(p.title || 'Shivaa Bullion Desk').slice(0, 80);
+  const opts = {
+    body: String(p.body || 'Your rate target was reached').slice(0, 240),
+    tag: String(p.tag || 'shv-push').slice(0, 64),
+    data: { url: String(p.url || '/desk.html#/partner?view=bullion') },
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    vibrate: [120, 60, 120],
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/desk.html#/partner?view=bullion';
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) {
+      try {
+        if (c.url.indexOf('/desk.html') !== -1 || c.url.indexOf('#/partner') !== -1) {
+          await c.focus();
+          if (c.navigate) await c.navigate(url);
+          return;
+        }
+      } catch (_) {}
+    }
+    await self.clients.openWindow(url);
+  })());
 });
