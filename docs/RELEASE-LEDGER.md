@@ -45,7 +45,7 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v231 | `036e616` | The Engraved Layer | 360 | 37,333,506 | `114394131d4033ca…47fb937c` | applied 21 Oct |
 | v232 | `b9f74bc` | The Idle Release | 361 | 37,349,816 | `14b9e9ca24571b05…5a5a4b4023` | applied 21 Oct |
 | **v233** | **`a5cd382`** | **The Passbook Release** | **362** | **37,381,263** | **`e5a9b9ffa410b5ea…b117984c`** | **applied 23 Oct** |
-| **v234** | **`PENDING`** | **The Desk App** | **366** | **37,416,420** | **`16adae14b9745f5d…585e1b84`** | **packaged 23 Oct — awaiting the owner's yes** |
+| **v234** | **`5337f26`** | **The Desk App** | **366** | **37,416,420** | **`16adae14b9745f5d…585e1b84`** | **packaged 23 Oct — awaiting the owner's yes** |
 
 Full 64-character hashes, byte counts and status live in `docs/release-ledger.json`.
 v205 and everything before v221 are in the older `DEPLOY-v*.md` notes; they are not needed to

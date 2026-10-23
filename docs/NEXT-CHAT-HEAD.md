@@ -471,6 +471,11 @@ closed the owner's ask — the bullion desk, more compatible and operational on 
 | **F. Nidhi follow-through** — SMS/WhatsApp on an instalment receipt and a due-date reminder | medium | an SMS/WhatsApp provider the owner has |
 | **G. Desk follow-through** — a taxable invoice (GST) from a slip, party ledger per jeweller, WhatsApp/email a slip automatically | medium | the owner's CA for invoice wording |
 
+**One known nit, deliberately not touched in v234:** `partnerWatch` is written and read with
+`?? []` in `api.php` (l.4547 / l.8585) but is not in the `$db` init list (l.5074). It is harmless —
+never read without a guard — and v234 was already packaged, so the fix belongs in v235, not in a
+rebuilt v234 (`make-update-zip.py` correctly refuses to rebuild a spent number).
+
 Rules for starting v235: run the guard, read this file, pick one candidate **with the owner**, and
 measure before writing a rule. Do **not** start v235 by re-deriving v229–v234, by “restoring” an old
 zip, or by editing a spent release's files to “tidy” them.
