@@ -268,6 +268,12 @@ to fix that properly in code).
 
 ### 6.1 One booklet or two?
 
+**Built (1 Nov 2026):** both, as two separate print-ready A5 PDFs —
+`booklets/SHIVAA-BLACK-booklet-EN.pdf` and `booklets/SHIVAA-BLACK-booklet-HI.pdf`
+(12 pages each, same page order). The bilingual single-booklet option below is
+still the cheaper print route if the box has to carry one object; the two PDFs
+can be printed as the two sides of the same gathering.
+
 You asked for two, English and Hindi. Three ways to do it:
 
 | Approach | Pages | Feel | Cost |
@@ -557,6 +563,7 @@ magnet, paper. Text on screen: the arithmetic of 20 %, then the phone number.
 **Files in this folder**
 
 ```
+booklets/               ← THE TWO PDFs (A5, 12 pp each) + builder + printer sheet
 UNBOXING-SYSTEM.md      ← this plan
 PRINT-SPECS.md          ← hand this to the printer and the box maker
 VENDOR-BRIEF.md         ← copy-paste WhatsApp message per vendor, in Hinglish
