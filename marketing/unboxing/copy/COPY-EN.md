@@ -136,6 +136,11 @@ shivaa.in
 
 ## 5 · Booklet — English side, pages 1–12
 
+> **Note (1 Nov 2026):** the booklet shipped as **six pages**, not twelve. The
+> final six-page text (first person, narrated by her) lives in the `EN` dict inside
+> `booklets/build-booklets.py`; the deck below is the longer 12-page draft kept
+> for history and for lines that may still be reused.
+
 ### Page 1 — Cover
 
 ```

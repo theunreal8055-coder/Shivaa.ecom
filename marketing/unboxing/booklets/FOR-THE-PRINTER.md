@@ -7,19 +7,19 @@ Hand this sheet over with `SHIVAA-BLACK-booklet-EN.pdf` and
 
 | Item | Spec |
 |---|---|
-| Format | **A5 portrait, 148 × 210 mm** (trim), 12 pages each |
-| Extent | 12 pp — one gathering, saddle-stitched, **two** stitches, gold thread |
-| Binding margin | the PDF has a 14 mm text margin all round; keep the trim centred, do **not** shift the text block |
-| Stock, inside | 100 gsm uncoated cream (bulky). **Not** art paper — it cracks on the fold at 12 pp |
-| Stock, cover | 250 gsm, matt laminated outside, uncoated inside (p1/p12 are full-bleed black — see below) |
+| Format | **A5 portrait, 148 × 210 mm** (trim), **6 pages each** |
+| Extent | 6 pp — one folding sheet or a 4 + 2, saddle-stitched, **two** stitches, gold thread |
+| Binding margin | the PDF has a 12 mm text margin all round; keep the trim centred, do **not** shift the text block |
+| Stock, inside | 120 gsm uncoated cream (bulky). **Not** art paper — it cracks on the fold |
+| Stock, cover | 250 gsm, matt laminated outside, uncoated inside (p1 and p6 are full-bleed — see below) |
 | Finished thickness | keep it ≤ 2.2 mm so it drops into the box's 6 mm bay with the certificate |
-| Colours | 4 colour process + **Pantone 871 C** for the gold accents on p1/p12 (the gold here prints brown as CMYK on black) |
-| Bleed | 3 mm all round on pages 1 and 12 (full-bleed black). Inner pages are on cream and need no bleed |
+| Colours | 4 colour process + **Pantone 871 C** for the gold accents on p1 and p6 (the gold here prints brown as CMYK on black) |
+| Bleed | **the PDFs are final trim size, no bleed box.** Pages 1, 3 and 6 run artwork to the edge: add 3 mm by mirroring the edge pixels, or ask and we send a 154 × 216 mm version. Inner pages sit on cream with a 12 mm margin and need none |
 | Proof | one **stitched dummy in the final stock**, opened and closed 20 times, before the run |
 
 ## Two technical notes
 
-**1 · Full-bleed black.** Pages 1 and 12 are solid `#14110e`. Print them as a
+**1 · Full-bleed black.** Pages 1 and 6 are solid `#14110e`, page 5 is black to the edge, page 3 carries a photo band across the top. Print them as a
 rich black (`C60 M50 Y40 K100`) so the fold and trim edges do not show a grey
 line; keep all **text** on those pages in K100 + Pantone, never rich black — small
 rich-black type blurs on uncoated stock.
@@ -46,5 +46,7 @@ the RIP with a substituted font.
 - The percentage. It is **20**, on **making charges only**, everywhere.
 - "Six months · free to renew" — the card's real term.
 - Any sentence about price, purity, hallmarking or buyback.
-- The QR on page 12 (it points to `https://shivaa.in/#/black-card`; a scrambled
+- The QR on page 6 (it points to `https://shivaa.in/#/black-card`; a scrambled
   QR is a dead card).
+- **Print the plain PDFs (`SHIVAA-BLACK-booklet-EN.pdf`, `-HI.pdf`), never the
+  `-animated` ones** — those carry 12 PDF layers that some RIPs drop silently.
