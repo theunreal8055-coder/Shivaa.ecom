@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shivaa Black — card back. Scale: 10 units = 1 mm. 85.60 x 53.98 mm. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="85.6mm" height="53.98mm"
+     viewBox="0 0 856 540" role="img" aria-label="Shivaa Black membership card, back">
+  <rect width="856" height="540" rx="32" fill="#faf6ef"/>
+  <rect x="14" y="14" width="828" height="512" rx="24" fill="none" stroke="#d8c9ab" stroke-width="1.5"/>
+
+  <text x="52" y="86" fill="#6e1e2a"
+        font-family="Marcellus,Georgia,serif" font-size="26" letter-spacing="5">SHIVAA BLACK</text>
+  <line x1="52" y1="104" x2="404" y2="104" stroke="#b98a2f" stroke-width="1.5"/>
+
+  <g fill="#2b2118" font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17">
+    <text x="52" y="146">20 % off the making charges only, on every Shivaa jewellery purchase.</text>
+    <text x="52" y="170">Not on metal, stones, GST, shipping or any other component.</text>
+    <text x="52" y="206">Valid six months from issue. Renew free, any time in the last 30 days,</text>
+    <text x="52" y="230">at shivaa.in/#/black-card — or ask at the counter.</text>
+    <text x="52" y="266">This card belongs to one registered account and one mobile number.</text>
+    <text x="52" y="290">It is not transferable, not a payment instrument, not a credit card.</text>
+  </g>
+
+  <g fill="#6f6353" font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14">
+    <text x="52" y="344">Shivaa Jewels · Ernate Shine Jewellery Pvt. Ltd.</text>
+    <text x="52" y="368">Main Road, Jayal, Rajasthan 341023 · Nagaur</text>
+    <text x="52" y="392">+91 89050 05921 · support@shivaa.in · shivaa.in</text>
+  </g>
+
+  <!-- medallion, top right: keeps the back from feeling empty without crowding the terms -->
+  <circle cx="742" cy="112" r="54" fill="none" stroke="#e4d6bb" stroke-width="1.5"/>
+  <text x="742" y="104" text-anchor="middle" fill="#b98a2f"
+        font-family="Marcellus,Georgia,serif" font-size="32">S</text>
+  <text x="742" y="132" text-anchor="middle" fill="#b8a888"
+        font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10"
+        letter-spacing="2">JAYAL · 2025</text>
+
+  <text x="700" y="404" text-anchor="middle" fill="#c2b295"
+        font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12"
+        letter-spacing="2">No. 0142 / 0500</text>
+</svg>

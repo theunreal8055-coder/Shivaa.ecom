@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shivaa Black booklet — pages 1 and 2 as a viewer spread. 148 x 88 mm each. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 3160 940"
+     role="img" aria-label="Shivaa Black booklet, cover and first spread">
+  <defs>
+    <linearGradient id="bgold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6c877"/>
+      <stop offset=".4" stop-color="#b98a2f"/>
+      <stop offset=".68" stop-color="#d4af5a"/>
+      <stop offset="1" stop-color="#8a6420"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="3160" height="940" fill="#ede1cb"/>
+
+  <!-- ══ page 1 · cover ══ -->
+  <g transform="translate(30,30)">
+    <rect width="1480" height="880" fill="#12100e"/>
+    <rect x="60" y="60" width="1360" height="760" fill="none" stroke="url(#bgold)" stroke-width="3"/>
+    <circle cx="740" cy="360" r="180" fill="none" stroke="url(#bgold)" stroke-width="2" opacity=".5"/>
+    <text x="740" y="350" text-anchor="middle" fill="url(#bgold)"
+          font-family="Marcellus,Georgia,serif" font-size="120" letter-spacing="16">SHIVAA</text>
+    <text x="740" y="404" text-anchor="middle" fill="#f0e4cc"
+          font-family="Marcellus,Georgia,serif" font-size="46" letter-spacing="26">BLACK</text>
+
+    <text x="740" y="620" text-anchor="middle" fill="#f4e8d0"
+          font-family="Cormorant Garamond,Georgia,serif" font-size="58">एक छोटा काला डिब्बा।</text>
+    <text x="740" y="676" text-anchor="middle" fill="#c9a86a"
+          font-family="Cormorant Garamond,Georgia,serif" font-size="44">A little black box.</text>
+    <text x="740" y="772" text-anchor="middle" fill="#7d6c4f"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24"
+          letter-spacing="6">NO. 0142 / 0500</text>
+  </g>
+
+  <!-- ══ page 2 · contents ══ -->
+  <g transform="translate(1650,30)">
+    <rect width="1480" height="880" fill="#faf6ef"/>
+    <text x="90" y="150" fill="#6e1e2a"
+          font-family="Marcellus,Georgia,serif" font-size="46" letter-spacing="4">इस डिब्बे में क्या है</text>
+    <text x="90" y="186" fill="#8d7a5c"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22"
+          letter-spacing="4">WHAT IS IN THIS BOX</text>
+    <line x1="90" y1="214" x2="1390" y2="214" stroke="#b98a2f" stroke-width="2"/>
+
+    <g font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" fill="#2b2118" font-size="32">
+      <text x="90" y="300">01</text><text x="170" y="300">आपका शिवा ब्लैक कार्ड</text>
+      <text x="900" y="300" fill="#6f6353">छह महीने</text>
+      <text x="90" y="384">02</text><text x="170" y="384">0.500 ग्राम चांदी की पत्ती</text>
+      <text x="900" y="384" fill="#6f6353">999 शुद्ध</text>
+      <text x="90" y="468">03</text><text x="170" y="468">यह किताब</text>
+      <text x="900" y="468" fill="#6f6353">बारह पन्ने</text>
+      <text x="90" y="552">04</text><text x="170" y="552">क्रमांकित प्रमाण-पत्र</text>
+      <text x="900" y="552" fill="#6f6353">हस्ताक्षरित</text>
+    </g>
+
+    <g font-family="Cormorant Garamond,Georgia,serif" fill="#5d5245" font-size="34">
+      <text x="90" y="688">इस डिब्बे में रखी हर चीज़ का एक ही काम है —</text>
+      <text x="90" y="738">आपके अगले गहने की कारीगरी पर बीस प्रतिशत कम।</text>
+    </g>
+    <text x="1390" y="820" text-anchor="end" fill="#c2b295"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22">02 · शिवा ब्लैक</text>
+  </g>
+</svg>

@@ -77,6 +77,27 @@
 
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## MARKETING — Shivaa Black unboxing system (1 Nov 2026, no release, no deploy)
+
+- Owner asked for a phone-style **unboxing box** for the 20 % card: rigid box, card instead of a phone,
+  a **0.500 g silver logo sheet**, and app booklets in English and Hindi.
+- Built as documentation + layout mocks only, in **`marketing/unboxing/`** (nothing in `cms/` changed,
+  no release number spent, no zip built): `UNBOXING-SYSTEM.md` (plan, mm specs, 18 ideas, KPIs, guardrails,
+  the v237 code proposal), `PRINT-SPECS.md`, `VENDOR-BRIEF.md` (Hinglish WhatsApp briefs),
+  `copy/COPY-EN.md` + `copy/COPY-HI.md` (final text, both languages), `mockups/*.svg`, `preview.html`.
+- **Unresolved owner decision:** the app has TWO 20 % products — `blackCard` (6 months, renewable,
+  physical card delivered) and `premium` (lifetime, claimed from the banner). The printed card can only
+  name one. Recommendation recorded: **Shivaa Black, "six months · free to renew"**.
+- **The gap the box exposes:** `black-card/claim` mints its own `memberId`/`cardNumber`, so a
+  pre-printed card can never match the card in the app. Proposed as **v237**: serial activation
+  (`POST /api/black-card/activate`), an admin serial registry, and `#/black-card/activate`.
+- Verified facts used in the print copy (from source, not memory): 20 % off **making charges only**;
+  six months; renewal free in the last 30 days; Jayal address, +91 89050 05921, support@shivaa.in,
+  Ernate Shine Jewellery Pvt. Ltd.
+- **Gate note, 1 Nov 2026:** `bash qa/v236-gate.sh` on the v236 tree ran **27 checks, 1 red** —
+  `t-v225-appfeel` 78/2 (two layout-read assertions). Standalone on a fresh shim immediately after:
+  **80/0 PASS**. Confirmed sandbox flake under gate load, not a regression; no code changed.
+
 ## STANDING RULE — FORWARD ONLY (restated by the owner; absolute)
 
 - Preserve the latest verified source. New fixes are targeted forward commits.

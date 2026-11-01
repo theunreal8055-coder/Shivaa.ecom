@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shivaa 0.500 g silver sheet — artwork at 8x (20 mm shown at 160 units).
+     Engraving layout only; the real sheet is 20 x 20 mm, 0.12 mm thick. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 900 640"
+     role="img" aria-label="0.500 gram Shivaa silver sheet, engraving layout">
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9ecef"/>
+      <stop offset=".28" stop-color="#c9ced4"/>
+      <stop offset=".52" stop-color="#f4f6f7"/>
+      <stop offset=".74" stop-color="#b9bfc6"/>
+      <stop offset="1" stop-color="#dfe3e7"/>
+    </linearGradient>
+    <linearGradient id="silverface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef1f3"/>
+      <stop offset=".45" stop-color="#c6ccd3"/>
+      <stop offset="1" stop-color="#e4e8ec"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="640" fill="#f4ecdd"/>
+
+  <!-- front face, 20 mm at 8x = 160 units, shown 3x for the drawing -->
+  <g transform="translate(120,140)">
+    <rect x="6" y="6" width="480" height="480" fill="#9aa3ac" opacity=".35" rx="3"/>
+    <rect width="480" height="480" fill="url(#silverface)" rx="3"/>
+    <rect x="0.5" y="0.5" width="479" height="479" fill="none" stroke="#aab2ba" stroke-width="1"/>
+
+    <!-- engraving: wordmark 11mm wide = 264 units -->
+    <text x="240" y="150" text-anchor="middle" fill="#6d757d"
+          font-family="Marcellus,Georgia,serif" font-size="74" letter-spacing="9">SHIVAA</text>
+    <line x1="150" y1="186" x2="330" y2="186" stroke="#8d959d" stroke-width="3"/>
+    <text x="240" y="262" text-anchor="middle" fill="#6d757d"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34"
+          letter-spacing="2">+91 89050 05921</text>
+    <text x="240" y="318" text-anchor="middle" fill="#6d757d"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="30"
+          letter-spacing="4">shivaa.in</text>
+  </g>
+
+  <!-- reverse face -->
+  <g transform="translate(660,240)">
+    <rect x="6" y="6" width="180" height="180" fill="#9aa3ac" opacity=".3" rx="2"/>
+    <rect width="180" height="180" fill="url(#silver)" rx="2"/>
+    <text x="90" y="86" text-anchor="middle" fill="#5d666e"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26">0.500 g</text>
+    <text x="90" y="118" text-anchor="middle" fill="#5d666e"
+          font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26">999</text>
+  </g>
+
+  <!-- dimension lines -->
+  <g stroke="#b98a2f" fill="#8a6a24" font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" font-size="22">
+    <line x1="120" y1="100" x2="600" y2="100" stroke-width="1.5"/>
+    <line x1="120" y1="88" x2="120" y2="112" stroke-width="1.5"/>
+    <line x1="600" y1="88" x2="600" y2="112" stroke-width="1.5"/>
+    <text x="360" y="86" text-anchor="middle" stroke="none">20.0 mm</text>
+    <line x1="70" y1="140" x2="70" y2="620" stroke-width="1.5"/>
+    <line x1="58" y1="140" x2="82" y2="140" stroke-width="1.5"/>
+    <line x1="58" y1="620" x2="82" y2="620" stroke-width="1.5"/>
+    <text x="46" y="400" text-anchor="middle" stroke="none" transform="rotate(-90 46 400)">20.0 mm</text>
+  </g>
+
+  <!-- spec block -->
+  <g font-family="Jost,'Segoe UI',Helvetica,Arial,sans-serif" fill="#2b2118">
+    <text x="120" y="590" font-size="26" letter-spacing="2">0.500 g · 999 fine silver · 0.12 mm</text>
+    <text x="120" y="620" font-size="19" fill="#6f6353" letter-spacing="1">Engraving: lines ≥ 0.15 mm, type ≥ 1.2 mm — below that it fills in.</text>
+    <text x="660" y="480" font-size="18" fill="#6f6353">reverse</text>
+  </g>
+</svg>
