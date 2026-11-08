@@ -347,9 +347,10 @@
 
   function checkRelease(reason) {
     if (freshBusy) return;
+    if (typeof w.fetch !== 'function') return;
     freshBusy = true;
     var local = +(w.__SHIVAA_REL || REL);
-    fetch('/api/version?_=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
+    w.fetch('/api/version?_=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (v) {
         freshBusy = false;

@@ -32,9 +32,14 @@ PURITY_KEY = {"24K": "gold24", "22K": "gold22", "18K": "gold18"}
 DEV_SETTINGS = {}
 
 
+_DB_CACHE = {"mtime": 0, "data": None}
 def db():
     with _lock:
-        d = json.load(open(DB_FILE, encoding="utf-8"))
+        st = DB_FILE.stat().st_mtime
+        if _DB_CACHE["data"] is None or _DB_CACHE["mtime"] != st:
+            _DB_CACHE["data"] = json.load(open(DB_FILE, encoding="utf-8"))
+            _DB_CACHE["mtime"] = st
+        d = json.loads(json.dumps(_DB_CACHE["data"]))
     if DEV_SETTINGS:
         d.setdefault("settings", {}).update(DEV_SETTINGS)
     return d
@@ -523,7 +528,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "history": d["rates"].get("history", [])[-120:],
                 "nextUpdateIn": 60})
         if route == "making-charges":
-            return self._json(200, {"table": d["makingCharges"], "gst": 3})
+            return self._json(200, {"table": d.get("makingCharges", []), "gst": 3})
         if route == "offers/banner":
             # v208 QA parity — mirrors api.php offers/banner (making + FREEDEL shapes)
             on = d["settings"].get("bannerOfferOn", True)
@@ -656,6 +661,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8090)
     a = ap.parse_args()
+    ThreadingHTTPServer.request_queue_size = 256
+    ThreadingHTTPServer.daemon_threads = True
+    ThreadingHTTPServer.allow_reuse_address = True
     srv = ThreadingHTTPServer(("0.0.0.0", a.port), Handler)
     print(f"Shivaa preview shim on 0.0.0.0:{a.port} — cms={ROOT}")
     print(f"  catalogue = read-only · auth/OTP/kyc = in-memory dev layer (preview password '{PREVIEW_PASSWORD}')")

@@ -18,10 +18,10 @@ T('admin: Billing Software card gone', !admin.includes('Billing Software') && !a
 T('admin: sync key form and handler gone', !admin.includes('saveBillingSync') && !admin.includes('billingSyncSecret'));
 T('admin: Store settings section still renders', admin.includes('<h3>Store settings</h3>'));
 T('docs: billing sync contract removed', !fs.existsSync('docs/BILLING-SYNC-CONTRACT.md'));
-T('stamps: index at 220', index.includes('__SHIVAA_REL=220') && !index.includes('?v=219'));
-T('stamps: sw.js shell v220', sw.includes('shivaa-shell-v220') && sw.includes('const REL = 220;'));
-T('stamps: app.js APP_REL 220', app.includes('const APP_REL = 220;'));
-T('stamps: api rel 220', api.includes("'rel' => 220,"));
+T('stamps: index at 221', index.includes('__SHIVAA_REL=221') && !index.includes('?v=220'));
+T('stamps: sw.js shell v221', sw.includes('shivaa-shell-v221') && sw.includes('const REL = 221;'));
+T('stamps: app.js APP_REL 221', app.includes('const APP_REL = 221;'));
+T('stamps: api rel 221', api.includes("'rel' => 221,"));
 
 console.log('PASS ' + ok.length + ' / FAIL ' + bad.length);
 ok.forEach(o => console.log('  ✓ ' + o));

@@ -1,55 +1,44 @@
-/* v194 — side-slide guard. Keeps the app inside the screen width on phones.
-   CSS already clips the page; this script is the safety net for anything the
-   CSS cannot see (sections rendered later, third-party widgets).
-   It never touches fixed headers, bottom bars or overlays, and it does nothing
-   when the page already fits. */
+/* v194 — full-app mobile fit + fluid motion.
+   v221 update: zero-jank passive section tagging only.
+   Button ripple span injection and synchronous getComputedStyle / inline
+   position+overflow mutations on pointerdown were retired in v221 because
+   mutating inline position/overflow and injecting 300px spans caused flex
+   buttons to jump out of their layout spaces and expand on click. */
 (function () {
-  if (window.__v194) return;
-  window.__v194 = true;
+  'use strict';
+  if (typeof window === 'undefined' || !document.addEventListener) return;
+  if (window.__shivaaV194) return;
+  window.__shivaaV194 = true;
 
-  var root = document.documentElement;
-  var pending = 0;
-
-  // 1. If the page is scrolled sideways, bring it back to the left edge.
-  function resetSideways() {
-    pending = 0;
-    if (window.scrollX || root.scrollLeft) {
-      window.scrollTo(0, window.scrollY);
-      root.scrollLeft = 0;
-      if (document.body) document.body.scrollLeft = 0;
+  var reduced = false;
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    reduced = !!(mq && mq.matches);
+    if (mq && mq.addEventListener) {
+      mq.addEventListener('change', function (e) { reduced = !!e.matches; });
     }
-  }
-  window.addEventListener('scroll', function () {
-    if (!pending && (window.scrollX || root.scrollLeft)) {
-      pending = requestAnimationFrame(resetSideways);
-    }
-  }, { passive: true });
+  } catch (_) {}
 
-  // 2. Clip any top-level block that is still wider than the screen.
-  var timer = 0;
-  function fit() {
-    timer = 0;
-    var W = root.clientWidth;
-    if (!W || !document.body) return;
-    var kids = document.body.children;
-    for (var i = 0; i < kids.length && i < 400; i++) {
-      var el = kids[i];
-      if (el.nodeType !== 1) continue;
-      var cs = window.getComputedStyle(el);
-      if (cs.position === 'fixed' || cs.position === 'sticky') continue;
-      if (el.scrollWidth > W + 1 && cs.overflowX === 'visible') {
-        el.style.overflowX = 'clip';
+  function tagSections() {
+    if (reduced) return;
+    var view = document.getElementById('view');
+    if (!view) return;
+    var kids = view.children;
+    for (var i = 0; i < kids.length && i < 4; i++) {
+      var k = kids[i];
+      if (k && k.classList && !k.classList.contains('v194-fade-in')) {
+        k.classList.add('v194-fade-in');
       }
     }
   }
-  function later(ms) {
-    clearTimeout(timer);
-    timer = setTimeout(fit, ms || 250);
-  }
 
-  window.addEventListener('resize', function () { later(250); }, { passive: true });
-  window.addEventListener('orientationchange', function () { later(400); });
-  window.addEventListener('hashchange', function () { later(600); });
-  window.addEventListener('load', function () { later(300); });
-  document.addEventListener('DOMContentLoaded', function () { later(300); });
+  window.addEventListener('hashchange', function () {
+    requestAnimationFrame(tagSections);
+  }, { passive: true });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tagSections, { once: true });
+  } else {
+    tagSections();
+  }
 })();

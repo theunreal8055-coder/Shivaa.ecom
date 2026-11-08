@@ -15,32 +15,7 @@
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const view = $('#view');
 
-  /* ── 1. tactile ripple on every button ─────────────────────────────── */
-  if (!reduced) {
-    function ripple(x, y, btn) {
-      if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
-      const r = btn.getBoundingClientRect();
-      const size = Math.max(r.width, r.height) * 1.15;
-      const s = document.createElement('span');
-      s.className = 'rip';
-      s.style.width = s.style.height = size + 'px';
-      s.style.left = (x - r.left - size / 2) + 'px';
-      s.style.top = (y - r.top - size / 2) + 'px';
-      btn.appendChild(s);
-      setTimeout(() => s.remove(), 700);
-    }
-    document.addEventListener('pointerdown', (e) => {
-      const btn = e.target.closest && e.target.closest('.btn');
-      if (!btn || e.pointerType === '') return;
-      ripple(e.clientX, e.clientY, btn);
-    }, { passive: true, capture: true });
-    // keyboard activation (Enter/Space) — detail is 0 for synthetic clicks
-    document.addEventListener('click', (e) => {
-      if (e.detail !== 0) return;
-      const btn = e.target.closest && e.target.closest('.btn');
-      if (btn) { const r = btn.getBoundingClientRect(); ripple(r.left + r.width / 2, r.top + r.height / 2, btn); }
-    }, { capture: true });
-  }
+  /* ── 1. tactile ripple on every button (v221: disabled so .rip spans never expand buttons) ─ */
 
   /* ── 2. page entrances (only on real route changes) ───────────────── */
   const GRID_SEL = '.p-grid,.fine-grid,.fin-grid3,.vault-grid,.rte-grid,.cmp-grid,.care-grid,.hscroll,' +
@@ -101,7 +76,7 @@
     if (t && t.tagName === 'IMG' && t.closest && t.closest('#view')) revealImg(t); // onerror swaps to a fallback
   }, true);
   function sweepImages() {
-    $$('#view img').forEach(img => { if (img.complete) revealImg(img); });
+    $$('#view img').forEach(img => revealImg(img));
   }
 
   /* ── 4. count-up for dashboard stats ──────────────────────────────── */
@@ -200,8 +175,7 @@
       }), { threshold: 0.1, rootMargin: '0px 0px -6% 0px' })
     : null;
   function tagRises(scope) {
-    if (!riseIO) return;
-    $$(RISE_SEL, scope).forEach(el => { if (!el.classList.contains('m-rise')) { el.classList.add('m-rise'); riseIO.observe(el); } });
+    $$(RISE_SEL, scope).forEach(el => { el.classList.add('in'); });
   }
 
   /* ── 10. v90 product-detail gallery lightbox (click any photo) ────── */
@@ -257,12 +231,7 @@
   /* tiny public hook (also used by tests) */
   window.ShivaaMotion = { playPage, tagStaggers, tagRises, sweepCounts, sweepImages, trapFocus, reduced };
 
-  /* ── 8. idle sweeps for late renders ──────────────────────────────── */
+  /* ── 8. initial sweep ─────────────────────────────────────────────── */
   const kick = () => { sweepImages(); sweepCounts(); tagRises(view); };
-  setTimeout(kick, 400); setTimeout(kick, 1400);
-  if (!reduced && view) {
-    // re-tag staggers once images/lists arrive late (async tab data)
-    const t = setInterval(() => { tagStaggers(view); tagRises(view); }, 1200);
-    setTimeout(() => clearInterval(t), 8000);
-  }
+  requestAnimationFrame(kick);
 })();

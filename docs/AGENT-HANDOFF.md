@@ -1,14 +1,13 @@
-> ## CURRENT STATE — read first (updated at v220, 15 Oct 2026)
+> ## CURRENT STATE — read first (updated at v221, 8 Nov 2026)
 >
-> - **Working branch: `arena/09f3c79f-shivaa-ecom`** (only this one). PR base: `arena/5529f0ec-shivaa-ecom`.
+> - **Working branch: `arena/afef1f10-shivaa-ecom`** (only this one). PR base: `arena/09f3c79f-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v220. Newest is **v220** (`6e88647`): billing software removed from the website.
->   Next release number: **v221**.
+> - **Pushed, not live:** v206–v221. Newest is **v221**: D2C Speed & Button Geometry Lock Release (buttons stay in their spaces and never expand on click; fast boot, instant route/grid/image rendering, zero `getComputedStyle` main-thread freezes).
+>   Next release number: **v222**.
 > - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
-> - Sandbox resets between turns: `git fetch origin arena/09f3c79f-shivaa-ecom && git reset --hard FETCH_HEAD` first.
+> - Sandbox resets between turns: `git fetch origin arena/afef1f10-shivaa-ecom && git reset --hard FETCH_HEAD` first.
 >   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py`; reinstall jsdom to /tmp.
-> - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
->   smoothness and sign-in look are unverified in a real browser or on a phone.
+> - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). Real-browser / phone visual check and PHP check on the server still needed after owner approval.
 
 # AGENT HANDOFF — v207 BUILT (readability pass); v205 LIVE (11 Oct 2026, session branch `arena/09f3c79f-shivaa-ecom`)
 

@@ -91,11 +91,12 @@
     if (!host || !st || !st.rates || !st.rates.gold22) { if (host) host.hidden = true; return; }
     host.hidden = false;
     const r = st.rates, set = st.settings || {};
+    const premG = Number(set.gold22Premium !== undefined ? set.gold22Premium : set.jaipurPremium), premS = Number(set.jaipurSilverPremium);
+    const sig = [r.gold24, r.gold22, r.gold18, r.silver, r.t, premG, premS].join('|');
+    if (host._v221Sig === sig && host.children.length > 0) return;
+    host._v221Sig = sig;
     const cells = tickCells(r);
     tickPrev = { '24K': Number(r.gold24), '22K': Number(r.gold22), '18K': Number(r.gold18), 'Silver': Number(r.silver) };
-    /* v119 — the 22K premium (₹398/g, desk physical) is its own setting; the
-       24K jaipurPremium is only a fallback for an older payload. */
-    const premG = Number(set.gold22Premium !== undefined ? set.gold22Premium : set.jaipurPremium), premS = Number(set.jaipurSilverPremium);
     const basis = (isFinite(premG) && isFinite(premS))
       ? `How this price is built: live bullion spot <b>${fmt2(r.gold22)}/g (22K)</b> + <b>${fmt2(premG)}/g</b> 22K Shivaa premium — desk physical (silver +${fmt2(premS)}/g) · GST extra at checkout · rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''}.`
       : `Rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''} · GST extra at checkout.`;
@@ -147,7 +148,8 @@
     const sel = '.foot-chips a, .fv-chips a, .ds-card, .btn, .pay-opt, .v107-sg-pick, .qv-nav button';
     const arm = () => $$(sel).forEach(el => { if (!el.classList.contains('v107-press')) el.classList.add('v107-press'); });
     arm();
-    new MutationObserver(() => setTimeout(arm, 60)).observe(document.body, { childList: true, subtree: true });
+    const view = $('#view');
+    if (view) new MutationObserver(() => requestAnimationFrame(arm)).observe(view, { childList: true });
   }
   function hiddenPause() {
     const set = () => document.body.classList.toggle('is-hidden', document.hidden);
@@ -286,7 +288,18 @@
   }
   function designDetail() {
     armDdsButtons();
-    new MutationObserver(() => setTimeout(armDdsButtons, 80)).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(muts => {
+      for (let i = 0; i < muts.length; i++) {
+        const added = muts[i].addedNodes;
+        for (let j = 0; j < added.length; j++) {
+          const n = added[j];
+          if (n.nodeType === 1 && ((n.classList && n.classList.contains('ds-card')) || (n.querySelector && n.querySelector('.ds-card')))) {
+            setTimeout(armDdsButtons, 40);
+            return;
+          }
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   /* ═══ 5 · #/size-guide — TRUE-SCALE RING SIZER ══════════════════════════ */
@@ -532,7 +545,18 @@
         host.appendChild(line);
       });
     };
-    new MutationObserver(() => setTimeout(paint, 40)).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(muts => {
+      for (let i = 0; i < muts.length; i++) {
+        const added = muts[i].addedNodes;
+        for (let j = 0; j < added.length; j++) {
+          const n = added[j];
+          if (n.nodeType === 1 && (n.id === 'shvStartForm' || n.id === 'shvOtp' || (n.classList && n.classList.contains('shv-body')) || (n.querySelector && n.querySelector('#shvStartForm, #shvOtp, .shv-body')))) {
+            setTimeout(paint, 30);
+            return;
+          }
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
     load();
   }
 

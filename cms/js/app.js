@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 220;
+const APP_REL = 221;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -332,7 +332,7 @@ const state = {
    the in-flight response without duplicate requests; failed/stale requests are
    discarded, and no card list is prefetched speculatively. */
 const productDetailPrefetch = new Map();
-const PRODUCT_DETAIL_PREFETCH_TTL = 15000;
+const PRODUCT_DETAIL_PREFETCH_TTL = 120000;
 function pruneProductDetailPrefetch() {
   const now = Date.now();
   for (const [id, entry] of productDetailPrefetch) {
@@ -1084,16 +1084,25 @@ function bindTilt(scope = document) {
   });
 }
 function bindReveal(scope = document) {
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
-  $$('.rv', scope).forEach(el => io.observe(el));
+  if (typeof IntersectionObserver !== 'function') {
+    $$('.rv', scope).forEach(el => el.classList.add('in'));
+    return;
+  }
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.05 });
+  $$('.rv', scope).forEach(el => { el.classList.add('in'); io.observe(el); });
 }
 function bindCountdown(el, target) {
+  el.innerHTML = ['Days', 'Hrs', 'Min', 'Sec'].map(l => `<div class="fc-cell"><b>00</b><span>${l}</span></div>`).join('');
+  const bs = $$('.fc-cell b', el);
   const tick = () => {
     if (document.hidden) return;
-    const d = Math.max(0, target - Date.now());
-    const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5), min = Math.floor(d % 36e5 / 6e4), sec = Math.floor(d % 6e4 / 1e3);
     if (!document.body.contains(el)) return clearInterval(iv);
-    el.innerHTML = [[days, 'Days'], [hrs, 'Hrs'], [min, 'Min'], [sec, 'Sec']].map(x => `<div class="fc-cell"><b>${String(x[0]).padStart(2, '0')}</b><span>${x[1]}</span></div>`).join('');
+    const d = Math.max(0, target - Date.now());
+    const vals = [Math.floor(d / 864e5), Math.floor(d % 864e5 / 36e5), Math.floor(d % 36e5 / 6e4), Math.floor(d % 6e4 / 1e3)];
+    vals.forEach((v, i) => {
+      const s = String(v).padStart(2, '0');
+      if (bs[i] && bs[i].textContent !== s) bs[i].textContent = s;
+    });
   };
   const iv = setInterval(tick, 1000); tick();
 }
@@ -1307,8 +1316,18 @@ function bindFinaleCd(el) {
     if (!document.body.contains(el)) return clearInterval(iv);
     if (document.hidden) return;
     if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
-    el.innerHTML = finaleCdCells() +
-      `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
+    const bs = el.querySelectorAll('.fc-cell b');
+    if (bs.length === 4) {
+      const d = Math.max(0, FINALE.drawAt - Date.now());
+      const vals = [Math.floor(d / 864e5), Math.floor(d % 864e5 / 36e5), Math.floor(d % 36e5 / 6e4), Math.floor(d % 6e4 / 1e3)];
+      vals.forEach((v, i) => {
+        const s = String(v).padStart(2, '0');
+        if (bs[i].textContent !== s) bs[i].textContent = s;
+      });
+    } else {
+      el.innerHTML = finaleCdCells() +
+        `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
+    }
   }, 1000);
 }
 
@@ -2523,10 +2542,14 @@ async function loadSocialProof() {
         <div class="ugc-prod"><img src="${r[6]}" alt="" loading="lazy"><span>Purchased<b>${esc(r[5])}</b></span></div>
       </div>
     </figure>`).join('');
-    const io = new IntersectionObserver((es, ob) => es.forEach((e, i) => {
-      if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), i * 90); ob.unobserve(e.target); }
-    }), { threshold: .12, rootMargin: '0px 0px -40px' });
-    $$('.ugc-card', wall).forEach(c => io.observe(c));
+    if (typeof IntersectionObserver === 'function') {
+      const io = new IntersectionObserver((es, ob) => es.forEach((e, i) => {
+        if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), i * 60); ob.unobserve(e.target); }
+      }), { threshold: .12, rootMargin: '0px 0px -40px' });
+      $$('.ugc-card', wall).forEach(c => { c.classList.add('seen'); io.observe(c); });
+    } else {
+      $$('.ugc-card', wall).forEach(c => c.classList.add('seen'));
+    }
   }
   const box = $('#ugcScore');
   if (box) {
@@ -4389,13 +4412,23 @@ pages.home = async (view) => {
       if (k < 1) requestAnimationFrame(up);
     })(t0);
   });
-  // hero orb parallax — v42: disabled on mobile (flicker/vibration source)
+  // hero orb parallax — v42: disabled on mobile (flicker/vibration source); v221: cleaned up on route leave
   const orbs = $('.hero-orbs');
   const _isMob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
-  if (orbs && !_isMob) addEventListener('mousemove', e => {
-    const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
-    orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
-  }, { passive: true });
+  if (orbs && !_isMob) {
+    const onOrbMove = e => {
+      if (!orbs.isConnected) return;
+      const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
+      orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
+    };
+    addEventListener('mousemove', onOrbMove, { passive: true });
+    const prevCleanup = window._homeObserverCleanup;
+    window._homeObserverCleanup = () => {
+      removeEventListener('mousemove', onOrbMove);
+      if (prevCleanup) prevCleanup();
+      window._homeObserverCleanup = null;
+    };
+  }
 };
 
 
@@ -4954,20 +4987,27 @@ pages.shop = async (view, q) => {
 /* ─────────── PRODUCT ─────────── */
 pages.product = async (view, q, id) => {
   const isCurrent = viewLifetime(view);
-  /* v91 — luxury skeleton while the piece loads (replaces the blank flash) */
-  view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
-    <div class="pd-gallery"><div class="skeleton" style="aspect-ratio:1/1;border-radius:20px"></div></div>
-    <div class="pd-info">
-      <div class="skeleton" style="height:13px;width:130px;margin-bottom:18px;border-radius:6px"></div>
-      <div class="skeleton" style="height:36px;width:82%;margin-bottom:14px;border-radius:8px"></div>
-      <div class="skeleton" style="height:15px;width:46%;margin-bottom:30px;border-radius:6px"></div>
-      <div class="skeleton" style="height:26px;width:42%;margin-bottom:24px;border-radius:8px"></div>
-      <div class="skeleton" style="height:54px;width:100%;margin-bottom:14px;border-radius:14px"></div>
-      <div class="skeleton" style="height:54px;width:100%;margin-bottom:34px;border-radius:14px"></div>
-      <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
-    </div></div></div>`;
-  let data;
-  try { data = await getProductDetail(id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+  /* v221 — only paint the skeleton if getProductDetail takes > 80ms, so
+     prefetched / fast local responses write #view.innerHTML ONCE with zero
+     skeleton flash and half the MutationObserver work. */
+  let data = null;
+  const skelTimer = setTimeout(() => {
+    if (!data && isCurrent()) {
+      view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
+        <div class="pd-gallery"><div class="skeleton" style="aspect-ratio:1/1;border-radius:20px"></div></div>
+        <div class="pd-info">
+          <div class="skeleton" style="height:13px;width:130px;margin-bottom:18px;border-radius:6px"></div>
+          <div class="skeleton" style="height:36px;width:82%;margin-bottom:14px;border-radius:8px"></div>
+          <div class="skeleton" style="height:15px;width:46%;margin-bottom:30px;border-radius:6px"></div>
+          <div class="skeleton" style="height:26px;width:42%;margin-bottom:24px;border-radius:8px"></div>
+          <div class="skeleton" style="height:54px;width:100%;margin-bottom:14px;border-radius:14px"></div>
+          <div class="skeleton" style="height:54px;width:100%;margin-bottom:34px;border-radius:14px"></div>
+          <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
+        </div></div></div>`;
+    }
+  }, 80);
+  try { data = await getProductDetail(id); } catch (e) { clearTimeout(skelTimer); if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+  clearTimeout(skelTimer);
   if (!isCurrent()) return;
   /* v173 — a shared #/product/ link is often the FIRST page a new visitor
      ever loads, and it can render before /api/rates answers. The piece's own
@@ -11602,18 +11642,13 @@ const setHeaderH = () => { const h = document.getElementById('header'); if (h) d
 addEventListener('resize', setHeaderH, { passive: true });
 // magnetic buttons + glare-follow on extra cards (5D layer)
 function bindMagnetic(scope = document) {
-  // v42: disabled entirely on mobile/touch — major source of scroll-jank & flicker
+  // v221: button magnetic translation removed so buttons never leave their spaces;
+  // keep lightweight glare-follow CSS variables on desktop cards only.
   const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
   if (_mob) return;
-  // binds everywhere; motion only matters on fine pointers
-  $$('.btn-primary,.btn-gold,.btn-outline', scope).forEach(b => {
-    if (b._mag) return; b._mag = true; b.classList.add('magnetic');
-    b.addEventListener('mousemove', e => { const r = b.getBoundingClientRect(); const dx = (e.clientX - r.left - r.width / 2) / r.width, dy = (e.clientY - r.top - r.height / 2) / r.height; b.style.transform = `translate(${dx * 7}px, ${dy * 5}px)`; });
-    b.addEventListener('mouseleave', () => { b.style.transform = ''; });
-  });
   $$('.catlog,.testi,.acct-tile,.addr-card', scope).forEach(c => {
     if (c._glare) return; c._glare = true;
-    c.addEventListener('mousemove', e => { const r = c.getBoundingClientRect(); c.style.setProperty('--gx', ((e.clientX - r.left) / r.width * 100) + '%'); c.style.setProperty('--gy', ((e.clientY - r.top) / r.height * 100) + '%'); });
+    c.addEventListener('mousemove', e => { const r = c.getBoundingClientRect(); if (!r.width || !r.height) return; c.style.setProperty('--gx', ((e.clientX - r.left) / r.width * 100) + '%'); c.style.setProperty('--gy', ((e.clientY - r.top) / r.height * 100) + '%'); }, { passive: true });
   });
 }
 // Pause heavy banner motion whenever the banner is off screen.
@@ -11714,17 +11749,35 @@ async function boot(isRedraw) {
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
     loadRates(),   // v117 — used to be a second serial await below
   ]);
-  const _capMs = isRedraw ? 15000 : 6000;
+  const _capMs = isRedraw ? 15000 : (_cachedCat.length ? 1500 : 3500);
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),
   ]);
   if (!_packed) {
-    /* the cap beat the batch — paint degraded now, adopt + re-render when
-       the slow network finally answers (never park on the preloader). */
-    _firstBatch.then(() => { if (document.visibilityState !== 'hidden') boot(true); }).catch(() => {});
+    /* v221 — adopt the resolved batch in-place when it finishes instead of
+       re-running boot(true) and firing all 6 API calls a second time. */
+    _firstBatch.then(res => {
+      if (!res || document.visibilityState === 'hidden') return;
+      const [meLate = { user: null }, setLate = {}, mcLate = { table: [] }, prodsLate = { products: [] }, catsLate = { catalogs: [] }] = res;
+      if (meLate && meLate.user !== undefined) state.user = meLate.user;
+      if (setLate && Object.keys(setLate).length) state.settings = { ...state.settings, ...setLate };
+      if (mcLate && Array.isArray(mcLate.table) && mcLate.table.length) state.mcTable = mcLate.table;
+      const lateProds = (prodsLate && prodsLate.products) || [];
+      if (lateProds.length) {
+        state.productsCache = lateProds; state.catalogOk = true; catalogCacheWrite(lateProds);
+        ensureCampaignStuds();
+      }
+      if (prodsLate && prodsLate.rates && (!state.rates || !state.rates.t)) state.rates = { ...state.rates, ...prodsLate.rates };
+      if (catsLate && Array.isArray(catsLate.catalogs)) { window.Shivaa.catCache = catsLate.catalogs; catCache = catsLate.catalogs; }
+      updateBadges();
+      route();
+    }).catch(() => {});
   }
   const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
+  if (prods && prods.rates && (!state.rates || !state.rates.t)) {
+    state.rates = { ...FALLBACK_RATES, ...(state.rates || {}), ...prods.rates };
+  }
   const _oldUserId = String(state.user && state.user.id || '');
   state.user = me.user;
   if (_oldUserId !== String(state.user && state.user.id || '')) resetWishSession();
@@ -11870,7 +11923,7 @@ async function boot(isRedraw) {
   // destinations three times and made the drawer ~860px taller than the phone).
   $('#footCats').innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
-  if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
+  if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 180); }
   initMiniCart();   // v91 slide-in bag
   route();
   try { window.Shivaa.exResume(); } catch (e) {}   // v153 — in-page buy survived a tab reclaim?

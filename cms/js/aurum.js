@@ -48,116 +48,17 @@
   var rAF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
 
   /* ── 1 · Page transitions around #view.innerHTML swaps ────────────────
-     Snapshot clone crossfade: the live DOM is swapped SYNCHRONOUSLY (so
-     app.js's immediate $('#…') binding never breaks), and a frozen clone
-     of the outgoing view is animated away on top. */
+     v221: Full-DOM cloneNode(true) (.au-vt) retired so route changes never
+     duplicate IDs on document.body or stall the main thread. */
   (function pageTransitions() {
-    if (reduced || !waapi || !document.body) return;
-    var view = $('#view');
-    if (!view) return;
-    /* innerHTML's accessor lives on Element.prototype — walk the chain */
-    var desc = null, proto = Object.getPrototypeOf(view);
-    while (proto && !desc) {
-      desc = Object.getOwnPropertyDescriptor(proto, 'innerHTML');
-      if (!desc || !desc.set) { proto = Object.getPrototypeOf(proto); }
-    }
-    if (!desc || !desc.set) return;
-
-    var navTs = -Infinity; // -Infinity = no navigation pending
-    function arm() { navTs = performance.now(); }
-    /* capture phase: fires BEFORE app.js's bubble-phase router, covering
-       anchor clicks, back/forward AND programmatic location.hash sets
-       (checkout, order success, search) */
-    window.addEventListener('hashchange', arm, true);
-    window.addEventListener('popstate', arm, true);
-    document.addEventListener('click', function (e) {
-      var t = e.target;
-      if (t && t.closest && t.closest('a[href^="#"], [data-route], [data-mc-close]')) arm();
-    }, true);
-
-    var busy = false;
-    Object.defineProperty(view, 'innerHTML', {
-      configurable: true,
-      get: function () { return desc.get.call(this); },
-      set: function (html) {
-        var str = String(html);
-        var recent = performance.now() - navTs < 5200;
-        var ov = null, outAnim = null;
-        /* loading skeletons must NOT consume the pending transition —
-           stay armed so the real content swap gets the crossfade */
-        var isSkel = str.indexOf('class="skeleton') !== -1;
-        /* one transition per navigation; ignore tiny swaps and background
-           re-renders (rate ticks, cart refreshes) */
-        if (recent && !busy && !isSkel && str.length > 160 && view.children.length) {
-          navTs = -Infinity;
-          busy = true;
-          try {
-            var sy = window.scrollY;
-            var snap = view.cloneNode(true);
-            var inner = document.createElement('div');
-            inner.className = 'au-vt-in';
-            inner.appendChild(snap);
-            ov = document.createElement('div');
-            ov.className = 'au-vt';
-            ov.setAttribute('aria-hidden', 'true');
-            ov.appendChild(inner);
-            document.body.appendChild(ov);
-
-            window.scrollTo(0, 0);
-            desc.set.call(view, str);
-            /* motion.js (#view.pg mPage) animates the incoming view;
-               only the frozen snapshot is animated here, so the two
-               systems never fight over #view's transform. */
-            var mobile = coarse || window.innerWidth <= 768;
-            outAnim = inner.animate(
-              mobile
-                ? [{ opacity: 1, transform: 'translate3d(0,' + (-sy) + 'px,0) translateX(0) scale(1)', filter: 'blur(0)' },
-                   { opacity: 0, transform: 'translate3d(0,' + (-sy) + 'px,0) translateX(-5%) scale(.985)', filter: 'blur(2px)' }]
-                : [{ opacity: 1, transform: 'translate3d(0,' + (-sy) + 'px,0) scale(1)', filter: 'blur(0)' },
-                   { opacity: 0, transform: 'translate3d(0,' + (-sy - 12) + 'px,0) scale(1.015)', filter: 'blur(4px)' }],
-              { duration: mobile ? 240 : 260, easing: 'cubic-bezier(.4,0,.7,.4)', fill: 'forwards' }
-            );
-            var finish = function () {
-              if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
-              busy = false;
-            };
-            Promise.resolve(outAnim.finished).catch(function () {}).then(finish, finish);
-            setTimeout(finish, 900);
-          } catch (err) {
-            busy = false;
-            if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
-            desc.set.call(view, str);
-          }
-        } else {
-          desc.set.call(this, str);
-        }
-      }
-    });
+    return;
   })();
 
-  /* ── 2 · micro-ripple on small controls ────────────────────────────── */
+  /* ── 2 · micro-ripple on small controls ──────────────────────────────
+     v221: Disabled so .au-rip-host never overrides position:absolute on
+     .cb-arrow/.gal-nav/.c-arrow/.pc-quick and .au-rip never expands buttons. */
   (function ripples() {
-    if (reduced) return;
-    /* compact controls only — never card/label rows whose selected
-       box-shadow or focus ring overflow:hidden would clip */
-    var SEL = '.chip,.size-pill,.cb-arrow,.gal-nav,.c-arrow,.mnav a,.pc-quick,' +
-      '.svc-chips button,.qty-row button,.c-dot,.pf-chip,' +
-      '.am2,.ps-tab,.finq-chip,.fp-chip,.mp-chip';
-    document.addEventListener('pointerdown', function (e) {
-      var el = e.target.closest && e.target.closest(SEL);
-      if (!el || el.querySelector(':scope > .au-rip')) return;
-      el.classList.add('au-rip-host');
-      var r = el.getBoundingClientRect();
-      if (!r.width || !r.height) return;
-      var size = Math.max(r.width, r.height) * 1.25;
-      var sp = document.createElement('span');
-      sp.className = 'au-rip';
-      sp.style.left = (e.clientX - r.left) + 'px';
-      sp.style.top = (e.clientY - r.top) + 'px';
-      sp.style.width = sp.style.height = size + 'px';
-      el.appendChild(sp);
-      setTimeout(function () { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 650);
-    }, { passive: true });
+    return;
   })();
 
   /* ── 3 · pointer-tracked sheen on product cards (fine pointers) ─────── */
@@ -211,15 +112,15 @@
     var lastOn = null;
     function move() {
       var on = $('.mnav a.on');
-      var cs = getComputedStyle(nav);
-      var visible = on && cs.display !== 'none' && cs.visibility !== 'hidden';
-      if (!visible) {
-        /* strictly idempotent toggles — no mutation, no observer feedback */
+      if (!on || window.innerWidth > 820) {
         if (nav.classList.contains('has-ind')) nav.classList.remove('has-ind');
         return;
       }
       var nr = nav.getBoundingClientRect(), r = on.getBoundingClientRect();
-      if (!nr.width) return;
+      if (!nr.width) {
+        if (nav.classList.contains('has-ind')) nav.classList.remove('has-ind');
+        return;
+      }
       var ix = (r.left - nr.left) + 'px', iw = r.width + 'px';
       if (nav.style.getPropertyValue('--au-ix') !== ix) nav.style.setProperty('--au-ix', ix);
       if (nav.style.getPropertyValue('--au-iw') !== iw) nav.style.setProperty('--au-iw', iw);
@@ -228,9 +129,8 @@
       if (on !== lastOn) {
         if (lastOn) {
           on.classList.remove('au-tab');
-          void on.offsetWidth;
           on.classList.add('au-tab');
-          setTimeout(function () { on.classList.remove('au-tab'); }, 520);
+          setTimeout(function () { on.classList.remove('au-tab'); }, 320);
         }
         lastOn = on;
       }
@@ -241,9 +141,9 @@
       window.addEventListener(ev, function () { rAF(move); }, { passive: true });
     });
     new MutationObserver(move).observe(nav, { subtree: true, attributes: true, attributeFilter: ['class'] });
-    new MutationObserver(move).observe(document.body, { attributes: true, attributeFilter: ['class', 'data-page'] });
+    new MutationObserver(move).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(move).catch(function () {});
-    [300, 1200, 2600].forEach(function (t) { setTimeout(move, t); });
+    rAF(move);
 
     var lastY = window.scrollY, hidden = false, q = false;
     window.addEventListener('scroll', function () {
@@ -267,7 +167,7 @@
       hidden = false;
       document.body.classList.remove('nav-hide');
       lastY = window.scrollY;
-      setTimeout(move, 350);
+      rAF(move);
     });
   })();
 
@@ -354,32 +254,10 @@
   } catch (e) {}
 
   function tagRises(scope) {
-    if (reduced || !riseIO) return;
-    var n = {};
-    $$(RISE_SEL, scope).forEach(function (el) {
-      if (el.classList.contains('au-rise') || el.classList.contains('au-done')) return;
-      var p = el.parentElement;
-      if (!p) return;
-      var key = p;
-      n[key] = (n[key] || 0);
-      if (n[key] >= RISE_CAP) { el.classList.add('au-done'); return; }
-      el.classList.add('au-rise');
-      el.style.setProperty('--i', n[key]);
-      n[key]++;
-      riseIO.observe(el);
-      /* hard fallback: never leave content hidden */
-      setTimeout(function () {
-        if (el.classList.contains('au-rise')) {
-          el.classList.add('in');
-          setTimeout(function () {
-            el.classList.remove('au-rise');
-            el.classList.add('au-done');
-          }, 900);
-        }
-      }, 3500);
-    });
+    /* v221: Never hide content at opacity:0 behind scroll-reveal timers;
+       mark sections ready immediately for instant D2C rendering. */
     $$('.sec-head:not(.rv):not(.au-hl)', scope).forEach(function (h) {
-      if (headIO) headIO.observe(h);
+      h.classList.add('au-hl');
     });
   }
 
@@ -549,32 +427,16 @@
     }
   }
 
-  /* clicks: heart burst + add-to-cart sparkle */
+  /* clicks: tactile feedback only (v221: no DOM particle injection on button taps) */
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (!t || !t.closest) return;
-    var w = t.closest('.pc-wish');
-    if (w) {
-      if (w.classList.contains('on')) {
-        var wr = w.getBoundingClientRect();
-        burst(wr.left + wr.width / 2, wr.top + wr.height / 2, {
-          n: lite ? 3 : 7, up: true, dist: 34, dur: 620, size: 13,
-          glyphs: ['♥', '✦'], colors: ['#e3395f', '#f06a91', '#d4af5a']
-        });
-      }
-      haptic(8);
-    }
+    if (t.closest('.pc-wish')) { haptic(8); return; }
     var b = t.closest('.btn, button');
     if (b) {
       var oc = b.getAttribute('onclick') || '';
       var inSticky = !!b.closest('#pdpBuybar,.pd-stickybar,.mcta-bar');
-      if (/addToCart|pdAdd/.test(oc) || b.id === 'bbAdd' || inSticky) {
-        var x = e.clientX, y = e.clientY;
-        if (x == null || x === 0) { var rr = b.getBoundingClientRect(); x = rr.left + rr.width / 2; y = rr.top + rr.height / 2; }
-        burst(x, y, { n: lite ? 4 : 8, dist: 46, dur: 680, size: 11,
-          glyphs: ['✦', '✧', '◆'], colors: ['#d4af5a', '#ffe9bd', '#b98a2f'] });
-        haptic(15);
-      }
+      if (/addToCart|pdAdd/.test(oc) || b.id === 'bbAdd' || inSticky) haptic(15);
     }
   });
 
@@ -884,9 +746,11 @@
     }).observe(nav, { attributes: true, attributeFilter: ['class'] });
   })();
 
-  /* ── 14 · per-route sweep ──────────────────────────────────────────── */
+  /* ── 14 · per-route sweep (v221: single debounced rAF, no body subtree storm) ─ */
   var view = $('#view');
+  var sweepQueued = false;
   function sweep() {
+    sweepQueued = false;
     tagRises(view);
     tagCounts();
     heroSplit();
@@ -896,24 +760,19 @@
     sweepShip();
     if (mnav.move) mnav.move();
   }
-  if (view) {
-    new MutationObserver(function () {
-      rAF(sweep);
-      setTimeout(sweep, 350);
-      setTimeout(sweep, 1200);
-      setTimeout(sweep, 2600);
-    }).observe(view, { childList: true, subtree: false });
+  function queueSweep() {
+    if (sweepQueued) return;
+    sweepQueued = true;
+    rAF(sweep);
   }
-  new MutationObserver(sweepShip).observe(document.body, { childList: true, subtree: true });
-  setTimeout(sweep, 200);
-  setTimeout(sweep, 1000);
-  setTimeout(sweep, 3000);
-  /* idle catch-ups (like motion.js) */
-  var idleN = 0;
-  var idle = setInterval(function () {
-    sweep();
-    if (++idleN > 20) clearInterval(idle);
-  }, 8000);
+  if (view) {
+    new MutationObserver(queueSweep).observe(view, { childList: true, subtree: false });
+  }
+  var mcBody = $('#miniCartBody') || $('#cartDrawer');
+  if (mcBody) {
+    new MutationObserver(sweepShip).observe(mcBody, { childList: true, subtree: true });
+  }
+  queueSweep();
 
   /* ═══════════════════════════════════════════════════════════════════
      v104 · COUTURE TOUCH — flagship mobile interaction layer
@@ -1010,22 +869,21 @@
   /* ── 17 · bag rows spring in (cart page + mini-cart drawer) ─────────── */
   (function bagEntrances() {
     if (reduced || !('MutationObserver' in window)) return;
+    var host = $('#miniCartBody') || $('#cartDrawer');
+    if (!host) return;
     const SPRING = 'au-line-in';
     const tag = n => {
       if (!n || n.nodeType !== 1 || !n.classList) return;
-      /* direct rows (a cart page adding a line) get the spring; descendant
-         scans are limited to the mini-cart so a full #view swap never fights
-         motion.js's grid stagger on the cart page */
       const rows = [];
       if (n.classList.contains('cart-item') || n.classList.contains('mc-line')) rows.push(n);
       if (n.querySelectorAll) Array.prototype.push.apply(rows, n.querySelectorAll('.mc-line'));
-      rows.forEach(r => { r.classList.add(SPRING); setTimeout(() => r.classList.remove(SPRING), 650); });
+      rows.forEach(r => { r.classList.add(SPRING); setTimeout(() => r.classList.remove(SPRING), 450); });
     };
     new MutationObserver(function (muts) {
       muts.forEach(function (m) {
         Array.prototype.forEach.call(m.addedNodes, tag);
       });
-    }).observe(document.body, { childList: true, subtree: true });
+    }).observe(host, { childList: true, subtree: true });
   })();
 
   /* expose for admin/debug */

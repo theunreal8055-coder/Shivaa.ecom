@@ -49,6 +49,7 @@ db = {
         'amritaPage': True,
     },
     'rates': {'override': None, 'last': {'gold24': 7200, 'gold22': 6600, 'gold18': 5400, 'silver': 90}},
+    'makingCharges': src.get('makingCharges', []),
     'orders': [], 'users': [], 'settlements': [], 'partners': [],
 }
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

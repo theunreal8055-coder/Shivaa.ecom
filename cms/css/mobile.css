@@ -33,9 +33,18 @@
   .qty-row button, .summary label, details summary {
     -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
-  /* touch screens have no hover — neutralise EVERY hover lift/tilt so nothing
-     ever sticks after a tap (stateful .open transforms are untouched) */
-  *:hover { transform: none !important; }
+  /* touch screens have no hover — neutralise card/button hover lifts so nothing
+     sticks after a tap, without wiping translateY(-50%) on centered arrows */
+  .p-card:hover, .cat-card:hover, .acct-tile:hover, .cat-mini-card:hover,
+  .svc:hover, .trust:hover, .testi:hover, .pillar:hover, .poster:hover,
+  .wp-card:hover, .vault-card:hover, .plan-card:hover, .fin-panel:hover,
+  .cert-card:hover, .hm-card:hover, .fine-card:hover, .ms-card:hover,
+  .btn:hover, .icon-btn:hover, .chip:hover, .size-pill:hover, .cat-pill:hover {
+    transform: none !important;
+  }
+  .c-arrow:hover, .gal-nav:hover {
+    transform: translateY(-50%) !important;
+  }
   /* keep crisp press feedback instead (must outrank the rule above) */
   .p-card:active, .cat-card:active, .acct-tile:active, .cat-mini-card:active,
   .svc:active, .trust:active, .testi:active, .pillar:active, .poster:active,
@@ -43,10 +52,14 @@
   .cert-card:active, .hm-card:active, .fine-card:active, .ms-card:active {
     transform: scale(.98) !important;
   }
-  .btn:active, button:active, .icon-btn:active, .pay-opt:active, .chip:active,
+  .btn:active, button:not(.c-arrow):not(.gal-nav):active,
+  .icon-btn:active, .pay-opt:active, .chip:active,
   .size-pill:active, .cat-pill:active, .tab:active,
   .mnav a:active, .adm-nav a:active, .dw-tile:active, .dw-row:active {
-    transform: scale(.96) !important;
+    transform: scale(.97) !important;
+  }
+  .c-arrow:active, .gal-nav:active {
+    transform: translateY(-50%) scale(.95) !important;
   }
   /* desktop cursor effects never belong on touch */
   .cursor-glow { display: none !important; }

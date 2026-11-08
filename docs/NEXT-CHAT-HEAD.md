@@ -1,19 +1,19 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-Written at the end of the v220 turn (15 Oct 2026, Asia/Calcutta).
+Written at the end of the v221 turn (8 Nov 2026, UTC).
 
 ---
 
 ## 1 · Which branch to work in
 
-**Work ONLY in `arena/09f3c79f-shivaa-ecom`.** Commit to it. Push only to it:
-`git push origin arena/09f3c79f-shivaa-ecom`. Never create, switch to, or push to
+**Work ONLY in `arena/afef1f10-shivaa-ecom`.** Commit to it. Push only to it:
+`git push origin arena/afef1f10-shivaa-ecom`. Never create, switch to, or push to
 another branch. Never delete a branch. Never merge another branch.
 
-- Working branch (the session branch): `arena/09f3c79f-shivaa-ecom`
-- Base branch this work branched from (PR target): `arena/5529f0ec-shivaa-ecom`
+- Working branch (the session branch): `arena/afef1f10-shivaa-ecom`
+- Base branch this work branched from (PR target): `arena/09f3c79f-shivaa-ecom`
 - `main` exists on the remote but is **not** the release line for this work.
-- Open pull request for the working branch: see section 7 (created at the end of v220).
+- Open pull request for the working branch: see section 7.
 
 ## 2 · The sandbox resets between turns — do this FIRST
 
@@ -22,9 +22,9 @@ any work, run:
 
 ```
 cd /home/user/Shivaa.ecom
-git fetch origin arena/09f3c79f-shivaa-ecom
+git fetch origin arena/afef1f10-shivaa-ecom
 git reset --hard FETCH_HEAD
-git log --oneline -1        # must show the newest pushed release (v220 or later)
+git log --oneline -1        # must show the newest pushed release (v221 or later)
 ```
 
 `/tmp` is also wiped between turns. Re-install jsdom for the browser suites:
@@ -54,9 +54,9 @@ Write long Python edits to a file, then run that file.
 - A push, a merge, a green test, or a finished zip is **not** approval.
 - Never reuse or renumber a shipped release. Never revert. Never force-push. Never restore an old zip.
 - Never deploy an older tree over a newer one.
-- Next release number is **v221**.
+- Next release number is **v222**.
 
-## 4 · Release table (pushed on `arena/09f3c79f-shivaa-ecom`, none live except v205)
+## 4 · Release table (pushed on `arena/afef1f10-shivaa-ecom`, none live except v205)
 
 | Release | Commit | Zip sha256 (first 16 / last 8) | What it is |
 |---|---|---|---|
@@ -67,28 +67,30 @@ Write long Python edits to a file, then run that file.
 | v218 | `d17e276` | `9faec9d6…052a1d` | 10g entry highlighted; funnel stops jumping; sidebar restored + swipe; case removed; Passport sign-in redesign (`v218.css`) |
 | v219 | `fafed78` | `ccddcab3…728f` | 10g button readable (gold fill + dark ink); offer depth tilt/glare; gold offer buttons; sheen paused off-screen (`v219.css`, `js/v219.js`) |
 | v220 | `6e88647` | `1b461b82…1899a` | **Billing software removed from the website** (admin card + sync form, billing stock routes, sync contract doc) |
+| v221 | `(v221)` | `27b26d3fc311f72b…8eedeaba` | **D2C Speed & Button Geometry Lock Release** (`v221.css`, `js/v221.js`): buttons never leave their spaces or expand on click; fast boot, instant route/grid/image paint, zero `getComputedStyle` click freezes |
 
 Each release has: `DEPLOY-vNNN.md` at repo root, `shivaa-update-vNNN.zip` at repo root
-(349 files for v219/v220; includes `images/films/` 18 files and `images/offers/` 4 files),
+(351 files for v221; includes `images/films/` 18 files and `images/offers/` 4 files),
 stamps moved everywhere (index `?v=`, `__SHIVAA_REL`, sw.js SHELL/REL/SHELL_FILES, app.js
 APP_REL, api.php `'rel'`), and both countdown docs (`cms/docs/HANDOFF-unreal8055.md`,
 `cms/docs/shivaa-website-facts-for-grok.md`) moved to the next number.
 
 Zip download link pattern (bare link, works after push):
-`https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/09f3c79f-shivaa-ecom/shivaa-update-vNNN.zip`
+`https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/afef1f10-shivaa-ecom/shivaa-update-vNNN.zip`
 
 ## 5 · QA commands (run in this order, sequential, never in parallel)
 
 ```
-node qa/browser/t-v220-billing-gone.mjs          # static, billing removal + stamps
-timeout 1500 node qa/browser/t-v209-alive.mjs     # alive suite, ~70-150 s (expect 96/0)
+node qa/browser/t-v221-speed-buttons.mjs         # v221 button lock + D2C speed (expect 17/0)
+node qa/browser/t-v220-billing-gone.mjs          # static, billing removal + stamps (expect 13/0)
+timeout 1500 node qa/browser/t-v209-alive.mjs     # alive suite (expect 96/0)
 node qa/browser/t-v206-flip.mjs                   # flip guard (expect ALL PASS)
 timeout 280 node qa/browser/t7-audit.mjs          # routes + product pages (expect 4/0)
 node qa/browser/t-v218-sidebar.mjs                # sidebar + funnel scroll (expect 13/0)
 node qa/browser/t-v219-depth.mjs                  # 10g fill, offer depth, stamps (expect 22/0)
 ```
 
-Expected totals at v220: alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0, billing-gone 13/0.
+Expected totals at v221: v221-speed-buttons 17/0, alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0, billing-gone 13/0.
 
 Known sandbox-only noise: a jsdom "Client network socket disconnected" error comes from
 the Cashfree SDK (`sdk.cashfree.com`); the sandbox has no outbound TLS there. The suites

@@ -1,18 +1,18 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 220 pending owner review — nothing deployed without the
+**COUNTDOWN: release 221 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214, v215, v216, v217, v218, v219, v220.
+shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214, v215, v216, v217, v218, v219, v220, v221.
 
-Last updated: 2026-10-14 (session branch `arena/09f3c79f-shivaa-ecom`,
-v219 "The Depth Release" — 10 g funnel button text readable (gold fill and dark ink both set on that button), offer banners tilt and glare toward a mouse pointer with layered artwork, gold offer buttons with a light sweep, off-screen motion paused — packaged).
+Last updated: 2026-11-08 (session branch `arena/afef1f10-shivaa-ecom`,
+v221 "The D2C Speed & Button Geometry Lock Release" — buttons stay locked in their spaces and never expand on click; fast boot, instant route/grid/image rendering, and zero getComputedStyle main-thread stalls — packaged).
 
 ---
 
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v220 are built; **next release is v221**. Never deploy an older tree
+   v206–v221 are built; **next release is v222**. Never deploy an older tree
    over a newer live one. No reverts, no force-pushes, no resurrecting old
    zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a

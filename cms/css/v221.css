@@ -1,0 +1,146 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHIVAA · v221 — D2C Speed & Button Geometry Lock Layer (Zomato / Uber feel)
+   Loaded LAST in cms/index.html so it wins every cascade tie.
+   Fixes:
+   1. Buttons leaving their spaces or expanding on click:
+      - Kills all injected ripple/particle spans (.rip, .au-rip, .v194-rip, .au-p)
+      - Prevents .au-rip-host from overriding position:absolute on arrows/quick-add
+      - Preserves translateY(-50%) on centered carousel/gallery arrows (.c-arrow, .gal-nav)
+      - Locks button box-sizing, flex-shrink, and layout dimensions across states
+   2. Instant route & grid rendering (zero opacity:0 blank gates):
+      - Removes stacked opacity:0 delays on .rv, .p-grid > *, .cat-grid > *, .au-rise
+      - Keeps tactile press feedback on the GPU compositor (transform: scale(.98))
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Neutralise DOM ripple & particle spans so buttons never expand ──── */
+.rip,
+.au-rip,
+.v194-rip,
+.au-p,
+.au-vt,
+.au-view-prev {
+  display: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+/* ── 2. Lock positioned buttons in their exact layout slots ─────────────── */
+.c-arrow,
+.gal-nav {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  flex-shrink: 0 !important;
+}
+.c-arrow:hover,
+.gal-nav:hover,
+.c-arrow:focus-visible,
+.gal-nav:focus-visible {
+  transform: translateY(-50%) scale(1.04) !important;
+}
+.c-arrow:active,
+.gal-nav:active {
+  transform: translateY(-50%) scale(.94) !important;
+}
+
+.pc-quick {
+  position: absolute !important;
+}
+.pc-wish {
+  flex-shrink: 0 !important;
+}
+
+.cb-wrap .cb-arrow {
+  position: relative !important;
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  transform: none !important;
+}
+.cb-wrap .cb-arrow:hover {
+  transform: scale(1.04) !important;
+}
+.cb-wrap .cb-arrow:active {
+  transform: scale(.95) !important;
+}
+
+/* ── 3. Universal button stability & crisp compositor-only press feel ───── */
+button,
+.btn,
+a.btn,
+.icon-btn,
+.chip,
+.size-pill,
+.cat-pill,
+.tab,
+.seg-btn,
+.qty-row button,
+.shv-aud-btn,
+.shv-cta {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform .12s cubic-bezier(.2, 0, 0, 1),
+              box-shadow .16s ease,
+              background-color .16s ease,
+              border-color .16s ease,
+              color .16s ease,
+              opacity .12s linear;
+}
+
+button:not(.c-arrow):not(.gal-nav):active,
+.btn:active,
+a.btn:active,
+.icon-btn:active,
+.chip:active,
+.size-pill:active,
+.cat-pill:active,
+.tab:active,
+.seg-btn:active,
+.qty-row button:active {
+  transform: scale(.97) !important;
+}
+
+/* Header icon buttons must never clip their counter badges (#cartCount, #wishCount) */
+.header .icon-btn,
+#cartBtn,
+#wishBtn,
+#acctBtn,
+#navToggle {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+}
+
+/* ── 4. Instant D2C route, section & grid paint (no blank opacity:0 gates) ─ */
+.preloader.hide {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: opacity .15s ease, visibility .15s ease !important;
+}
+
+#view .rv,
+#view .rvl,
+html.js-aurum .au-rise,
+html.js-motion .m-rise,
+html.js-motion #view.pg > *,
+html.js-motion #view .m-stagger > *,
+html.js-motion #view .p-grid > *,
+html.js-motion #view .cat-grid > *,
+html.js-motion #view .cat-mini > * {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.v194-fade-in {
+  animation-duration: .16s !important;
+}

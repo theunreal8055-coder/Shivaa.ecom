@@ -179,8 +179,8 @@ html.js-aurum:not(.au-lite) .mc-drawer.open .mc-foot .btn-gold,
 html.js-aurum:not(.au-lite) .mcta-bar .btn-primary {
   animation: auCtaGlow 3s ease-in-out 1s infinite;
 }
-/* generic micro-ripple for small controls */
-.au-rip-host { position: relative; overflow: hidden; }
+/* generic micro-ripple for small controls (v221: never override position on host) */
+.au-rip-host { overflow: hidden; }
 .au-rip {
   position: absolute; z-index: 5; border-radius: 50%; pointer-events: none;
   width: 10px; height: 10px;
@@ -1265,11 +1265,11 @@ body[data-page="checkout"] .sw-update { bottom: calc(132px + env(safe-area-inset
 /* ── 3 · touch — the remaining tactile surfaces (press feedback) ── */
 @media (pointer: coarse) {
   html.js-aurum .pc-wish:active,
-  html.js-aurum .gal-nav:active,
-  html.js-aurum .c-arrow:active,
   html.js-aurum .pd-thumb:active,
   html.js-aurum .size-match-chip:active,
   html.js-aurum .gal-vid-load .gal-vid-play:active { transform: scale(.9); }
+  html.js-aurum .gal-nav:active,
+  html.js-aurum .c-arrow:active { transform: translateY(-50%) scale(.92); }
   html.js-aurum .pc-wish:active { transform: scale(.88); }
   html.js-aurum .sw-update, html.js-aurum .offline-bar { -webkit-tap-highlight-color: transparent; }
   /* no iOS long-press sheet over app chrome / imagery */
