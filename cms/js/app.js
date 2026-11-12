@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 240;
+const APP_REL = 241;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -164,6 +164,42 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 /* v82 — only http(s)/mailto:/tel: URLs may ever land in href/src, so a
    stored "javascript:" link (e.g. via an admin settings field) cannot run. */
 const safeUrl = s => { const u = String(s ?? '').trim(); return /^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i.test(u) && !/[<>"'`\u0000-\u0020\u007F]/.test(u) ? u : '#'; };
+
+/* ─────────── v241 · card pictures, not hero pictures ───────────
+   A .p-card is ~180 CSS px wide but downloaded the 1200 px, 200–420 KB
+   original. Twelve bestseller cards plus seventeen category tiles was 2–5 MB
+   pulled and DECODED while the shopper was already scrolling home — the
+   owner's "home page par lag". qa/build-thumbs.py writes a 320 px and a 560 px
+   WebP sibling for every picture under products/, categories/, reviews/ and
+   offers/:
+
+     /images/products/ring-floral.jpg
+     /images/thumbs/products/ring-floral-320.webp   ~6–14 KB
+     /images/thumbs/products/ring-floral-560.webp   ~20–35 KB
+
+   `src` is the 560 sibling so even a browser that ignores srcset never fetches
+   the big file; `data-full` is the untouched original and the first retry, so
+   a picture added tomorrow (no siblings yet) still shows at full quality after
+   one honest fallback. Anything outside those four folders — banners, page
+   heroes, uploads, product-page art — is returned exactly as it was. */
+const THUMB_RE = /^\/images\/(?:products|categories|reviews|offers)\/.+\.(?:jpe?g|png)$/i;
+function thumbUrl(src, w) {
+  const u = String(src == null ? '' : src).split('?')[0];
+  if (!THUMB_RE.test(u)) return '';
+  /* ?v= rides the release so .htaccess can serve these immutably for a year —
+     a regenerated thumbnail can never be pinned by an old device. */
+  return '/images/thumbs/' + u.slice(8).replace(/\.(?:jpe?g|png)$/i, '') + '-' + w + '.webp?v=' + APP_REL;
+}
+function thumbAttrs(src, sizes) {
+  const full = safeUrl(src);
+  if (full === '#') return 'src="/images/logo.png" loading="lazy" decoding="async"';
+  const w1 = thumbUrl(full, 320), w2 = thumbUrl(full, 560);
+  const rest = 'loading="lazy" decoding="async"';
+  if (!w1) return `src="${full}" ${rest}`;
+  return `src="${w2}" srcset="${w1} 320w, ${w2} 560w" sizes="${sizes || '(max-width:600px) 46vw, 260px'}" `
+    + `data-full="${full}" ${rest} `
+    + `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.removeAttribute('srcset');this.src=this.dataset.full}else{this.onerror=null;this.src='/images/logo.png'}"`;
+}
 /* v82 — embed a value as a JS string argument inside an inline on* handler.
    esc() alone is wrong there: the HTML attribute decodes &#39; back to a
    quote BEFORE the JS runs, so a name containing ' breaks the string.
@@ -3255,8 +3291,8 @@ function productCard(p, opts = {}) {
   return `<article class="p-card" data-pid="${p.id}">
     <div class="pc-imgwrap">
       <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
-        <img class="pc-img-a" src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
-        ${p.images && p.images[1] ? `<img class="pc-img-b" src="${safeUrl(p.images[1])}" alt="" loading="lazy" decoding="async" aria-hidden="true" onerror="this.remove()">` : ''}
+        <img class="pc-img-a" ${thumbAttrs(p.images && p.images[0], '(max-width:600px) 46vw, (max-width:1100px) 30vw, 260px')} alt="${esc(p.name)}">
+        ${p.images && p.images[1] ? `<img class="pc-img-b" ${thumbAttrs(p.images[1], '(max-width:600px) 46vw, (max-width:1100px) 30vw, 260px')} alt="" aria-hidden="true">` : ''}
         ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
         ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
         <div class="glare"></div>
@@ -4921,7 +4957,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
-      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}${ASSET_V}" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
+      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img ${thumbAttrs(c.img, '(max-width:600px) 31vw, 170px')} alt="${c.name}"><b>${c.name}</b></a>`).join('')}
     </div>
   </section>
 
@@ -12807,7 +12843,14 @@ async function boot(isRedraw) {
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
     loadRates(),   // v117 — used to be a second serial await below
   ]);
-  const _capMs = isRedraw ? 15000 : 6000;
+  /* v241 — a device that already holds the last-good catalogue does NOT wait
+     for the network any more. The catalogue it is about to paint is the one on
+     the device, so there is nothing to wait for: 800 ms is enough for the
+     batch's fast paths (settings, rates) to join the first paint, and anything
+     slower arrives in the background and re-renders (js/v166.js). Before this,
+     a shopper re-opening the app on a slow 4G watched the splash for up to six
+     seconds over a catalogue the phone already had. */
+  const _capMs = isRedraw ? 15000 : (_realCount() ? 800 : 6000);
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),
@@ -12903,7 +12946,7 @@ async function boot(isRedraw) {
   <div class="mega-in">
     <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
       <a class="mega-tile" href="#/shop?category=${k}">
-        <span class="mt-img"><img src="${c.img}${ASSET_V}" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"></span>
+        <span class="mt-img"><img ${thumbAttrs(c.img, '120px')} alt="${c.name}"></span>
         <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
       </a>`).join('')}
     </div>
@@ -12934,7 +12977,7 @@ async function boot(isRedraw) {
           list = document.createElement('div');
           list.id = 'dwCatList'; list.className = 'dw-catlist';
           list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
-            `<a href="#/shop?category=${k}"><img src="${c.img}${ASSET_V}" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
+            `<a href="#/shop?category=${k}"><img ${thumbAttrs(c.img, '84px')} alt=""><span>${esc(c.name)}</span></a>`).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
         const open = !list.classList.contains('open');

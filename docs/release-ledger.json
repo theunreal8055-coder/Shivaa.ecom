@@ -4,16 +4,16 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 241,
+  "next_release": 242,
   "live": {
-    "release": 240,
-    "title": "The Ripple Fix",
+    "release": 241,
+    "title": "Smooth",
     "since": "2026-11-12",
     "confirmed_by": null,
     "owner_words": null,
-    "deployed_build": 239,
-    "note": "packaged 12 Nov 2026, awaiting the owner's yes. The sidebar bug is root-caused: v226's ripple span was positioned absolute only for .btn, so a tap put a 412 px box in flow inside the drawer row and collapsed its label. v240 fixes that rule. Contains v237-v239.",
-    "zip": "shivaa-update-v240.zip"
+    "deployed_build": 240,
+    "note": "packaged 12 Nov 2026, awaiting the owner's yes. The owner after v240: 'app smooth feel nahi hota, shuru main home page par lag karta hai — zomato/uber jaisa smooth chahiye'. v241 answers in bytes: every card/tile/thumbnail picture is now a 320/560 px WebP sibling (the home page's 2-5 MB of photography becomes ~0.5 MB), the always-visible header and bottom bar stop re-blurring the page on touch widths, the Cashfree SDK leaves the critical path, and a device that already holds the catalogue paints at 800 ms instead of waiting up to 6 s. ?perf=1 prints the phone's own numbers. Contains v237-v240.",
+    "zip": "shivaa-update-v241.zip"
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -33,6 +33,10 @@
     {
       "release": 232,
       "since": "2026-10-21"
+    },
+    {
+      "release": 240,
+      "since": "2026-11-12"
     }
   ],
   "releases": [
@@ -277,10 +281,23 @@
       "files": 372,
       "bytes": 37457438,
       "sha256": "33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8",
+      "status": "superseded",
+      "deployed": "2026-11-12",
+      "awaiting": "applied by the owner 12 Nov — his words: 'Issue fix hogya'. The drawer bug is closed; v241 builds on it.",
+      "layer": null
+    },
+    {
+      "release": 241,
+      "commit": null,
+      "title": "Smooth",
+      "zip": "shivaa-update-v241.zip",
+      "files": 682,
+      "bytes": 43636784,
+      "sha256": "6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged, not deployed",
-      "layer": null
+      "layer": "v241.css"
     }
   ],
   "session_branch_2026_11_12": "arena/95be65a4-shivaa-ecom"

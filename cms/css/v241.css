@@ -1,0 +1,72 @@
+/* ═══════════════════════════════════════════════════════════════
+   SHIVAA v241 — "smooth" · the layer that keeps the scroll cheap
+
+   THE COST NOBODY MEASURED
+   .header (sticky, always on screen) declared backdrop-filter:blur(14px)
+   over an already 92 % opaque cream, and .mnav (the fixed bottom bar) did
+   blur(16px) over 97 % opaque ink. On a phone that means the compositor
+   re-blurs the whole page behind both bars on EVERY scroll frame — the
+   single most common cause of "smooth nahi lagta" on mid-range Android,
+   and it buys a visual change of almost nothing, because the fill was
+   already nearly solid.
+
+   So on touch widths these fills become 98.5 % opaque and the blur is
+   dropped. Same colour, same height, same border, same shadow — the page
+   behind them was opaque-looking before and is opaque-looking now, only
+   without a full-screen GPU pass per frame.
+
+   Full-screen scrims (menu backdrop, sheet overlay, modal) go solid-dark
+   for the same reason while a sheet is open, which is exactly when the
+   shopper is dragging the page.
+
+   Desktop keeps every blur: it has the GPU headroom and it is where the
+   frosted look is actually visible over content.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 820px), (hover: none) and (pointer: coarse) {
+
+  /* ── the two bars that are always there ── */
+  .header {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(250, 246, 239, .985) !important;
+  }
+  .utilbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(29, 5, 9, .985) !important;
+  }
+  .mnav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(26, 4, 7, .985) !important;
+  }
+  .pd-stickybar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(250, 246, 239, .985) !important;
+  }
+
+  /* ── full-screen scrims: solid ink instead of a blurred copy of the page ── */
+  .modal-overlay,
+  .modal-overlay.open,
+  .fsheet-overlay,
+  .fsheet-overlay.open,
+  .mega-backdrop,
+  .shv-backdrop {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .modal-overlay.open,
+  .fsheet-overlay.open {
+    background: rgba(20, 4, 6, .82) !important;
+  }
+}
+
+/* Tap targets answer immediately. Without this a phone waits ~300 ms after a
+   tap to see whether a double-tap zoom is coming — the difference between
+   "app" and "website" in the hand. Nothing about layout changes. */
+a, button, [role="button"], summary, label,
+.btn, .pc-card, .p-card, .cat-mini-card, .mnav a, .dw-row, .chip, .tagx, input, select, textarea {
+  touch-action: manipulation;
+}

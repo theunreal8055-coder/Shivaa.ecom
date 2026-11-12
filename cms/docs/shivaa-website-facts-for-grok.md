@@ -2,6 +2,20 @@
 
 ---
 
+**v241 — SMOOTH** (2026-11-12). The owner after v240: *“app smooth feel nahi hota, shuru main home page
+par lag karta hai — zomato/uber jaisa smooth D2C feel chahiye.”* What changed, in plain terms: every
+product/category/review/offer picture now ships a **320 px and a 560 px WebP sibling** under
+`/images/thumbs/…` (308 files, 5.8 MB, built by `qa/build-thumbs.py`), and the cards, tiles, drawer and
+mega-panel ask for the small one through `thumbAttrs()` in `app.js` (a 220 KB photo becomes ~30 KB; the
+home page's 2–5 MB of photography becomes ~0.5 MB). The **sticky header and the fixed bottom bar stopped
+re-blurring the page** on phones (`css/v241.css`, new cascade layer, bundle now 71 layers), which is what
+made scrolling stutter. The **Cashfree SDK left the critical path** (it is loaded only when a shopper
+actually pays). A phone that already has the catalogue **paints at 800 ms instead of up to 6 s**.
+**`?perf=1`** on any URL prints the phone's own timings and the heaviest files — the owner's stopwatch.
+**682 files**, gate `bash qa/v241-gate.sh`.
+
+---
+
 **v240 — THE RIPPLE FIX** (2026-11-12). The sidebar bug, found in the code. `v226.js`'s ripple
 transport appends `<span class="rip" style="width:412px;height:412px">` into the element that was
 pressed, and its own header claims those properties come from motion.css — but motion.css scopes

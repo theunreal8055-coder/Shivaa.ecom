@@ -59,18 +59,26 @@ styles are in /css/v184-amrita.css (precached); the visual polish is in
 by the polish. MEDIA stays at v168.
 */
 'use strict';
-const SHELL = 'shivaa-shell-v240';
+/* v241 · "smooth" — shell re-stamped for js/v241.js (card pictures from
+   /images/thumbs, the mobile-blur layer inside shivaa.css, ?perf=1). The media
+   cache keeps more entries because thumbnails are small: same megabytes, far
+   more of the shop stays warm on a cheap phone. No route, no price, no money
+   path changed. */
+const SHELL = 'shivaa-shell-v241';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 240;
+const REL = 241;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
 const MEDIA = 'shivaa-media-v168';
 const ownedCache = name => /^shivaa-(?:shell|media)-v/.test(name);
-const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
+const MEDIA_MAX = 160;         // v241 — ~160 small pictures: the 320/560 px
+                               // thumbnails are 6–35 KB, so the same handful of
+                               // megabytes now covers the home page, the shop grid
+                               // and the product a shopper returns to.
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks before returning a cache hit
 /* v99: bot.css/bot.js dropped from the shell (Saathi removed ahead of Gemini).
    admin.js + qr.js are deliberately NOT precached — they are fetched on demand
@@ -84,14 +92,14 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = [
-  '/css/shivaa.css?v=240', '/',
+  '/css/shivaa.css?v=241', '/',
   '/index.html',
-  '/js/otp-autofill.js?v=240', '/js/app.js?v=240', '/js/hallmark.js?v=240',
-  '/js/trust.js?v=240', '/js/auth.js?v=240', '/js/v219.js?v=240', '/js/motion.js?v=240',
-  '/js/aurum.js?v=240', '/js/v107.js?v=240', '/js/boost.js?v=240',
-  '/js/v116.js?v=240', '/js/v117.js?v=240', '/js/v118.js?v=240', '/js/v119.js?v=240', '/js/v120.js?v=240', '/js/v122.js?v=240', '/js/v125.js?v=240', '/js/v127.js?v=240', '/js/v139.js?v=240', '/js/v140.js?v=240', '/js/v166.js?v=240', '/js/v167.js?v=240',
-  '/js/v178.js?v=240', '/js/v194.js?v=240', '/js/v225.js?v=240', '/js/v226.js?v=240', '/js/v227.js?v=240', '/js/v237.js?v=240', '/js/v238.js?v=240', '/js/v239.js?v=240', '/js/v240.js?v=240', '/js/v237.js?v=240', '/fonts/jost.woff2?v=240', '/fonts/cormorant-garamond.woff2?v=240', '/fonts/marcellus-400.woff2?v=240',
-  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=240',
+  '/js/otp-autofill.js?v=241', '/js/app.js?v=241', '/js/hallmark.js?v=241',
+  '/js/trust.js?v=241', '/js/auth.js?v=241', '/js/v219.js?v=241', '/js/motion.js?v=241',
+  '/js/aurum.js?v=241', '/js/v107.js?v=241', '/js/boost.js?v=241',
+  '/js/v116.js?v=241', '/js/v117.js?v=241', '/js/v118.js?v=241', '/js/v119.js?v=241', '/js/v120.js?v=241', '/js/v122.js?v=241', '/js/v125.js?v=241', '/js/v127.js?v=241', '/js/v139.js?v=241', '/js/v140.js?v=241', '/js/v166.js?v=241', '/js/v167.js?v=241',
+  '/js/v178.js?v=241', '/js/v194.js?v=241', '/js/v225.js?v=241', '/js/v226.js?v=241', '/js/v227.js?v=241', '/js/v237.js?v=241', '/js/v238.js?v=241', '/js/v239.js?v=241', '/js/v240.js?v=241', '/js/v241.js?v=241', '/js/v237.js?v=241', '/fonts/jost.woff2?v=241', '/fonts/cormorant-garamond.woff2?v=241', '/fonts/marcellus-400.woff2?v=241',
+  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=241',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];

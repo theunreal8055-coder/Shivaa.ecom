@@ -65,6 +65,12 @@ ADDED = {
     239: ['js/v239.js'],
     # v240 fixes the ripple's missing position rule (the drawer bug).
     240: ['js/v240.js'],
+    # v241 "smooth" adds a css layer (auto-detected), a js layer, and the whole
+    # thumbnail tree. The thumbs are generated files (qa/build-thumbs.py) but
+    # they ARE the release: without them every card falls back to its 200–420 KB
+    # original, which is the lag this release removes. A trailing `/**` expands
+    # from disk so the list cannot drift from what was actually built.
+    241: ['js/v241.js', 'images/thumbs/**'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)
@@ -74,6 +80,20 @@ NEVER_SHIPPED = re.compile(
     r'\.htaccess$|config\.php|db\.json$)', re.I)
 
 
+def expand(entry):
+    """`dir/**` -> every file under it, sorted (a generated tree, listed once)"""
+    if not entry.endswith('/**'):
+        return [entry]
+    base = os.path.join(CMS, entry[:-3])
+    out = []
+    for root, _dirs, files in os.walk(base):
+        for f in files:
+            out.append(os.path.relpath(os.path.join(root, f), CMS).replace(os.sep, '/'))
+    if not out:
+        raise SystemExit('%s expanded to nothing — the thumbnails were not built' % entry)
+    return sorted(out)
+
+
 def new_files(rel):
     """what this release added that the previous zip could not have contained"""
     added = []
@@ -81,8 +101,9 @@ def new_files(rel):
     if os.path.isfile(os.path.join(CMS, layer)):
         added.append(layer)
     for extra in ADDED.get(rel, []):
-        if extra not in added:
-            added.append(extra)
+        for name in expand(extra):
+            if name not in added:
+                added.append(name)
     return added
 
 

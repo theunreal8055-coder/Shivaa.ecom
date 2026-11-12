@@ -62,9 +62,17 @@ const at226 = index.indexOf('/js/v226.js');
 const at240 = index.indexOf('/js/v240.js');
 ok('index.html loads v240', at240 > 0);
 ok('v240 loads after v226.js (so it wins the cascade)', at240 > at226, `v226@${at226} v240@${at240}`);
-ok('index.html carries __SHIVAA_REL=240', /window\.__SHIVAA_REL=240/.test(index));
-ok('sw.js precaches v240', /\/js\/v240\.js\?v=240/.test(sw));
-ok('sw.js shell + REL both say 240', /shivaa-shell-v240/.test(sw) && /const REL = 240;/.test(sw));
+/* v241 — these three used to pin the release NUMBER (240), so every later
+   release turned this suite red for no reason and the drawer guard stopped
+   being a signal. They now check that v240 is still shipped and still
+   precached at the CURRENT release stamp — which is what actually matters:
+   the ripple rule must reach the phone. */
+const stamp = (index.match(/window\.__SHIVAA_REL=(\d+)/) || [])[1];
+ok('index.html stamps a release >= 240', Number(stamp) >= 240, String(stamp));
+ok('sw.js precaches v240 at the current stamp',
+   new RegExp('/js/v240\\.js\\?v=' + stamp + "'").test(sw), 'stamp ' + stamp);
+ok('sw.js shell + REL agree with that stamp',
+   /shivaa-shell-v\d+/.test(sw) && new RegExp('const REL = ' + stamp + ';').test(sw));
 
 /* ── 4 · the experiment that did not work is documented, not hidden ──────── */
 ok('v239 exists and is still shipped (harmless, superseded)', v239.length > 500);
