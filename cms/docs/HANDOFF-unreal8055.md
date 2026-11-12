@@ -1,6 +1,21 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
 ---
+
+**v237 — THE WEIGHT RELEASE** (2026-11-12). Two weights taken off the storefront and one
+stuck click. (1) **A 200 KB picture nobody drew**: `/images/black/hero-v186.jpg` was preloaded
+at `fetchpriority="high"` on *every* route, although only the `#/black-card` page paints it — so
+the home page and every product page spent their first 200 KB on a photograph they never draw,
+at a priority above the real hero. The preload is gone; the v186 layer still fetches it the
+moment that page opens. (2) **A product page downloaded its whole gallery at once**: every
+`gal-slide` image now decodes off the main thread, the first keeps `fetchpriority="high"`, the
+rest are `loading="lazy"` — a five-photo piece no longer pulls five photographs before you swipe.
+(3) **The click stays where your thumb left it** (`js/v237.js` — no css layer, no new request):
+every panel on this site is a native `<details class="acc">`, and opening one now closes its
+siblings and keeps the tapped summary below the sticky header, so a section can never grow by
+two answers and never scrolls your place away. **369 files**, gate `bash qa/v237-gate.sh`.
+
+---
 **v236 — THE COUNTER BOOK** (2026-10-23). Six things a working bullion counter
 was still missing, each with a number behind it. Nothing here prices anything:
 every figure is derived from a deal the desk already wrote, at a rate the board

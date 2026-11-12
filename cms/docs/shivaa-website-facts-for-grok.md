@@ -1,6 +1,21 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+
+**v237 — THE WEIGHT RELEASE** (2026-11-12). Two weights taken off the storefront and one
+stuck click. (1) **A 200 KB picture nobody drew**: `/images/black/hero-v186.jpg` was preloaded
+at `fetchpriority="high"` on *every* route, although only the `#/black-card` page paints it — so
+the home page and every product page spent their first 200 KB on a photograph they never draw,
+at a priority above the real hero. The preload is gone; the v186 layer still fetches it the
+moment that page opens. (2) **A product page downloaded its whole gallery at once**: every
+`gal-slide` image now decodes off the main thread, the first keeps `fetchpriority="high"`, the
+rest are `loading="lazy"` — a five-photo piece no longer pulls five photographs before you swipe.
+(3) **The click stays where your thumb left it** (`js/v237.js` — no css layer, no new request):
+every panel on this site is a native `<details class="acc">`, and opening one now closes its
+siblings and keeps the tapped summary below the sticky header, so a section can never grow by
+two answers and never scrolls your place away. **369 files**, gate `bash qa/v237-gate.sh`.
+
+---
 **v236 — THE COUNTER BOOK** (2026-10-23). Six things a working bullion counter
 was still missing, each with a number behind it. Nothing here prices anything:
 every figure is derived from a deal the desk already wrote, at a rate the board
@@ -309,16 +324,13 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
 **COUNTDOWN: release 235 pending owner review — nothing goes live without the
-owner's explicit yes.** Live: **v234** (applied by the owner on 23 Oct 2026).
-Built and not live: **v235 — deploy v235**, which contains v234 and makes the
-bullion desk keep up with its data to the frame: one paint per animation frame,
-a millisecond clock and the true age of every number on screen, a dimmed board
-past five seconds, and a poll hint from the server (250 ms with a push relay,
-1 s against the exchange cache). Forward-only rule in force — next release
-number is **v236**.
-Updated 2026-10-23 (v235) on the `arena/800194ed-shivaa-ecom` session branch,
-whose base commit `fd90c0f` is the release branch `arena/e8a470c6-shivaa-ecom`'s
-v232 tip.
+owner's explicit yes.** The owner's own `/api/version` read **rel 236** on 12 Nov 2026, so v235 and v236 are on the site; the last build the ledger recorded as applied is **v234**.
+Packaged and not live: **v237 — deploy v237**, the weight release: a 200 KB black-card
+photograph preloaded on every route, a product gallery that downloaded all of its
+photographs at once, and an accordion that grew the page by two answers. Forward-only rule
+in force — next release number is **v238**.
+Updated 2026-11-12 (v237) on the `arena/95be65a4-shivaa-ecom` session branch, cut from the
+v236 tip `a9445dc` of `arena/800194ed-shivaa-ecom`.
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
 (stamped `?v=235`), built from the 68 historical layers (69 cascade

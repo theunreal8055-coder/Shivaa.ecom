@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 236;
+const APP_REL = 237;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -5653,7 +5653,7 @@ pages.product = async (view, q, id) => {
             ${(p.video ? [videoCanAutoload()
                 ? `<div class="gal-slide gal-vid on"><video src="${safeUrl(p.video) || ''}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`
                 : `<div class="gal-slide gal-vid on"><button type="button" class="gal-vid-load" data-video="${safeUrl(p.video) || ''}" data-poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}" aria-label="Play the 360-degree film"><img src="${safeUrl(p.images && p.images[0]) || ''}" alt="" draggable="false"><span class="gal-vid-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="gal-vid-tag">▶ Tap to load 360° film · saves mobile data<small class="gal-vid-always" role="button" tabindex="0" onclick="event.stopPropagation();Shivaa.setVideoAutoload(true);this.closest('.gal-vid-load').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Always load films automatically</small></span></button></div>`
-              ] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
+              ] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"${!p.video && i === 0 ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"'}></div>`)).join('')}
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
