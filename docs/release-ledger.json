@@ -306,7 +306,7 @@
     },
     {
       "release": 242,
-      "commit": null,
+      "commit": "c675b8e",
       "title": "Responsive",
       "zip": "shivaa-update-v242.zip",
       "files": 683,
