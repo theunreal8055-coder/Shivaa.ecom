@@ -1,31 +1,34 @@
-> ## CURRENT STATE — **v239 PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v240 PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v239 “The Sidebar Guard” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v239.zip` — **371 files · 37,454,324 B ·
->   `c4d66d64f1e40e0888feea61a120ab1e026fc3193df129fc29ea42ce4535db4a`**. **Next release number: v240.**
->   The site is on **v238** (the owner applied it on 12 Nov 2026 and confirmed `rel: 238`). **v239 contains
->   v237 and v238, so v239 is the only zip that needs to go on the server.**
-> - **Before anything else:** `bash qa/where-am-i.sh` — exit 0 FORWARD → work here, exit 3 BEHIND →
->   move forward first, never build on an old tree. Then `python3 qa/check-handoff.py`.
-> - **The open bug (the owner's screenshots, 12 Nov).** In the open side drawer the *Swarna Nidhi* row
->   printed its label **one character per line** and the menu looked like it “expanded like crazy”.
->   **v238 forced `width:100%` on the rows and did not fix it** — proof that the row is not what loses
->   its width, the label column inside it is. **v239 changes the approach:** every drawer row is a
->   **CSS grid** (`auto minmax(0,1fr) auto`) set as **inline** styles (outranking all 70 layers, now and
->   later), `<b>` is one line + ellipsis, `<small>` is a two-line word-boundary clamp — “S / w / a / r /
->   n / a” is not reachable. **`?navdiag=1`** draws an on-screen report (row width/height, computed
->   `display`, label `flex`/`width`/`white-space`) so one screenshot names the culprit if it recurs.
-> - **What v239 also carries.** v237: the 200 KB black-card photograph that was preloaded at
->   `fetchpriority="high"` on every route (gone), a product gallery that fetched all its photographs at
->   once (first eager, rest lazy), and `js/v237.js` (accordion keeps the tapped summary in view, closes
->   its siblings). v238: `js/v238.js` (the first, width-only drawer guard — kept, harmless).
-> - **Still no CSS layer change**: the bundle is **70 layers / 70 blocks** (910,723 B raw / 181,498 B
->   gzipped). Do not rebuild it for v237–v239.
-> - **Gate status — be honest about it:** `node --check` clean on `app.js`, `sw.js`, `js/v237.js`,
->   `js/v238.js`, `js/v239.js`; `python3 qa/check-handoff.py` green. **`bash qa/v239-gate.sh` was NOT
->   run** — create it from `qa/v236-gate.sh` with the pins rolled and take it to 0 red. There is also no
->   browser engine in this sandbox (jsdom has no layout), which is why the drawer bug is being fixed by
->   construction + measurement rather than by reproduction.
+> - **v240 “The Ripple Fix” is the newest release** — packaged 12 Nov 2026, **not deployed**.
+>   `shivaa-update-v240.zip` — **372 files · 37,457,438 B ·
+>   `33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8`**. **Next release number: v241.**
+>   The site is on **v239**. **v240 contains v237–v239, so v240 is the only zip to install.**
+> - **Before anything else:** `bash qa/where-am-i.sh` — exit 0 FORWARD → work here, exit 3 BEHIND → move
+>   forward first. Then `python3 qa/check-handoff.py`. Then `node qa/browser/t-v240-rip.mjs` (16 assertions).
+> - **THE SIDEBAR BUG IS ROOT-CAUSED (this is the fact to carry forward).** `v226.js`'s ripple transport
+>   appends `<span class="rip" style="width:412px;height:412px">` into the pressed host and its header
+>   claims the geometry comes from motion.css — but motion.css scopes
+>   `position:absolute; border-radius:50%; transform:scale(0); animation:mRipple` to **`.btn .rip` only**.
+>   A button ripples correctly; **every other host gets a 412 px square in normal flow**. In the drawer
+>   that host is a row (`display:flex`): the square becomes a flex item, `.dw-tx{flex:1;min-width:0}` is
+>   squeezed to a few pixels, every word breaks one character per line, the row grows to ~550 px and the
+>   menu below is pushed off screen — the owner's “sidebar expands and blank space comes”, on tap, in the
+>   sidebar only. **Two earlier attempts (v238 width pin, v239 grid + nowrap) treated the row instead of
+>   the ripple and did not fix it**; v240 restores the missing rule where it cannot fight the button
+>   ripple (`.rip-live > .rip{position:absolute !important}`, no `transform`/`animation` override), sweeps
+>   stranded ripples out of the drawer, and reverts v239's inline grid.
+> - **What else v240 carries.** v237: a 200 KB black-card photograph that was preloaded at
+>   `fetchpriority="high"` on every route (gone); a product gallery that fetched all its photographs at
+>   once (first eager, rest lazy); `js/v237.js` (accordion keeps the tapped summary in view). v238/v239:
+>   the two earlier drawer guards, kept as harmless history.
+> - **No CSS layer change** in v237–v240: the bundle is **70 layers / 70 blocks** (910,723 B raw /
+>   181,498 B gzipped). Do not rebuild it.
+> - **Gate status — be honest about it:** `node --check` clean on five scripts, `qa/browser/t-v240-rip.mjs`
+>   **16/16**, `check-handoff.py` green. **`bash qa/v240-gate.sh` was NOT run** — create it from
+>   `qa/v236-gate.sh` with the pins rolled and take it to 0 red.
+> - **No browser engine in this sandbox** (jsdom has no layout), which is why the drawer bug was found by
+>   reading the cascade rather than by reproduction.
 > - **v236 detail stays below as history.**
 
 

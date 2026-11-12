@@ -4,16 +4,16 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 240,
+  "next_release": 241,
   "live": {
-    "release": 239,
-    "title": "The Sidebar Guard",
+    "release": 240,
+    "title": "The Ripple Fix",
     "since": "2026-11-12",
     "confirmed_by": null,
     "owner_words": null,
-    "deployed_build": 238,
-    "note": "packaged 12 Nov 2026, awaiting the owner's yes. The owner applied v238 and the sidebar row was still broken, so v239 replaces v238's width-only guard with a grid + inline-style guard and adds ?navdiag=1. v239 contains v237 and v238.",
-    "zip": "shivaa-update-v239.zip"
+    "deployed_build": 239,
+    "note": "packaged 12 Nov 2026, awaiting the owner's yes. The sidebar bug is root-caused: v226's ripple span was positioned absolute only for .btn, so a tap put a 412 px box in flow inside the drawer row and collapsed its label. v240 fixes that rule. Contains v237-v239.",
+    "zip": "shivaa-update-v240.zip"
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -264,6 +264,19 @@
       "files": 371,
       "bytes": 37454324,
       "sha256": "c4d66d64f1e40e0888feea61a120ab1e026fc3193df129fc29ea42ce4535db4a",
+      "status": "superseded",
+      "deployed": null,
+      "awaiting": "applied by the owner 12 Nov, did not fix it — v240 contains it",
+      "layer": null
+    },
+    {
+      "release": 240,
+      "commit": "PENDING",
+      "title": "The Ripple Fix",
+      "zip": "shivaa-update-v240.zip",
+      "files": 372,
+      "bytes": 37457438,
+      "sha256": "33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged, not deployed",

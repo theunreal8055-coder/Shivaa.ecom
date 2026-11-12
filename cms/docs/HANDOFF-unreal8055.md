@@ -2,6 +2,21 @@
 
 ---
 
+**v240 — THE RIPPLE FIX** (2026-11-12). The sidebar bug, found in the code. `v226.js`'s ripple
+transport appends `<span class="rip" style="width:412px;height:412px">` into the element that was
+pressed, and its own header claims those properties come from motion.css — but motion.css scopes
+`position:absolute; border-radius:50%; transform:scale(0); animation:mRipple` to **`.btn .rip` only**.
+So a button ripples correctly and every other host gets a **412 px square sitting in normal flow**. In
+the drawer that host is a row (`display:flex`): the square becomes a flex item, the label column
+(`.dw-tx{flex:1;min-width:0}`) is squeezed to a few pixels, every word breaks one character per line,
+the row grows to ~550 px and the rest of the menu is pushed off screen — the owner's “sidebar expands
+and blank space comes”, on tap, in the sidebar only. `js/v240.js` restores the rule where it cannot
+fight the button ripple (`.rip-live > .rip{position:absolute}`; `.btn .rip` keeps its own transform and
+animation untouched), sweeps any stranded ripple out of the drawer, and reverts v239's grid experiment.
+**372 files**, gate `bash qa/v240-gate.sh`.
+
+---
+
 **v239 — THE SIDEBAR GUARD** (2026-11-12). v238 pinned the drawer rows to `width:100%`; the owner
 applied it and the *Swarna Nidhi* row still printed its label one character per line — so the row was
 never the thing losing its width, the label column inside it is. `js/v239.js` stops fighting the

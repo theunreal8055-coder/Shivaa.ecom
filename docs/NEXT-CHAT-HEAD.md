@@ -1,22 +1,21 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-**Written 12 Nov 2026 (Asia/Calcutta), after v239 was packaged.**
-**Site: v238** (the owner applied it on 12 Nov 2026). **Newest release: v239 “The Sidebar Guard”** —
-packaged, awaiting the owner's yes; it contains v237 and v238. **Next release: v240.**
-Session branch for this work: `arena/95be65a4-shivaa-ecom` (base `a9445dc`, the v236 tip of
-`arena/800194ed-shivaa-ecom`).
+**Written 12 Nov 2026 (Asia/Calcutta), after v240 was packaged.**
+**Site: v239. Newest release: v240 “The Ripple Fix”** — packaged, awaiting the owner's yes; it contains
+v237–v239. **Next release: v241.** Session branch for this work: `arena/95be65a4-shivaa-ecom`
+(base `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`).
 
 **Live package (v236 baseline):** `shivaa-update-v236.zip` · 368 files · 37,445,481 B · sha256
 `b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655` · gate `bash qa/v236-gate.sh`
 → **27 checks, 0 red**.
 
-**v239 package:** `shivaa-update-v239.zip` · 371 files · 37,454,324 B · sha256
-`c4d66d64f1e40e0888feea61a120ab1e026fc3193df129fc29ea42ce4535db4a` — **no css layer** (bundle unchanged, 70 layers / 70 blocks); adds `js/v237.js`,
-`js/v238.js`, `js/v239.js`.
+**v240 package:** `shivaa-update-v240.zip` · 372 files · 37,457,438 B · sha256
+`33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8` — **no css layer** (bundle unchanged, 70 layers / 70 blocks); adds `js/v237.js`,
+`js/v238.js`, `js/v239.js`, `js/v240.js`.
 
-> ⚠ **v237–v239 were packaged without the full gate run.** `node --check` (5 files) and
-> `python3 qa/check-handoff.py` are green; `bash qa/v239-gate.sh` has to be created from the v236 gate
-> with its pins rolled and run to 0 red. Do that first in the next chat.
+> ⚠ **v237–v240 were packaged without the full gate run.** `node --check` (5 files),
+> `qa/browser/t-v240-rip.mjs` (16/16) and `python3 qa/check-handoff.py` are green;
+> `bash qa/v240-gate.sh` has to be created from the v236 gate with its pins rolled and run to 0 red.
 
 ---
 

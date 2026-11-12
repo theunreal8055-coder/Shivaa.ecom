@@ -63,6 +63,8 @@ ADDED = {
     238: ['js/v238.js'],
     # v239 adds the grid guard + the on-screen nav diagnostic.
     239: ['js/v239.js'],
+    # v240 fixes the ripple's missing position rule (the drawer bug).
+    240: ['js/v240.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

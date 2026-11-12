@@ -17,14 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Newest release** | **v239 — “The Sidebar Guard”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237 + v238) |
-| Package | `shivaa-update-v239.zip` · 371 files · 37,454,324 B · `c4d66d64f1e40e0888feea61a120ab1e026fc3193df129fc29ea42ce4535db4a` |
-| **On the site** | **v238** (applied by the owner 12 Nov 2026; it did not fix the sidebar row, so v239 replaces the guard) |
+| **Newest release** | **v240 — “The Ripple Fix”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v239) |
+| Package | `shivaa-update-v240.zip` · 372 files · 37,457,438 B · `33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8` |
+| **On the site** | **v239** (the owner applied v238 and v239 on 12 Nov 2026; neither fixed the sidebar — v240 is the root-cause fix) |
 | Package on the site | `shivaa-update-v236.zip` · 368 files · 37,445,481 B · `b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655` |
-| **Next release** | **v240** |
+| **Next release** | **v241** |
 | Work branch | `arena/95be65a4-shivaa-ecom` (cut from `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Release chain | v232 → v233 → v234 → v235 → v236 → v237 (superseded) → v238 (applied 12 Nov) → **v239 (packaged 12 Nov)** |
+| Release chain | v232 → … → v236 → v237 → v238 → v239 (applied 12 Nov) → **v240 (packaged 12 Nov, the ripple fix)** |
 
 ---
 
@@ -50,7 +50,8 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v236 | `c64a771` | The Counter Book | 368 | 37,445,481 | `b6483f250bc1600b…d129d6655` | **on the site** (owner's `/api/version` reads 236) |
 | v237 | `80a6d42` | The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — never applied, v238 contains it |
 | v238 | (packaged) | The Drawer Guard | 370 | 37,450,998 | `234f7b01326f58aa…de48f556` | applied 12 Nov — did not fix the sidebar, superseded by v239 |
-| v239 | (packaged) | The Sidebar Guard | 371 | 37,454,324 | `c4d66d64f1e40e08…4535db4a` | packaged 12 Nov — awaiting the owner's yes |
+| v239 | (packaged) | The Sidebar Guard | 371 | 37,454,324 | `c4d66d64f1e40e08…4535db4a` | applied 12 Nov — did not fix it, superseded |
+| v240 | (packaged) | The Ripple Fix | 372 | 37,457,438 | `33f2916da9215d37…112371d8` | packaged 12 Nov — **the root-cause fix** |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 
