@@ -61,6 +61,8 @@ ADDED = {
     237: ['js/v237.js'],
     # v238 adds the drawer guard only (no new css layer).
     238: ['js/v238.js'],
+    # v239 adds the grid guard + the on-screen nav diagnostic.
+    239: ['js/v239.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

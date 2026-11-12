@@ -1,33 +1,32 @@
-> ## CURRENT STATE — **v238 PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v239 PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v238 “The Drawer Guard” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v238.zip` — **370 files · 37,450,998 B ·
->   `234f7b01326f58aa8fb4c9002658ef70888c8a91fc99964349fc9f09de48f556`**. **Next release number: v239.**
->   Live is **v236** — the owner's own `https://shivaa.in/api/version` read `rel: 236` on 12 Nov 2026.
->   **v237 was packaged and never applied; v238 contains it, so only v238 needs to go on the server.**
+> - **v239 “The Sidebar Guard” is the newest release** — packaged 12 Nov 2026, **not deployed**.
+>   `shivaa-update-v239.zip` — **371 files · 37,454,324 B ·
+>   `c4d66d64f1e40e0888feea61a120ab1e026fc3193df129fc29ea42ce4535db4a`**. **Next release number: v240.**
+>   The site is on **v238** (the owner applied it on 12 Nov 2026 and confirmed `rel: 238`). **v239 contains
+>   v237 and v238, so v239 is the only zip that needs to go on the server.**
 > - **Before anything else:** `bash qa/where-am-i.sh` — exit 0 FORWARD → work here, exit 3 BEHIND →
 >   move forward first, never build on an old tree. Then `python3 qa/check-handoff.py`.
-> - **What v238 does (the owner's phone screenshot, 12 Nov).** The open side drawer printed the
->   *Swarna Nidhi* label **one character per line** — the row collapsed to ~150 px wide and ~550 px
->   tall, every row under it was pushed off screen, and the menu looked like it had “expanded like
->   crazy”. The row's markup is identical to the rows above it, so the cause is cascade, not HTML:
->   `.dw-tx{flex:1;min-width:0}` lets a label shrink to nothing when a late layer resets a width or an
->   alignment on `.nav-scroll`. `cms/js/v238.js` closes it **inside one file — no CSS layer, no bundle
->   rebuild**: a scoped `@media (max-width:860px)` block pinning the drawer to a column of full-width
->   rows that never break a label mid-word, plus **one measurement per drawer open** that gives any row
->   under 70 % of the drawer's width an inline width (which outranks every layer).
-> - **What v238 also carries from v237.** (a) `/images/black/hero-v186.jpg` (200 KB) was preloaded at
->   `fetchpriority="high"` on **every** route though only `#/black-card` paints it — removed. (b) A
->   product page fetched **all** its gallery photographs at once — first image `fetchpriority="high"`,
->   the rest `loading="lazy" decoding="async"`. (c) `js/v237.js` — the accordion keeps the tapped
->   `summary` in view and closes its siblings, so a click never moves the page under your thumb.
+> - **The open bug (the owner's screenshots, 12 Nov).** In the open side drawer the *Swarna Nidhi* row
+>   printed its label **one character per line** and the menu looked like it “expanded like crazy”.
+>   **v238 forced `width:100%` on the rows and did not fix it** — proof that the row is not what loses
+>   its width, the label column inside it is. **v239 changes the approach:** every drawer row is a
+>   **CSS grid** (`auto minmax(0,1fr) auto`) set as **inline** styles (outranking all 70 layers, now and
+>   later), `<b>` is one line + ellipsis, `<small>` is a two-line word-boundary clamp — “S / w / a / r /
+>   n / a” is not reachable. **`?navdiag=1`** draws an on-screen report (row width/height, computed
+>   `display`, label `flex`/`width`/`white-space`) so one screenshot names the culprit if it recurs.
+> - **What v239 also carries.** v237: the 200 KB black-card photograph that was preloaded at
+>   `fetchpriority="high"` on every route (gone), a product gallery that fetched all its photographs at
+>   once (first eager, rest lazy), and `js/v237.js` (accordion keeps the tapped summary in view, closes
+>   its siblings). v238: `js/v238.js` (the first, width-only drawer guard — kept, harmless).
 > - **Still no CSS layer change**: the bundle is **70 layers / 70 blocks** (910,723 B raw / 181,498 B
->   gzipped). Do not rebuild it for v237 or v238.
+>   gzipped). Do not rebuild it for v237–v239.
 > - **Gate status — be honest about it:** `node --check` clean on `app.js`, `sw.js`, `js/v237.js`,
->   `js/v238.js`; `python3 qa/check-handoff.py` green. **The full `bash qa/v238-gate.sh` was NOT run.**
->   It must be created from `qa/v236-gate.sh` with its pins rolled and run to 0 red **before the owner
->   applies the zip**. That is the one unfinished step of this release.
-> - **v236 detail stays below as history** — it is the release that is actually live.
+>   `js/v238.js`, `js/v239.js`; `python3 qa/check-handoff.py` green. **`bash qa/v239-gate.sh` was NOT
+>   run** — create it from `qa/v236-gate.sh` with the pins rolled and take it to 0 red. There is also no
+>   browser engine in this sandbox (jsdom has no layout), which is why the drawer bug is being fixed by
+>   construction + measurement rather than by reproduction.
+> - **v236 detail stays below as history.**
 
 
 ## v184 BUILT — Amrita ji's private page + the "off making charges" fix (10 Oct 2026): live stays 181

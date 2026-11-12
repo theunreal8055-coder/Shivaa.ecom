@@ -1,22 +1,22 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-**Written 12 Nov 2026 (Asia/Calcutta), after v238 was packaged.**
-**Live: v236 “The Counter Book” — the owner's own `https://shivaa.in/api/version` read `rel: 236` on
-12 Nov 2026. Newest release: v238 “The Drawer Guard” — packaged, awaiting the owner's yes; v237 was
-packaged and never applied, and v238 contains it. Next release: v239. Session branch for this work:
-`arena/95be65a4-shivaa-ecom` (base `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`).**
+**Written 12 Nov 2026 (Asia/Calcutta), after v239 was packaged.**
+**Site: v238** (the owner applied it on 12 Nov 2026). **Newest release: v239 “The Sidebar Guard”** —
+packaged, awaiting the owner's yes; it contains v237 and v238. **Next release: v240.**
+Session branch for this work: `arena/95be65a4-shivaa-ecom` (base `a9445dc`, the v236 tip of
+`arena/800194ed-shivaa-ecom`).
 
-**Live package (v236):** `shivaa-update-v236.zip` · 368 files · 37,445,481 B · sha256
+**Live package (v236 baseline):** `shivaa-update-v236.zip` · 368 files · 37,445,481 B · sha256
 `b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655` · gate `bash qa/v236-gate.sh`
 → **27 checks, 0 red**.
 
-**v238 package:** `shivaa-update-v238.zip` · 370 files · 37,450,998 B · sha256
-`234f7b01326f58aa8fb4c9002658ef70888c8a91fc99964349fc9f09de48f556` — **no css layer** (bundle unchanged, 70 layers / 70 blocks), adds `js/v237.js` + `js/v238.js`.
+**v239 package:** `shivaa-update-v239.zip` · 371 files · 37,454,324 B · sha256
+`c4d66d64f1e40e0888feea61a120ab1e026fc3193df129fc29ea42ce4535db4a` — **no css layer** (bundle unchanged, 70 layers / 70 blocks); adds `js/v237.js`,
+`js/v238.js`, `js/v239.js`.
 
-> ⚠ **v237 and v238 were packaged without the full gate run.** `node --check` (app.js, sw.js,
-> js/v237.js, js/v238.js) and `python3 qa/check-handoff.py` are green; `bash qa/v238-gate.sh` still
-> has to be created from the v236 gate with its pins rolled, and run to 0 red **before the owner
-> applies the zip**. Do that first in the next chat — it is the one unfinished step.
+> ⚠ **v237–v239 were packaged without the full gate run.** `node --check` (5 files) and
+> `python3 qa/check-handoff.py` are green; `bash qa/v239-gate.sh` has to be created from the v236 gate
+> with its pins rolled and run to 0 red. Do that first in the next chat.
 
 ---
 

@@ -2,6 +2,18 @@
 
 ---
 
+**v239 — THE SIDEBAR GUARD** (2026-11-12). v238 pinned the drawer rows to `width:100%`; the owner
+applied it and the *Swarna Nidhi* row still printed its label one character per line — so the row was
+never the thing losing its width, the label column inside it is. `js/v239.js` stops fighting the
+cascade and removes the failure mode: every drawer row becomes a **CSS grid** (`auto minmax(0,1fr) auto`)
+applied as **inline** styles (which outrank all 70 layers, now and later), and the label can no longer
+break per character — `<b>` is one line with an ellipsis, `<small>` wraps at word boundaries to two
+lines and then ellipsizes. `?navdiag=1` draws an on-screen report of every row's measured width/height
+plus the computed `display` of the row and `flex`/`width`/`white-space` of the label, so one screenshot
+names the culprit if it is ever wrong again. **371 files**, gate `bash qa/v239-gate.sh`.
+
+---
+
 **v238 — THE DRAWER GUARD** (2026-11-12). The owner sent a phone screenshot of the open side
 drawer: the *Swarna Nidhi* row drew its label **one character per line** (S / w / a / r / n / a …),
 so the row became ~150 px wide and ~550 px tall, every row below it was pushed off the screen, and
@@ -341,7 +353,7 @@ flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
 **COUNTDOWN: release 235 pending owner review — nothing goes live without the
 owner's explicit yes.** The owner's own `/api/version` read **rel 236** on 12 Nov 2026, so v235 and v236 are on the site; the last build the ledger recorded as applied is **v234**.
-Packaged and not live: **v238 — deploy v238**, which contains v237 and adds the drawer guard: a menu row that printed its label one character per line and grew the drawer, fixed by a scoped mobile block plus a measured self-heal per open. Forward-only rule in force — next release number is **v239**.
+Packaged and not live: **v239 — deploy v239**, which contains v237 and v238 and adds the sidebar guard: the drawer row that printed its label one character per line is now a grid with inline styles, with labels that can never break per character. `?navdiag=1` reports the measurements on screen. Forward-only rule in force — next release number is **v240**.
 Updated 2026-11-12 (v237) on the `arena/95be65a4-shivaa-ecom` session branch, cut from the
 v236 tip `a9445dc` of `arena/800194ed-shivaa-ecom`.
 
