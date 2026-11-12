@@ -29,6 +29,9 @@ const ok = (name, cond, detail = '') => {
 };
 
 const index = read('cms/index.html');
+/* the release number moves every time; these checks are about the SHAPE of the
+   stamp (one release everywhere, v243 still loaded), so it is read, not typed */
+const REL = +(index.match(/window\.__SHIVAA_REL=(\d+);/) || [])[1];
 const css = read('cms/css/shivaa.css');
 const v238 = read('cms/js/v238.js');
 const v239 = read('cms/js/v239.js');
@@ -42,11 +45,12 @@ const app = read('cms/js/app.js');
 ok('js/v243.js ships the desktop/drawer split',
   /function barMode\(\)/.test(v243) && /min-width: 821px/.test(v243));
 ok('index.html loads v243 after v242',
-  index.indexOf('/js/v243.js?v=243') > index.indexOf('/js/v242.js?v=243'));
+  index.indexOf('/js/v243.js?v=' + REL) > index.indexOf('/js/v242.js?v=' + REL));
 ok('index.html loads v243 exactly once', (index.match(/v243\.js/g) || []).length === 1);
-ok('the release stamp is 243 everywhere it is written',
-  /__SHIVAA_REL\s*=\s*243/.test(index) && /const APP_REL = 243;/.test(app) &&
-  /'rel' => 243/.test(api) && /const REL = 243;/.test(sw));
+ok('the release stamp is one release everywhere it is written',
+  REL >= 243 && new RegExp('__SHIVAA_REL\\s*=\\s*' + REL).test(index) &&
+  new RegExp('const APP_REL = ' + REL + ';').test(app) &&
+  new RegExp("'rel' => " + REL).test(api) && new RegExp('const REL = ' + REL + ';').test(sw));
 
 /* ── 2 · the two guards that keep the fix from coming back ───────────────── */
 ok('v239 only touches rows in drawer mode',
@@ -83,7 +87,7 @@ ok('no desktop rule forces the rows to full width',
 ok('the mobile width guard (v238-injected) is scoped to .nav.open',
   /\.nav\.open \.nav-scroll>\*\{[^}]*width:100%!important/.test(v238));
 ok('v243 is in the service-worker shell',
-  /'\/js\/v243\.js\?v=243'/.test(sw) && /shivaa-shell-v243/.test(sw));
+  /'\/js\/v243\.js\?v=\d+'/.test(sw) && new RegExp('shivaa-shell-v' + REL).test(sw));
 
 /* ── 5 · live DOM: desktop bar vs mobile drawer ──────────────────────────── */
 const BASE = process.env.SHIVAA_BASE || 'http://127.0.0.1:8090';

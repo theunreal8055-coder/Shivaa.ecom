@@ -80,6 +80,11 @@ ADDED = {
     # drawer guards (v238/v239/v240) had written their full-width rows onto it
     # inline. v243 removes those on a desktop and leaves the drawer alone.
     243: ['js/v243.js'],
+    # v244 "butter on the PC" — a css layer (auto-detected) plus one js layer:
+    # the layer takes the blur out of every sticky bar and the layer explosion
+    # out of every card, the script parks the decoration during a gesture,
+    # decodes pictures a screen early and remembers the scroll for Back.
+    244: ['js/v244.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

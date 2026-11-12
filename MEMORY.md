@@ -1,38 +1,40 @@
-> ## CURRENT STATE — **v243 “Header bar” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v244 “Butter” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v241 is APPLIED. v242 was packaged but the owner never installed it** — before he did, he reported a new
->   desktop regression: *“PC main header se jo categories thi vo sab ud chuki hain”*. **v243 contains the whole of
->   v242** plus that fix, so **v243 is the only zip to install** (it carries v237–v242).
-> - **v243 “Header bar” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v243.zip` — **684 files · 43,648,349 B ·
->   `00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65`**. **Next release number: v244.**
+> - **v241 is APPLIED. v242 and v243 were packaged and never installed** — the owner moved straight to the
+>   smoothness brief. **v244 contains the whole of both**, so **v244 is the only zip to install** (v237–v243).
+> - **v244 “Butter” is the newest release** — packaged 12 Nov 2026, **not deployed**.
+>   `shivaa-update-v244.zip` — **686 files · 43,657,910 B ·
+>   `5b3bfdb3fa490fc32071bb17339ecfbc30ca634cfd5f9439f56a487c784453d8`**. **Next release number: v245.**
 > - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD. Then `python3 qa/check-handoff.py`,
->   `node qa/browser/t-v243-header.mjs` (36), `t-v242-taps.mjs` (37), `t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
-> - **WHY THE HEADER CATEGORIES VANISHED — carry this forward. Nothing was deleted.**
->   `#mainNav` is **one element with two jobs**: the side drawer at ≤820 px (a column of full-width rows) and,
->   above 820 px, the horizontal **category bar inside the header** (52 px, nine equal flex links). v238/v239 fixed
->   the drawer's collapsed rows and **v239 wrote the fix INLINE with no viewport check** —
->   `width:100%!important` on all nine rows — while v240's cleanup deliberately kept that width. Inline beats all
->   71 css layers, so on a laptop nine links each demanded the entire bar and the categories disappeared from
->   view. On a phone the same styles are exactly right, which is why only the desktop showed it.
->   · **v239** now early-returns outside drawer mode (`drawerMode()`, `matchMedia('(max-width: 820px)')`);
->   · **v240** is mode-aware: desktop gets `restoreBar()` (strips the drawer's inline traces), the drawer keeps
->     `undoRows()`, and crossing 820 px (rotate/resize/dock) re-decides via the matchMedia change event;
->   · **`js/v243.js`** (new layer) removes those inline properties from the bar on a desktop — row, label,
->     sub-label, and a column layout on `.nav-scroll` — and re-checks 0.4 s / 1.5 s / 3.5 s after load so a
->     cached older layer cannot put them back. **It never writes a width, never hides, never removes an element.**
-> - **v242's work is inside v243** (taps were *eaten, not lost*: the worker scanned its whole image cache after
->   every picture, and `boot()` repainted the view 1–3 s after paint, closing whatever had just been opened; plus
->   a closed overlay stayed clickable → `?tapdiag=1` names what the browser hit). Also the two silent v241 bugs:
->   ₹0/₹NaN on the 800 ms first screen, and the product page's main photograph replaced by a 560 px thumbnail.
-> - **Gate status — be honest about it:** `node --check` clean (v239, v240, v243, sw, app) · `t-v243-header`
->   **36/36** (18 static + PC bar DOM + phone drawer DOM + tap routing) · `t-v242-taps` **37/37** (its release
->   pins now read the live stamp from `index.html` instead of a typed 242) · `t-v241-perf` **43/43** ·
->   `t-v240-rip` **16/16** · `check-handoff.py` **209 checks, 0 red**.
->   **`qa/v242-gate.sh` / `qa/v243-gate.sh` were never created** — make them from `qa/v236-gate.sh` with the pins rolled.
-> - **No browser engine in this sandbox** (jsdom has no layout) — the bar is verified by inspecting inline/computed
->   styles on a 1280 px boot vs a 390 px boot, never by a screenshot.
-> - **v242 and older detail stays below as history.**
+>   `node qa/browser/t-v244-butter.mjs` (51), `t-v243-header.mjs` (36), `t-v242-taps.mjs` (37),
+>   `t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
+> - **WHY v244 EXISTS — carry this forward.** The owner, after v243: *“buttery smooth, easy to navigate, every
+>   button like butter, fast loading of EVERY page without stutter, the page shouldn't feel stuck.”* The frame
+>   cost was still in four places, all now closed in `css/v244.css` + `js/v244.js`:
+>   1. **The sticky header re-blurred the whole page every scroll frame.** `.header.scrolled` declared
+>      `backdrop-filter:blur(20px) saturate(1.25)` and that is the state it is in the entire time you scroll.
+>      **v241 removed exactly this on phones and deliberately left desktop** (“desktop has the GPU headroom” —
+>      it does not). Every sticky/fixed bar is now an opaque fill at every width, same colours.
+>   2. **Every card held a compositor layer for its life** (`will-change:transform` on `.p-card` and friends;
+>      v241 had fixed touch only, via `html.au-touch`). Now promoted on `:hover`/`:focus-within`, fine pointers.
+>   3. **A long grid built all of its cards** on every render — `.p-grid > *:nth-child(n+7)` is
+>      `content-visibility:auto` with `contain-intrinsic-size:auto 430px` (330px ≤820px, from the 5th).
+>   4. **~180 infinite decorative shimmers repainted forever.** `html.shv-scrolling` (set by js/v244.js for the
+>      gesture) pauses the repaint-heavy list in CSS and resumes them when the thumb stops; `html.shv-blurred`
+>      does the same for a hidden tab.
+>   Plus: pictures decode one screen early (IO, 700px), a product's photograph is warmed on hover intent,
+>   **Back restores the remembered scroll offset** instead of the top, and **`?perfdiag=1`** is a live
+>   FPS / long-task / LCP / CLS readout with a Copy-report button — that is how the next “atak” gets diagnosed
+>   instead of guessed.
+> - **Gate status — be honest about it:** `node --check` clean (v244, sw, app) · `t-v244-butter` **51/51** ·
+>   `t-v243-header` **36/36** · `t-v242-taps` **37/37** · `t-v241-perf` **43/43** · `t-v240-rip` **16/16** ·
+>   `check-handoff.py` **211 checks, 0 red** · jsdom sweep of 12 routes: 0 page errors, 0 images without
+>   `decoding=async`. **`qa/v2NN-gate.sh` for v242/v243/v244 was never created** — make them from
+>   `qa/v236-gate.sh` with the pins rolled.
+> - **No browser engine in this sandbox** (jsdom has no layout and no compositor): the frame work is proven by
+>   reading the shipped rules and by class/DOM assertions, never by a screenshot. `?perfdiag=1` exists precisely
+>   because real FPS can only be measured on the owner's machine.
+> - **v243 and older detail stays below as history.**
 
 
 

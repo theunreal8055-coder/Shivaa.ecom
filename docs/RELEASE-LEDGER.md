@@ -17,14 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Newest release** | **v243 — “Header bar”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v242) |
-| Package | `shivaa-update-v243.zip` · 684 files · 43,648,349 B · `00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65` |
+| **Newest release** | **v244 — “Butter”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v243) |
+| Package | `shivaa-update-v244.zip` · 686 files · 43,657,910 B · `5b3bfdb3fa490fc32071bb17339ecfbc30ca634cfd5f9439f56a487c784453d8` |
 | **On the site** | **v241** — applied by the owner 12 Nov 2026: smooth, but *“clicks are not working now and buttons are unresponsive”*. v242 fixed that but was never installed; v243 restores the desktop header categories he reported gone and contains all of v242. |
 | Package on the site | `shivaa-update-v241.zip` · 682 files · 43,636,784 B · `6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf` |
-| **Next release** | **v244** |
+| **Next release** | **v245** |
 | Work branch | `arena/95be65a4-shivaa-ecom` (cut from `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Release chain | v232 → … → v239 → v240 (applied 12 Nov, ripple fix) → v241 (applied 12 Nov, smooth — broke taps) → **v242 (packaged 12 Nov, never installed) → v243 (packaged 12 Nov, the header-bar fix + all of v242)** |
+| Release chain | v232 → … → v239 → v240 (applied 12 Nov, ripple fix) → v241 (applied 12 Nov, smooth — broke taps) → **v242 (packaged 12 Nov, never installed) → v243 (packaged 12 Nov, never installed) → v244 (packaged 12 Nov, the smoothness fix + all of it)** |
 
 ---
 
@@ -54,7 +54,8 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v240 | (applied 12 Nov) | The Ripple Fix | 372 | 37,457,438 | `33f2916da9215d37…112371d8` | **applied — “Issue fix hogya”** |
 | v241 | (applied 12 Nov) | Smooth | 682 | 43,636,784 | `6987184a07398433…0c7c8cdf` | **applied — smooth, but taps died** (rebuilt `trimMedia`, instant repaint, ₹0 fast paint, soft PDP photo) |
 | v242 | (packaged) | Responsive | 683 | 43,644,946 | `ceaa75c99a516f01…aecfa0c` | packaged 12 Nov, **never installed** — the owner reported the desktop header categories gone; v243 contains all of it |
-| **v243** | **`f9a91e9`** | **Header bar** | **684** | **43,648,349** | **`00aac36db94b231c…b9e13b65`** | **packaged 12 Nov — desktop header category bar restored (v239 wrote drawer widths inline with no viewport check), v239/v240 viewport-gated, `js/v243.js` added** |
+| v243 | `f9a91e9` | Header bar | 684 | 43,648,349 | `00aac36db94b231c…b9e13b65` | packaged 12 Nov, **never installed** — desktop header category bar restored; v244 contains all of it |
+| **v244** | **(packaged)** | **Butter** | **686** | **43,657,910** | **`5b3bfdb3fa490fc3…784453d8`** | **packaged 12 Nov — sticky bars opaque (no per-frame backdrop blur), cards promoted only on hover, `content-visibility` on long grids, decoration parked during a gesture, decode-ahead, Back remembers scroll, `?perfdiag=1`** |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 

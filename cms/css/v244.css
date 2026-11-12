@@ -1,0 +1,222 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SHIVAA v244 — "butter on the PC"
+
+   The owner, after v243: "buttery smooth, easy to navigate, every button
+   like butter, fast loading of EVERY page without stutter, the page
+   shouldn't feel stuck."
+
+   WHAT WAS ACTUALLY STILL COSTING FRAMES (measured by reading the shipped
+   rules, not guessed):
+
+   1 · THE STICKY HEADER WAS RE-BLURRING THE WHOLE PAGE ON EVERY SCROLL
+       FRAME. `.header.scrolled` — the state the header enters after 4 px of
+       scroll, i.e. the state it is in the entire time you scroll — declares
+       `backdrop-filter: blur(20px) saturate(1.25)`. A sticky element with a
+       backdrop blur must re-read and re-blur everything behind it, every
+       frame it moves. v241 removed exactly this on phones and stopped
+       there, on the note "desktop has the GPU headroom". It does not: that
+       is one full-screen GPU pass per frame for a fill that is already
+       86–98 % opaque. Same fill, no blur. Same for `.utilbar`, `.mnav`,
+       the PDP buy bar and the KYC bar — every one of them is a bar that
+       sits on top of moving content.
+
+   2 · EVERY CARD WAS A PERMANENT GPU LAYER. `.p-card`, `.cat-card`,
+       `.acct-tile`, `.testi`, `.trust`, `.catlog` … all declared
+       `will-change:transform` for their whole life, so a 60-card grid meant
+       60 composited layers held in memory (and on a laptop with shared
+       memory, that is texture eviction and jank elsewhere). v241 fixed this
+       for touch only (`html.au-touch`), so a desktop kept the layers. Now
+       the card is promoted only while the pointer is actually on it — the
+       one moment the promotion buys anything — and released after.
+
+   3 · OFF-SCREEN CARDS WERE STYLED, LAID OUT AND PAINTED ANYWAY. A shop
+       page of 60 cards rebuilt the style, layout and paint of all 60 on
+       every route change. Cards from the 7th on are now
+       `content-visibility:auto` with a remembered intrinsic height: the
+       browser skips them until they approach the viewport, and their real
+       height is cached the first time they are seen, so the scrollbar does
+       not jump.
+
+   4 · A HUNDRED DECORATIVE SHIMMERS RAN FOREVER. Gold foil sweeps, sheens,
+       marquees and dust loops animate `background-position` — a full
+       repaint of that element every frame, on screen or not. While the
+       shopper is actually scrolling they are the last thing anyone can see,
+       so this layer pauses the repaint-heavy ones for the duration of the
+       gesture (`html.shv-scrolling`, set by js/v244.js) and lets them run
+       the instant the page settles. Nothing is removed and nothing jumps:
+       a paused animation resumes at the same offset.
+
+   Also here: the height hint on the desktop category bar
+   (`.header > .nav{will-change:height,opacity}`) is a layout hint on a
+   sticky bar that only changes twice per gesture — released.
+
+   Everything in this file is CSS-only and reversible; with JS off, rules
+   1 and 2 still apply and 4 simply never triggers.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · no blur in the scroll path, at any width ─────────────────────── */
+.header,
+.header.scrolled,
+.header.compact,
+.utilbar,
+.mnav,
+.pd-stickybar,
+#pdpBuybar,
+#coBar,
+.kyc-bar,
+.mcta-bar,
+.shop-bar,
+.shv-ai-concierge-bar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* the fills were 86–98 % opaque already: keep the exact colour, drop the pass */
+.header,
+.header.scrolled,
+.header.compact,
+.pd-stickybar,
+#pdpBuybar {
+  background: rgba(250, 246, 239, .985) !important;
+}
+.utilbar { background: rgba(29, 5, 9, .985) !important; }
+.mnav { background: rgba(26, 4, 7, .985) !important; }
+
+/* ── 2 · a card is a layer only while it is being touched by the pointer ─ */
+.p-card,
+.cat-card,
+.cat-mini-card,
+.acct-tile,
+.addr-card,
+.order-card,
+.adm-card,
+.catlog,
+.testi,
+.trust,
+.shv-offer-card,
+.pc-body,
+.hm-card,
+.tv-card,
+.cert-card {
+  will-change: auto !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  .p-card:hover,
+  .p-card:focus-within,
+  .cat-card:hover,
+  .cat-card:focus-within,
+  .cat-mini-card:hover,
+  .acct-tile:hover,
+  .order-card:hover,
+  .catlog:hover,
+  .testi:hover,
+  .shv-offer-card:hover {
+    will-change: transform !important;
+  }
+}
+/* a sticky bar whose only motion is a two-step class change does not need a
+   layout hint all session long */
+.header > .nav { will-change: auto !important; }
+
+/* ── 3 · the tail of a long grid is not built until it is nearly seen ──── */
+.p-grid > *:nth-child(n + 7),
+.fine-grid > *:nth-child(n + 7),
+.svc-grid > *:nth-child(n + 7),
+.story-grid > *:nth-child(n + 7) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 430px;
+}
+@media (max-width: 820px) {
+  .p-grid > *:nth-child(n + 5),
+  .fine-grid > *:nth-child(n + 5),
+  .svc-grid > *:nth-child(n + 5),
+  .story-grid > *:nth-child(n + 5) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 330px;
+  }
+}
+
+/* ── 4 · while the thumb is moving, the decoration stands still ────────── */
+html.shv-scrolling .ticker-wrap,
+html.shv-scrolling .rev-track,
+html.shv-scrolling .bd-marq-in,
+html.shv-scrolling .rs-ticker-track,
+html.shv-scrolling .band-track,
+html.shv-scrolling .rate-strip::before,
+html.shv-scrolling .rate-strip::after,
+html.shv-scrolling em.shimmer,
+html.shv-scrolling .shimmer-text,
+html.shv-scrolling .foil-txt,
+html.shv-scrolling .hero h1 em,
+html.shv-scrolling .fh-line em,
+html.shv-scrolling .f-motto em,
+html.shv-scrolling .ph-left h2 em,
+html.shv-scrolling .mtl-prime h3 em,
+html.shv-scrolling .bbr-shine,
+html.shv-scrolling .bbr-amt,
+html.shv-scrolling .svr-gold,
+html.shv-scrolling .mp-glow,
+html.shv-scrolling .fin-bar::after,
+html.shv-scrolling .shv-offer-shine,
+html.shv-scrolling .hs-main,
+html.shv-scrolling .hs-a,
+html.shv-scrolling .hs-b,
+html.shv-scrolling .hs-badge,
+html.shv-scrolling .hero.ken-on .hero-img,
+html.shv-scrolling .ken-on .c-slide.on img,
+html.shv-scrolling .aurora::before,
+html.shv-scrolling .banner::after,
+html.shv-scrolling .c-slide::after,
+html.shv-scrolling .dust i,
+html.shv-scrolling .mp-dust i,
+html.shv-scrolling .bc-noise,
+html.shv-scrolling .bc-orbit,
+html.shv-scrolling .wa-fab::before,
+html.shv-scrolling .ob-dot,
+html.shv-scrolling .live-dot,
+html.shv-scrolling .hero-kicker::after,
+html.shv-scrolling .rscell.rs-rtgs b,
+html.shv-scrolling .v107-tabglow,
+html.shv-scrolling .shv-hud-chip::before,
+html.shv-scrolling .hero::after,
+html.shv-scrolling .page-hero.ken-on::before {
+  animation-play-state: paused !important;
+}
+
+/* ── 4b · a hidden tab does not need any of it either ─────────────────── */
+html.shv-blurred .ticker-wrap,
+html.shv-blurred .rev-track,
+html.shv-blurred .rate-strip::before,
+html.shv-blurred .rate-strip::after,
+html.shv-blurred .aurora::before,
+html.shv-blurred .hero.ken-on .hero-img,
+html.shv-blurred .dust i,
+html.shv-blurred .bc-noise,
+html.shv-blurred .wa-fab::before {
+  animation-play-state: paused !important;
+}
+
+/* ── 5 · the small things that make a press feel like a press ─────────── */
+@media (hover: hover) and (pointer: fine) {
+  a, button, [role="button"], summary, label, .btn, .p-card, .cat-card {
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* an instant, compositor-only answer on the way down — the 350 ms
+     box-shadow bloom still follows, this just removes the dead first frame */
+  .btn:active,
+  .pc-quick:active,
+  .icon-btn:active,
+  .chip:active,
+  .tab:active,
+  .mnav a:active,
+  .nav-scroll > a:active {
+    transform: translateY(1px) scale(.985);
+  }
+}
+
+/* ── 6 · a page change never inherits a horizontal scroller ───────────── */
+@media (max-width: 820px) {
+  html, body { overflow-x: hidden; }
+  .sheet-body, .fsheet-body, .cart-body, .drawer-body { overscroll-behavior: contain; }
+}
+
+/* ── 7 · the diagnostic lives in js/v244.js; nothing here is required ──── */

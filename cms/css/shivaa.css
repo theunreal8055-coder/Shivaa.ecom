@@ -20521,3 +20521,160 @@ a, button, [role="button"], summary, label,
 .btn, .pc-card, .p-card, .cat-mini-card, .mnav a, .dw-row, .chip, .tagx, input, select, textarea {
   touch-action: manipulation;
 }
+
+/* v244.css */
+.header,
+.header.scrolled,
+.header.compact,
+.utilbar,
+.mnav,
+.pd-stickybar,
+#pdpBuybar,
+#coBar,
+.kyc-bar,
+.mcta-bar,
+.shop-bar,
+.shv-ai-concierge-bar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.header,
+.header.scrolled,
+.header.compact,
+.pd-stickybar,
+#pdpBuybar {
+  background: rgba(250, 246, 239, .985) !important;
+}
+.utilbar { background: rgba(29, 5, 9, .985) !important; }
+.mnav { background: rgba(26, 4, 7, .985) !important; }
+
+.p-card,
+.cat-card,
+.cat-mini-card,
+.acct-tile,
+.addr-card,
+.order-card,
+.adm-card,
+.catlog,
+.testi,
+.trust,
+.shv-offer-card,
+.pc-body,
+.hm-card,
+.tv-card,
+.cert-card {
+  will-change: auto !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  .p-card:hover,
+  .p-card:focus-within,
+  .cat-card:hover,
+  .cat-card:focus-within,
+  .cat-mini-card:hover,
+  .acct-tile:hover,
+  .order-card:hover,
+  .catlog:hover,
+  .testi:hover,
+  .shv-offer-card:hover {
+    will-change: transform !important;
+  }
+}
+
+.header > .nav { will-change: auto !important; }
+
+.p-grid > *:nth-child(n + 7),
+.fine-grid > *:nth-child(n + 7),
+.svc-grid > *:nth-child(n + 7),
+.story-grid > *:nth-child(n + 7) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 430px;
+}
+@media (max-width: 820px) {
+  .p-grid > *:nth-child(n + 5),
+  .fine-grid > *:nth-child(n + 5),
+  .svc-grid > *:nth-child(n + 5),
+  .story-grid > *:nth-child(n + 5) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 330px;
+  }
+}
+
+html.shv-scrolling .ticker-wrap,
+html.shv-scrolling .rev-track,
+html.shv-scrolling .bd-marq-in,
+html.shv-scrolling .rs-ticker-track,
+html.shv-scrolling .band-track,
+html.shv-scrolling .rate-strip::before,
+html.shv-scrolling .rate-strip::after,
+html.shv-scrolling em.shimmer,
+html.shv-scrolling .shimmer-text,
+html.shv-scrolling .foil-txt,
+html.shv-scrolling .hero h1 em,
+html.shv-scrolling .fh-line em,
+html.shv-scrolling .f-motto em,
+html.shv-scrolling .ph-left h2 em,
+html.shv-scrolling .mtl-prime h3 em,
+html.shv-scrolling .bbr-shine,
+html.shv-scrolling .bbr-amt,
+html.shv-scrolling .svr-gold,
+html.shv-scrolling .mp-glow,
+html.shv-scrolling .fin-bar::after,
+html.shv-scrolling .shv-offer-shine,
+html.shv-scrolling .hs-main,
+html.shv-scrolling .hs-a,
+html.shv-scrolling .hs-b,
+html.shv-scrolling .hs-badge,
+html.shv-scrolling .hero.ken-on .hero-img,
+html.shv-scrolling .ken-on .c-slide.on img,
+html.shv-scrolling .aurora::before,
+html.shv-scrolling .banner::after,
+html.shv-scrolling .c-slide::after,
+html.shv-scrolling .dust i,
+html.shv-scrolling .mp-dust i,
+html.shv-scrolling .bc-noise,
+html.shv-scrolling .bc-orbit,
+html.shv-scrolling .wa-fab::before,
+html.shv-scrolling .ob-dot,
+html.shv-scrolling .live-dot,
+html.shv-scrolling .hero-kicker::after,
+html.shv-scrolling .rscell.rs-rtgs b,
+html.shv-scrolling .v107-tabglow,
+html.shv-scrolling .shv-hud-chip::before,
+html.shv-scrolling .hero::after,
+html.shv-scrolling .page-hero.ken-on::before {
+  animation-play-state: paused !important;
+}
+
+html.shv-blurred .ticker-wrap,
+html.shv-blurred .rev-track,
+html.shv-blurred .rate-strip::before,
+html.shv-blurred .rate-strip::after,
+html.shv-blurred .aurora::before,
+html.shv-blurred .hero.ken-on .hero-img,
+html.shv-blurred .dust i,
+html.shv-blurred .bc-noise,
+html.shv-blurred .wa-fab::before {
+  animation-play-state: paused !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a, button, [role="button"], summary, label, .btn, .p-card, .cat-card {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active,
+  .pc-quick:active,
+  .icon-btn:active,
+  .chip:active,
+  .tab:active,
+  .mnav a:active,
+  .nav-scroll > a:active {
+    transform: translateY(1px) scale(.985);
+  }
+}
+
+@media (max-width: 820px) {
+  html, body { overflow-x: hidden; }
+  .sheet-body, .fsheet-body, .cart-body, .drawer-body { overscroll-behavior: contain; }
+}

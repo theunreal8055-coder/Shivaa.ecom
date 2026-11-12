@@ -4,17 +4,17 @@
  "updated": "2026-11-12",
  "release_branch": "arena/e8a470c6-shivaa-ecom",
  "twin_branch": "arena/09f3c79f-shivaa-ecom",
- "next_release": 244,
+ "next_release": 245,
  "live": {
-  "release": 243,
-  "title": "Header bar",
+  "release": 244,
+  "title": "Butter",
   "since": "2026-11-12",
   "confirmed_by": null,
   "owner_words": null,
   "deployed_build": 241,
-  "note": "Packaged 12 Nov 2026 for the owner's upload. The owner, on a PC: 'PC main header se jo categories thi vo sab ud chuki hain'. Nothing was deleted. #mainNav is one element with two jobs: the side drawer at <=820 px and the horizontal category bar under the logo above it. The drawer repairs (v238/v239/v240) wrote their full-width row styles INLINE, and v239 wrote them with no viewport check, so on a desktop nine links each demanded the entire 52 px bar and the categories vanished; inline outranks every css layer. v243 removes the drawer's inline traces on a desktop, keeps them on a phone, re-checks on resize and after the late layers, and v239/v240 are now viewport-gated. Contains v237-v242 as well, so one upload closes the taps, the ₹0 first paint, the soft product photograph and this header regression together.",
-  "zip": "shivaa-update-v243.zip",
-  "sha256": "00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65"
+  "note": "Packaged 12 Nov 2026 for the owner's upload. The owner: 'buttery smooth, easy to navigate, every button like butter, fast loading of EVERY page without stutter, the page shouldn't feel stuck'. The frame cost was still in four places and all four are now gone. (1) The sticky header re-blurred the entire page behind it on every scroll frame — .header.scrolled declared backdrop-filter:blur(20px) saturate(1.25), and v241 had removed exactly that on phones while deliberately leaving desktop because it 'had GPU headroom'; it does not. Every sticky/fixed bar is now an opaque fill at every width, same colours. (2) Every card held a compositor layer for its whole life (will-change:transform on .p-card and friends, desktop only after v241's au-touch fix) — now promoted on hover only. (3) A long grid styled, laid out and painted all of its cards on every render — cards from the seventh on are content-visibility:auto with a remembered intrinsic height. (4) ~180 infinite decorative shimmers repainted forever; the repaint-heavy ones park for the duration of a scroll gesture and resume when the thumb stops. Plus: pictures decode one screen early, a product photograph is warmed on hover intent, Back returns to the remembered offset instead of the top, a hidden tab parks too, and ?perfdiag=1 is a one-tap FPS/long-task/LCP/CLS report the owner can paste back. Contains v237-v243.",
+  "zip": "shivaa-update-v244.zip",
+  "sha256": "5b3bfdb3fa490fc32071bb17339ecfbc30ca634cfd5f9439f56a487c784453d8"
  },
  "rules": {
   "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -325,6 +325,19 @@
    "files": 684,
    "bytes": 43648349,
    "sha256": "00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65",
+   "status": "superseded",
+   "deployed": null,
+   "awaiting": "packaged 12 Nov, never installed — the owner moved straight to the smoothness brief. v244 contains it.",
+   "layer": null
+  },
+  {
+   "release": 244,
+   "commit": null,
+   "title": "Butter",
+   "zip": "shivaa-update-v244.zip",
+   "files": 686,
+   "bytes": 43657910,
+   "sha256": "5b3bfdb3fa490fc32071bb17339ecfbc30ca634cfd5f9439f56a487c784453d8",
    "status": "live",
    "deployed": null,
    "awaiting": "the owner's explicit yes — packaged, not deployed",
