@@ -288,7 +288,7 @@
     },
     {
       "release": 241,
-      "commit": null,
+      "commit": "5bc9cc1",
       "title": "Smooth",
       "zip": "shivaa-update-v241.zip",
       "files": 682,
