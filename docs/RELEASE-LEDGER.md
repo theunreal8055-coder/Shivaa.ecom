@@ -54,7 +54,7 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v240 | (applied 12 Nov) | The Ripple Fix | 372 | 37,457,438 | `33f2916da9215d37…112371d8` | **applied — “Issue fix hogya”** |
 | v241 | (applied 12 Nov) | Smooth | 682 | 43,636,784 | `6987184a07398433…0c7c8cdf` | **applied — smooth, but taps died** (rebuilt `trimMedia`, instant repaint, ₹0 fast paint, soft PDP photo) |
 | v242 | (packaged) | Responsive | 683 | 43,644,946 | `ceaa75c99a516f01…aecfa0c` | packaged 12 Nov, **never installed** — the owner reported the desktop header categories gone; v243 contains all of it |
-| **v243** | **(packaged)** | **Header bar** | **684** | **43,648,349** | **`00aac36db94b231c…b9e13b65`** | **packaged 12 Nov — desktop header category bar restored (v239 wrote drawer widths inline with no viewport check), v239/v240 viewport-gated, `js/v243.js` added** |
+| **v243** | **`f9a91e9`** | **Header bar** | **684** | **43,648,349** | **`00aac36db94b231c…b9e13b65`** | **packaged 12 Nov — desktop header category bar restored (v239 wrote drawer widths inline with no viewport check), v239/v240 viewport-gated, `js/v243.js` added** |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 
