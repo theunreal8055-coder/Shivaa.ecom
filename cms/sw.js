@@ -59,17 +59,19 @@ styles are in /css/v184-amrita.css (precached); the visual polish is in
 by the polish. MEDIA stays at v168.
 */
 'use strict';
+/* v242 · "responsive" — shell re-stamped for js/v242.js (tap rescue, ?tapdiag=1)
+   and for the cheap media trim above. No route, no price, no money path. */
 /* v241 · "smooth" — shell re-stamped for js/v241.js (card pictures from
    /images/thumbs, the mobile-blur layer inside shivaa.css, ?perf=1). The media
    cache keeps more entries because thumbnails are small: same megabytes, far
    more of the shop stays warm on a cheap phone. No route, no price, no money
    path changed. */
-const SHELL = 'shivaa-shell-v241';
+const SHELL = 'shivaa-shell-v242';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 241;
+const REL = 242;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -92,14 +94,14 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = [
-  '/css/shivaa.css?v=241', '/',
+  '/css/shivaa.css?v=242', '/',
   '/index.html',
-  '/js/otp-autofill.js?v=241', '/js/app.js?v=241', '/js/hallmark.js?v=241',
-  '/js/trust.js?v=241', '/js/auth.js?v=241', '/js/v219.js?v=241', '/js/motion.js?v=241',
-  '/js/aurum.js?v=241', '/js/v107.js?v=241', '/js/boost.js?v=241',
-  '/js/v116.js?v=241', '/js/v117.js?v=241', '/js/v118.js?v=241', '/js/v119.js?v=241', '/js/v120.js?v=241', '/js/v122.js?v=241', '/js/v125.js?v=241', '/js/v127.js?v=241', '/js/v139.js?v=241', '/js/v140.js?v=241', '/js/v166.js?v=241', '/js/v167.js?v=241',
-  '/js/v178.js?v=241', '/js/v194.js?v=241', '/js/v225.js?v=241', '/js/v226.js?v=241', '/js/v227.js?v=241', '/js/v237.js?v=241', '/js/v238.js?v=241', '/js/v239.js?v=241', '/js/v240.js?v=241', '/js/v241.js?v=241', '/js/v237.js?v=241', '/fonts/jost.woff2?v=241', '/fonts/cormorant-garamond.woff2?v=241', '/fonts/marcellus-400.woff2?v=241',
-  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=241',
+  '/js/otp-autofill.js?v=242', '/js/app.js?v=242', '/js/hallmark.js?v=242',
+  '/js/trust.js?v=242', '/js/auth.js?v=242', '/js/v219.js?v=242', '/js/motion.js?v=242',
+  '/js/aurum.js?v=242', '/js/v107.js?v=242', '/js/boost.js?v=242',
+  '/js/v116.js?v=242', '/js/v117.js?v=242', '/js/v118.js?v=242', '/js/v119.js?v=242', '/js/v120.js?v=242', '/js/v122.js?v=242', '/js/v125.js?v=242', '/js/v127.js?v=242', '/js/v139.js?v=242', '/js/v140.js?v=242', '/js/v166.js?v=242', '/js/v167.js?v=242',
+  '/js/v178.js?v=242', '/js/v194.js?v=242', '/js/v225.js?v=242', '/js/v226.js?v=242', '/js/v227.js?v=242', '/js/v237.js?v=242', '/js/v238.js?v=242', '/js/v239.js?v=242', '/js/v240.js?v=242', '/js/v241.js?v=242', '/js/v242.js?v=242', '/fonts/jost.woff2?v=242', '/fonts/cormorant-garamond.woff2?v=242', '/fonts/marcellus-400.woff2?v=242',
+  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=242',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
@@ -133,6 +135,9 @@ self.addEventListener('install', (e) => {
   ))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
+  /* v242 — one age sweep per activation, in the background, instead of 160 cache
+     reads after every picture (see trimMedia). */
+  e.waitUntil(trimMedia().catch(() => {}));
   e.waitUntil(caches.keys().then((ks) => Promise.all(
     ks.filter((k) => ownedCache(k) && k !== SHELL && k !== MEDIA).map((k) => caches.delete(k))
   )).then(() => self.clients.claim()).then(() => {
@@ -151,19 +156,35 @@ self.addEventListener('activate', (e) => {
    phone that had already seen it — the cache was trimmed for COUNT, never for
    AGE. Prefer the local insertion timestamp, falling back to the HTTP Date
    only for older entries; revalidated HTTP bodies may retain an old Date. */
+/* v242 — trimMedia() used to run BOTH passes on every single image write:
+   `c.match()` for every cached entry, i.e. up to 160 CacheStorage reads after
+   each of ~100 pictures on the home page. On a phone that is thousands of disk
+   reads during the first scroll while the page is trying to feel smooth — and
+   it is a big part of why v241 scrolled nicely and then ignored taps. Now:
+     · the COUNT trim stays per write, but it is pure deletions of the oldest
+       keys, no reads;
+     · the AGE sweep (the expensive one) runs at most once an hour, and once on
+       activation. Nothing is lost: an entry past MEDIA_TTL is also caught by
+       freshMedia() at read time, which already deletes and re-fetches it. */
+const TRIM_AGE_EVERY = 1000 * 60 * 60;
+let _lastAgeSweep = 0;
 async function trimMedia() {
-  const c = await caches.open(MEDIA);
-  const keys = await c.keys();
-  for (let i = 0; i < Math.max(0, keys.length - MEDIA_MAX); i++) await c.delete(keys[i]);
-  const cutoff = Date.now() - MEDIA_TTL;
-  for (const k of await c.keys()) {
-    try {
-      const res = await c.match(k);
-      const stamp = res && (res.headers.get('x-shivaa-cached-at') || res.headers.get('date'));
-      const t = stamp ? Date.parse(stamp) : NaN;
-      if (isFinite(t) && t < cutoff) await c.delete(k);
-    } catch (_) { /* a cache read problem must never break a page */ }
-  }
+  try {
+    const c = await caches.open(MEDIA);
+    const keys = await c.keys();
+    for (let i = 0; i < Math.max(0, keys.length - MEDIA_MAX); i++) await c.delete(keys[i]);
+    if (Date.now() - _lastAgeSweep < TRIM_AGE_EVERY) return;
+    _lastAgeSweep = Date.now();
+    const cutoff = Date.now() - MEDIA_TTL;
+    for (const k of keys) {
+      try {
+        const res = await c.match(k);
+        const stamp = res && (res.headers.get('x-shivaa-cached-at') || res.headers.get('date'));
+        const t = stamp ? Date.parse(stamp) : NaN;
+        if (isFinite(t) && t < cutoff) await c.delete(k);
+      } catch (_) { /* a cache read problem must never break a page */ }
+    }
+  } catch (_) {}
 }
 function isImage(u) {
   return /\.(?:png|jpe?g|webp|gif|svg|avif|ico)(?:\?|$)/i.test(u.pathname);

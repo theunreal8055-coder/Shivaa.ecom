@@ -48,11 +48,22 @@
      180 px card at 2× asks for 360 px and gets the 560 sibling (≈28 KB
      instead of ≈220 KB). If the element has no layout yet the pass is skipped
      and retried — an upgrade is never applied twice. */
+  /* v242 — WHERE a small picture is allowed to replace a big one.
+     v241 upgraded every image under those four folders by measured width, which
+     also caught the product page's main gallery photo and the category hero art:
+     a full-width 380 px photograph was replaced by the 560 px sibling, so it
+     rendered soft on a 3x phone. The win is in the GRIDS — a card is 180 px wide
+     — so the upgrade is now scoped to the grids and nothing else. Everything
+     outside this list keeps the original file the shop has always served. */
+  var GRID_IMG = '.pc-imgwrap img, .cat-mini-card img, .mt-img img, .dw-catlist img, .rev-photo, .ugc-ph img, .offer-card img';
+
   function upgrade(img) {
     if (!img || img.dataset.v241) return false;
     var src = img.getAttribute('src') || '';
     if (!THUMB_RE.test(src.split('?')[0])) return false;
     if (img.hasAttribute('srcset') || img.dataset.full) { img.dataset.v241 = '1'; return false; }
+    /* v242 — only inside a grid/card; a gallery or hero photograph is left alone */
+    if (!img.matches(GRID_IMG) && !img.closest(GRID_IMG)) { img.dataset.v241 = '1'; return false; }
     var w1 = thumb(src, 320), w2 = thumb(src, 560);
     if (!w1 || !w2) return false;
     var box = img.getBoundingClientRect();

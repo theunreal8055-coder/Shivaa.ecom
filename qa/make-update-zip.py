@@ -71,6 +71,10 @@ ADDED = {
     # original, which is the lag this release removes. A trailing `/**` expands
     # from disk so the list cannot drift from what was actually built.
     241: ['js/v241.js', 'images/thumbs/**'],
+    # v242 "responsive" fixes what v241 broke (taps) and what it left soft (the
+    # product page photograph). One new js layer; the thumbnails ride forward
+    # from the v241 list, so they are NOT re-declared here.
+    242: ['js/v242.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

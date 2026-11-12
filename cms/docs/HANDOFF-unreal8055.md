@@ -2,6 +2,34 @@
 
 ---
 
+**v242 — RESPONSIVE** (2026-11-12). After v241 the owner: *“website is smooth but clicks are not working
+now and buttons are unresponsive.”* Taps were **eaten, not lost** — a DOM test still fired every control,
+so the cause had to be something v241 changed at runtime:
+
+1 · **The worker scanned its whole image cache after every picture.** v241 raised `MEDIA_MAX` 60 → 160
+because thumbnails are small, but `trimMedia()` ran `c.match()` for every cached entry after every write:
+~160 CacheStorage reads × ~100 pictures on the home page, on the worker's single thread, during the first
+scroll. Now the count trim only deletes the oldest keys and the age sweep runs at most once an hour
+(plus once on activation).
+2 · **A full repaint one to three seconds after paint.** v241 painted from the device catalogue at 800 ms
+and then re-entered `boot()` when the API answered; `route()` closes sheets, empties the bag and rewrites
+`#view` — so a tap in that window was dropped and a tap that had just opened something had it closed
+under the finger. `app.js` now queues a **calm repaint**: no touch for 4 s, no sheet open, tab visible,
+retried up to twelve times. The data still arrives, never under a hand.
+3 · **A leftover full-screen layer.** A closed overlay stayed clickable, which makes a site that scrolls
+perfectly feel dead. `js/v242.js` makes closed overlays `pointer-events:none`, neutralises any
+screen-covering layer that carries no control of its own, and **`?tapdiag=1`** prints what the browser
+actually hit under the last taps (element, size, z-index, pointer-events, sheet/scroll-lock state).
+Plus two v241 bugs the owner never mentioned: the 800 ms paint had **no gold rate** (rates are never
+cached — deliberately), so the first screen could show **₹0** (reverted to the honest 6 s ceiling), and
+the **product page's main photograph** had been swapped for a 560 px thumbnail (the upgrade is now scoped
+to grids/cards). Also: the hover photograph is no longer rendered on touch (it can never be hovered but
+was still downloaded), boot tickers can no longer stack, the duplicated `v237` precache entry is gone.
+**683 files**, gate `bash qa/v242-gate.sh` (create it from the v236 gate). Verified by
+`qa/browser/t-v242-taps.mjs` (**36/36**), `t-v241-perf` (43/43), `t-v240-rip` (16/16), `check-handoff.py`.
+
+---
+
 **v241 — SMOOTH** (2026-11-12). The owner, after v240 fixed the drawer: *“app smooth feel nahi hota,
 shuru main home page par lag karta hai — zomato/uber jaisa smooth D2C feel chahiye.”* This release is
 bytes, not adjectives.

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 241;
+const APP_REL = 242;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -190,6 +190,12 @@ function thumbUrl(src, w) {
      a regenerated thumbnail can never be pinned by an old device. */
   return '/images/thumbs/' + u.slice(8).replace(/\.(?:jpe?g|png)$/i, '') + '-' + w + '.webp?v=' + APP_REL;
 }
+/* v242 — `.pc-img-b` is the hover photograph: opacity 0, absolutely placed.
+   A phone can never hover, so it drew nothing — but the browser still fetched
+   it, because opacity does not stop a request. js/v108.js (the tap-to-flip
+   button that would have used it) is not loaded by index.html at all, so on a
+   touch device the second picture is dead weight: 26 cards x ~25 KB. */
+const FINE_POINTER = (() => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return true; } })();
 function thumbAttrs(src, sizes) {
   const full = safeUrl(src);
   if (full === '#') return 'src="/images/logo.png" loading="lazy" decoding="async"';
@@ -3292,7 +3298,7 @@ function productCard(p, opts = {}) {
     <div class="pc-imgwrap">
       <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
         <img class="pc-img-a" ${thumbAttrs(p.images && p.images[0], '(max-width:600px) 46vw, (max-width:1100px) 30vw, 260px')} alt="${esc(p.name)}">
-        ${p.images && p.images[1] ? `<img class="pc-img-b" ${thumbAttrs(p.images[1], '(max-width:600px) 46vw, (max-width:1100px) 30vw, 260px')} alt="" aria-hidden="true">` : ''}
+        ${p.images && p.images[1] && FINE_POINTER ? `<img class="pc-img-b" ${thumbAttrs(p.images[1], '(max-width:600px) 46vw, (max-width:1100px) 30vw, 260px')} alt="" aria-hidden="true">` : ''}
         ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
         ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
         <div class="glare"></div>
@@ -5794,7 +5800,7 @@ pages.product = async (view, q, id) => {
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
             <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece — fit, finish, how it feels…" required></textarea></div>
             <label class="rv-upload">📷 Add up to 3 photos (optional)<input type="file" id="revPhotos" accept="image/*" multiple capture="environment"></label>
-            <button class="btn btn-outline btn-sm" style="justify-self:start">Submit review</button>
+            <button type="submit" class="btn btn-outline btn-sm" style="justify-self:start">Submit review</button>
           </form>
         </div></details>
       </div>
@@ -12807,6 +12813,30 @@ function catalogCacheRead() {
 function catalogCacheWrite(ps) {
   try { if (ps && ps.length) localStorage.setItem(CATALOG_KEY, JSON.stringify({ at: Date.now(), products: ps })); } catch (e) {}
 }
+/* ─────────── v242 · calm repaint ───────────
+   `boot(true)` re-runs the whole shell: state, then route(), which closes any
+   open sheet and rewrites #view. That is right for a deliberate redraw and
+   wrong for "the API answered late" — it used to happen one to three seconds
+   after first paint, which is when a shopper is tapping. Nothing here changes
+   WHAT is painted; it only waits for a hand to leave the screen. */
+function userTouching() {
+  try {
+    if (Date.now() - (window.__shvLastInput || 0) < 4000) return true;
+    if (document.querySelector('.modal-overlay.open, .fsheet-overlay.open, .nav.open, .search-drawer.open, .cart-sheet.open')) return true;
+    if (document.documentElement.classList.contains('no-scroll')) return true;
+  } catch (e) {}
+  return false;
+}
+let _calmTries = 0, _calmTimer = 0;
+function calmBoot(tries) {
+  _calmTries = tries || 0;
+  clearTimeout(_calmTimer);
+  if (_calmTries > 12) return;                    // ~24 s of patience, then give up quietly
+  _calmTimer = setTimeout(() => {
+    if (document.visibilityState === 'hidden' || userTouching()) return calmBoot(_calmTries + 1);
+    boot(true);
+  }, 1400);
+}
 /* ─────────── boot ─────────── */
 async function wishIds() {
   if (!state.user) return [];
@@ -12843,22 +12873,31 @@ async function boot(isRedraw) {
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
     loadRates(),   // v117 — used to be a second serial await below
   ]);
-  /* v241 — a device that already holds the last-good catalogue does NOT wait
-     for the network any more. The catalogue it is about to paint is the one on
-     the device, so there is nothing to wait for: 800 ms is enough for the
-     batch's fast paths (settings, rates) to join the first paint, and anything
-     slower arrives in the background and re-renders (js/v166.js). Before this,
-     a shopper re-opening the app on a slow 4G watched the splash for up to six
-     seconds over a catalogue the phone already had. */
-  const _capMs = isRedraw ? 15000 : (_realCount() ? 800 : 6000);
+  /* v242 — REVERTED to the honest ceiling. v241 painted from the device
+     catalogue at 800 ms; the catalogue was there, but the GOLD RATE was not
+     (rates are never cached — deliberately, a jeweller must not show an old
+     price as today's), so price() ran with no rate and the first screen could
+     print ₹0 / ₹NaN until the batch landed. A smooth-looking page with wrong
+     prices is worse than a splash screen. The speed the owner can actually feel
+     comes from the pictures and the blur (v241, kept) — not from this number.
+     The cap also protects the slow-network case: six seconds, then paint. */
+  const _capMs = isRedraw ? 15000 : 6000;
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),
   ]);
   if (!_packed) {
-    /* the cap beat the batch — paint degraded now, adopt + re-render when
-       the slow network finally answers (never park on the preloader). */
-    _firstBatch.then(() => { if (document.visibilityState !== 'hidden') boot(true); }).catch(() => {});
+    /* the cap beat the batch — paint now, adopt the data when the slow network
+       finally answers (never park on the preloader).
+       v242 — BUT NEVER UNDER A FINGER. v241 re-rendered the whole view the
+       instant the batch landed (~1–3 s after paint, i.e. exactly when a shopper
+       makes their first tap). route() closes modals and the bag and clears the
+       scroll lock, and replacing #view.innerHTML mid-tap drops the tap on the
+       floor: the site looked smooth and every button felt dead. The repaint now
+       waits for a calm moment — no touch in the last 4 s, no sheet open, tab
+       visible — and retries until it gets one. The data is never lost, only
+       deferred. */
+    _firstBatch.then(() => { calmBoot(0); }).catch(() => {});   // v242 — never repaint under a finger
   }
   const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
   const _oldUserId = String(state.user && state.user.id || '');
@@ -13012,7 +13051,12 @@ async function boot(isRedraw) {
   try { window.Shivaa.exResume(); } catch (e) {}   // v153 — in-page buy survived a tab reclaim?
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
   scheduleRatesPoll();
-  setInterval(() => {
+  /* v242 — boot() can legitimately run twice (cached paint, then the calm
+     repaint). These two tickers used to be created again on every run, so the
+     phone quietly accumulated timers all session. One of each, always. */
+  if (window._shvAgeTick) clearInterval(window._shvAgeTick);
+  if (window._shvFinaleTick) clearInterval(window._shvFinaleTick);
+  window._shvAgeTick = setInterval(() => {
     if (document.hidden) return;
     const R = state.rates; if (!R || !R.live) return;
     const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
@@ -13026,7 +13070,7 @@ async function boot(isRedraw) {
   }, 1000);
   // campaign expiry watchdog: even with the tab left open, the finale
   // module switches itself off within 30s of 00:00 IST on 1 Jan 2027.
-  setInterval(syncFinaleChrome, 30000);
+  window._shvFinaleTick = setInterval(syncFinaleChrome, 30000);
 }
 // Wait for the following feature/auth/admin scripts to register their routes.
 // A fast cached API must not outrun loading the HUID module on a cold visit.

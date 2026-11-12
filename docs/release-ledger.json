@@ -4,16 +4,17 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 242,
+  "next_release": 243,
   "live": {
-    "release": 241,
-    "title": "Smooth",
+    "release": 242,
+    "title": "Responsive",
     "since": "2026-11-12",
     "confirmed_by": null,
     "owner_words": null,
-    "deployed_build": 240,
-    "note": "packaged 12 Nov 2026, awaiting the owner's yes. The owner after v240: 'app smooth feel nahi hota, shuru main home page par lag karta hai — zomato/uber jaisa smooth chahiye'. v241 answers in bytes: every card/tile/thumbnail picture is now a 320/560 px WebP sibling (the home page's 2-5 MB of photography becomes ~0.5 MB), the always-visible header and bottom bar stop re-blurring the page on touch widths, the Cashfree SDK leaves the critical path, and a device that already holds the catalogue paints at 800 ms instead of waiting up to 6 s. ?perf=1 prints the phone's own numbers. Contains v237-v240.",
-    "zip": "shivaa-update-v241.zip"
+    "deployed_build": 241,
+    "note": "packaged 12 Nov 2026, awaiting the owner's yes. After v241 the owner reported the site smooth but 'clicks are not working now and buttons are unresponsive'. Root cause: taps were being EATEN, not lost. (1) the service worker scanned its whole image cache after every picture (trimMedia, 160 entries x ~100 images); (2) v241 repainted the whole view 1-3 s after paint, which closed whatever had just been opened; (3) a leftover full-screen layer could swallow taps. All three are fixed, and ?tapdiag=1 names the layer if it ever happens again. Two silent v241 bugs also fixed: the 800 ms device-catalogue paint could show INR 0 prices because gold rates are never cached (reverted to the honest 6 s ceiling), and the product page's main photograph had been swapped for a 560 px thumbnail (the upgrade is now scoped to grids only). Contains v237-v241.",
+    "zip": "shivaa-update-v242.zip",
+    "sha256": "ceaa75c99a516f0157037557aaa82a6c7ee7f84943dc374438bc443a3aecfa0c"
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -36,6 +37,10 @@
     },
     {
       "release": 240,
+      "since": "2026-11-12"
+    },
+    {
+      "release": 241,
       "since": "2026-11-12"
     }
   ],
@@ -283,7 +288,7 @@
       "sha256": "33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8",
       "status": "superseded",
       "deployed": "2026-11-12",
-      "awaiting": "applied by the owner 12 Nov — his words: 'Issue fix hogya'. The drawer bug is closed; v241 builds on it.",
+      "awaiting": "applied by the owner 12 Nov — 'Issue fix hogya'. The drawer bug is closed.",
       "layer": null
     },
     {
@@ -294,10 +299,23 @@
       "files": 682,
       "bytes": 43636784,
       "sha256": "6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf",
+      "status": "superseded",
+      "deployed": "2026-11-12",
+      "awaiting": "applied by the owner 12 Nov — smooth, but taps stopped working: 'clicks are not working now and buttons are unresponsive'. v242 fixes it.",
+      "layer": "v241.css"
+    },
+    {
+      "release": 242,
+      "commit": null,
+      "title": "Responsive",
+      "zip": "shivaa-update-v242.zip",
+      "files": 683,
+      "bytes": 43644946,
+      "sha256": "ceaa75c99a516f0157037557aaa82a6c7ee7f84943dc374438bc443a3aecfa0c",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged, not deployed",
-      "layer": "v241.css"
+      "layer": null
     }
   ],
   "session_branch_2026_11_12": "arena/95be65a4-shivaa-ecom"

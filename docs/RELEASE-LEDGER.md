@@ -17,14 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Newest release** | **v241 — “Smooth”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v240) |
-| Package | `shivaa-update-v241.zip` · 682 files · 43,636,784 B · `6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf` |
-| **On the site** | **v240** — applied by the owner 12 Nov 2026: *“Issue fix hogya”*. The drawer bug is closed. |
-| Package on the site | `shivaa-update-v240.zip` · 372 files · 37,457,438 B · `33f2916da9215d37befdbefa1c2d5b29e38354f90298502175366e9f112371d8` |
-| **Next release** | **v242** |
+| **Newest release** | **v242 — “Responsive”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v241) |
+| Package | `shivaa-update-v242.zip` · 683 files · 43,644,946 B · `ceaa75c99a516f0157037557aaa82a6c7ee7f84943dc374438bc443a3aecfa0c` |
+| **On the site** | **v241** — applied by the owner 12 Nov 2026: smooth, but *“clicks are not working now and buttons are unresponsive”*. v242 is the fix. |
+| Package on the site | `shivaa-update-v241.zip` · 682 files · 43,636,784 B · `6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf` |
+| **Next release** | **v243** |
 | Work branch | `arena/95be65a4-shivaa-ecom` (cut from `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Release chain | v232 → … → v236 → v237 → v238 → v239 → v240 (applied 12 Nov, the ripple fix) → **v241 (packaged 12 Nov, the smooth release)** |
+| Release chain | v232 → … → v239 → v240 (applied 12 Nov, ripple fix) → v241 (applied 12 Nov, smooth — broke taps) → **v242 (packaged 12 Nov, the responsive fix)** |
 
 ---
 
@@ -52,7 +52,8 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v238 | (packaged) | The Drawer Guard | 370 | 37,450,998 | `234f7b01326f58aa…de48f556` | applied 12 Nov — did not fix the sidebar, superseded by v239 |
 | v239 | (packaged) | The Sidebar Guard | 371 | 37,454,324 | `c4d66d64f1e40e08…4535db4a` | applied 12 Nov — did not fix it, superseded |
 | v240 | (applied 12 Nov) | The Ripple Fix | 372 | 37,457,438 | `33f2916da9215d37…112371d8` | **applied — “Issue fix hogya”** |
-| v241 | (packaged) | Smooth | 682 | 43,636,784 | `6987184a07398433…0c7c8cdf` | packaged 12 Nov — 308 WebP thumbnails, mobile blur off the chrome, SDK off the critical path, 800 ms paint |
+| v241 | (applied 12 Nov) | Smooth | 682 | 43,636,784 | `6987184a07398433…0c7c8cdf` | **applied — smooth, but taps died** (rebuilt `trimMedia`, instant repaint, ₹0 fast paint, soft PDP photo) |
+| v242 | (packaged) | Responsive | 683 | 43,644,946 | `ceaa75c99a516f01…aecfa0c` | packaged 12 Nov — taps land again, hover photo off touch, gallery photo is the original |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 

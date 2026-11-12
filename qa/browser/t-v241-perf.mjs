@@ -128,23 +128,30 @@ ok('the on-demand loader is still in app.js',
    /loadExternalScript\('https:\/\/sdk\.cashfree\.com\/js\/v3\/cashfree\.js'/.test(app));
 ok('the preconnects stay (free until used)', /preconnect" href="https:\/\/sdk\.cashfree\.com"/.test(index));
 
-/* ── E · a phone that already has the catalogue paints at once ───────────── */
-ok('boot cap drops to 800 ms when the device holds a catalogue',
-   /const _capMs = isRedraw \? 15000 : \(_realCount\(\) \? 800 : 6000\);/.test(app));
-ok('the 6 s ceiling still exists for a cold first visit', /(_realCount\(\) \? 800 : 6000\))/.test(app));
+/* ── E · the fast paint, and the honest ceiling it must not break ─────────
+   v242 reverted v241's 800 ms device-catalogue paint: the catalogue was on the
+   phone but the GOLD RATE never is, so the first screen could print ₹0 until the
+   batch landed. What survives is the 6 s ceiling and the calm repaint. This
+   release's own suite (t-v242-taps) owns that contract; here we only assert the
+   ceiling still exists so a future "make it faster" pass cannot remove both. */
+ok('a paint ceiling still exists for a cold first visit', /const _capMs = isRedraw \? 15000 : 6000;/.test(app));
+ok('the late batch is repainted calmly, never under a finger', /calmBoot\(0\)/.test(app));
 
-/* ── F · release plumbing ───────────────────────────────────────────────── */
-ok('index.html stamps rel 241', /window\.__SHIVAA_REL=241;/.test(index));
-ok('index.html loads js/v241.js after js/v240.js',
-   index.indexOf('/js/v240.js?v=241') > -1 &&
-   index.indexOf('/js/v241.js?v=241') > index.indexOf('/js/v240.js?v=241'));
-ok('every asset URL in index.html rides v=241', !/\?v=240/.test(index));
-ok('app.js APP_REL is 241', /const APP_REL = 241;/.test(app));
-ok('sw.js shell is v241 and REL is 241',
-   /const SHELL = 'shivaa-shell-v241';/.test(sw) && /const REL = 241;/.test(sw));
-ok('sw.js precaches js/v241.js', /'\/js\/v241\.js\?v=241'/.test(sw));
+/* ── F · release plumbing (v242 — release-agnostic: this suite's job is that
+   v241's ASSETS are still shipped at whatever the current stamp is, never that
+   the site froze at 241) ─────────────────────────────────────────────────── */
+const stamp = (index.match(/window\.__SHIVAA_REL=(\d+)/) || [])[1];
+ok('index.html stamps a release >= 241', Number(stamp) >= 241, String(stamp));
+ok('index.html still loads js/v241.js after js/v240.js',
+   index.indexOf(`/js/v240.js?v=${stamp}`) > -1 &&
+   index.indexOf(`/js/v241.js?v=${stamp}`) > index.indexOf(`/js/v240.js?v=${stamp}`));
+ok('no older asset stamp is left in index.html', !/\?v=240/.test(index));
+ok('app.js APP_REL is at least 241', Number((app.match(/const APP_REL = (\d+);/) || [])[1]) >= 241);
+ok('sw.js shell + REL agree with the page stamp',
+   new RegExp(`shivaa-shell-v${stamp}`).test(sw) && new RegExp(`const REL = ${stamp};`).test(sw));
+ok('sw.js precaches js/v241.js at that stamp', new RegExp(`'/js/v241\\.js\\?v=${stamp}'`).test(sw));
 ok('sw.js keeps more small pictures warm (MEDIA_MAX 160)', /const MEDIA_MAX = 160;/.test(sw));
-ok('api.php reports rel 241', /'rel' => 241/.test(api));
+ok('api.php reports the same release', new RegExp(`'rel' => ${stamp}`).test(api));
 ok('v241.js is syntactically loadable and self-guarding', /'use strict'/.test(v241) && /document\.readyState === 'loading'/.test(v241));
 ok('?perf=1 gives the owner real numbers', /perf=1/.test(v241) && /first byte/.test(v241));
 

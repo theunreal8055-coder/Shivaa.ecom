@@ -2,6 +2,18 @@
 
 ---
 
+**v242 — RESPONSIVE** (2026-11-12). After v241 the owner said the site was smooth but *“clicks are not
+working and buttons are unresponsive”*. Nothing was lost: taps were being eaten. The service worker had
+been scanning its entire image cache after every picture (v241 raised the cache cap to 160 because
+thumbnails are small); the view was being repainted one to three seconds after paint, which closed any
+sheet the tap had just opened; and a leftover full-screen layer could swallow taps. All three are fixed,
+and `?tapdiag=1` on any URL now prints exactly which element the phone hit under the last taps. Two v241
+bugs the owner did not mention are also fixed: the first screen could show **₹0** prices for a moment
+(the fast paint ran before the gold rate was known — reverted), and the **product page's main photograph**
+was being served as a 560 px thumbnail (now only grids use thumbnails). **683 files**, no new css layer.
+
+---
+
 **v241 — SMOOTH** (2026-11-12). The owner after v240: *“app smooth feel nahi hota, shuru main home page
 par lag karta hai — zomato/uber jaisa smooth D2C feel chahiye.”* What changed, in plain terms: every
 product/category/review/offer picture now ships a **320 px and a 560 px WebP sibling** under
