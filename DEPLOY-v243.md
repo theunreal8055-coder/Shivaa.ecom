@@ -4,7 +4,8 @@
 `00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65`
 **Site ab:** v241 (aapne lagaya) · **Yeh release:** v243 (v237–v242 andar hain) · **Sirf yehi zip install karein.**
 
-> **Commit:** `f9a91e9` · branch `arena/95be65a4-shivaa-ecom`
+> **Commit:** `9616e3a` (code `f9a91e9`) · branch `arena/95be65a4-shivaa-ecom` · zip GitHub par live
+> (43,648,349 B confirmed)
 >
 > v242 aapne download kiya tha lekin lagaya nahi. **v243 me v242 ka poora kaam hai** (clicks, ₹0 wala pehla
 > screen, product ka badi photo) — yaani v242 ki alag zip ki zaroorat nahi, yeh ek file sab le aayegi.
