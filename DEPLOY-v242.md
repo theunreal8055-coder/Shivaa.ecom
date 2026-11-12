@@ -4,7 +4,7 @@
 `ceaa75c99a516f0157037557aaa82a6c7ee7f84943dc374438bc443a3aecfa0c`
 **Site ab:** v241 (aapne lagaya) · **Yeh release:** v242 (v237–v241 andar hain) · **Sirf yehi zip install karein.**
 
-> **Commit:** *(push ke baad bhara jaayega)*
+> **Commit:** `4f2b1dad3847abdaa1af522186dc511f1b891cda` · branch `arena/95be65a4-shivaa-ecom` · zip GitHub par live (43,644,946 B confirmed)
 
 ---
 
