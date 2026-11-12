@@ -4,16 +4,16 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 238,
+  "next_release": 239,
   "live": {
-    "release": 237,
-    "title": "The Weight Release",
+    "release": 238,
+    "title": "The Drawer Guard",
     "since": "2026-11-12",
     "confirmed_by": null,
     "owner_words": null,
     "deployed_build": 236,
-    "note": "packaged 12 Nov 2026 and awaiting the owner's explicit yes; the site is serving v236 — the owner's own https://shivaa.in/api/version read rel 236 on 12 Nov 2026, so v235 and v236 are both applied",
-    "zip": "shivaa-update-v237.zip"
+    "note": "packaged 12 Nov 2026 and awaiting the owner's explicit yes; the site is serving v236 (the owner's own /api/version read rel 236 on 12 Nov 2026). v238 contains v237, so v237 was never applied and never needs to be.",
+    "zip": "shivaa-update-v238.zip"
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -238,6 +238,19 @@
       "files": 369,
       "bytes": 37448114,
       "sha256": "10752b0ad94f11730a32ae9f19ee4d4f8449354e6958792912d374f1be8cbd77",
+      "status": "superseded",
+      "deployed": null,
+      "awaiting": "never applied — v238 contains it",
+      "layer": null
+    },
+    {
+      "release": 238,
+      "commit": "PENDING",
+      "title": "The Drawer Guard",
+      "zip": "shivaa-update-v238.zip",
+      "files": 370,
+      "bytes": 37450998,
+      "sha256": "234f7b01326f58aa8fb4c9002658ef70888c8a91fc99964349fc9f09de48f556",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged, not deployed",

@@ -1,31 +1,33 @@
-> ## CURRENT STATE — **v237 PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v238 PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v237 “The Weight Release” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v237.zip` — **369 files · 37,448,114 B ·
->   `10752b0ad94f11730a32ae9f19ee4d4f8449354e6958792912d374f1be8cbd77`**. **Next release number: v238.**
->   Live is **v236** — the owner's own `https://shivaa.in/api/version` read `rel: 236` on 12 Nov 2026, so
->   v235 and v236 are both on the site (the ledger had recorded only v234 as applied). Chain: v232 (21 Oct) →
->   v233 → v234 (23 Oct) → v235 → **v236 (live)** → v237 (packaged 12 Nov).
-> - **What v237 does — three measured items, none of them a redesign.** (1) **200 KB per page load, unused:**
->   `/images/black/hero-v186.jpg` was preloaded at `fetchpriority="high"` on every route, but only the
->   `#/black-card` page paints it — the home page and every product page spent their first 200 KB on a
->   photograph they never draw, above the real hero in priority. The preload is gone; the v186 layer still
->   fetches it when that page opens. (2) **A product page pulled its whole gallery at once:** every
->   `gal-slide` image now carries `decoding="async"`, the first keeps `fetchpriority="high"`, the rest are
->   `loading="lazy"` — a five-photo piece no longer fetches five photographs before the first swipe.
->   (3) **The click stays where your thumb left it** (`js/v237.js`, no css layer, no new request): every panel
->   here is a native `<details class="acc">` — opening one now closes its siblings and keeps the tapped
->   `summary` below the sticky header, so a section can never grow by two answers and never scrolls your
->   place away. Also in this release: `qa/make-update-zip.py` declares `js/v237.js` in `ADDED{237}`.
-> - **The stylesheet did NOT change** — v237 adds no css layer, so the bundle is still **70 layers / 70 blocks**
->   (910,723 B raw / 181,498 B gzipped) and there is no new request. Do not rebuild the bundle for this one.
-> - **Gate status — be honest about it:** `node --check` is clean on `app.js`, `sw.js` and `js/v237.js`, and
->   `python3 qa/check-handoff.py` is green. The full `bash qa/v237-gate.sh` (a copy of the 27-check v236 gate
->   with the suite pins rolled) was **NOT** run before the package was built — the release is packaged, not
->   blessed. Run it before the owner applies the zip.
-> - **v236 detail stays below as history** — it is the release that is actually live.
+> - **v238 “The Drawer Guard” is the newest release** — packaged 12 Nov 2026, **not deployed**.
+>   `shivaa-update-v238.zip` — **370 files · 37,450,998 B ·
+>   `234f7b01326f58aa8fb4c9002658ef70888c8a91fc99964349fc9f09de48f556`**. **Next release number: v239.**
+>   Live is **v236** — the owner's own `https://shivaa.in/api/version` read `rel: 236` on 12 Nov 2026.
+>   **v237 was packaged and never applied; v238 contains it, so only v238 needs to go on the server.**
 > - **Before anything else:** `bash qa/where-am-i.sh` — exit 0 FORWARD → work here, exit 3 BEHIND →
 >   move forward first, never build on an old tree. Then `python3 qa/check-handoff.py`.
+> - **What v238 does (the owner's phone screenshot, 12 Nov).** The open side drawer printed the
+>   *Swarna Nidhi* label **one character per line** — the row collapsed to ~150 px wide and ~550 px
+>   tall, every row under it was pushed off screen, and the menu looked like it had “expanded like
+>   crazy”. The row's markup is identical to the rows above it, so the cause is cascade, not HTML:
+>   `.dw-tx{flex:1;min-width:0}` lets a label shrink to nothing when a late layer resets a width or an
+>   alignment on `.nav-scroll`. `cms/js/v238.js` closes it **inside one file — no CSS layer, no bundle
+>   rebuild**: a scoped `@media (max-width:860px)` block pinning the drawer to a column of full-width
+>   rows that never break a label mid-word, plus **one measurement per drawer open** that gives any row
+>   under 70 % of the drawer's width an inline width (which outranks every layer).
+> - **What v238 also carries from v237.** (a) `/images/black/hero-v186.jpg` (200 KB) was preloaded at
+>   `fetchpriority="high"` on **every** route though only `#/black-card` paints it — removed. (b) A
+>   product page fetched **all** its gallery photographs at once — first image `fetchpriority="high"`,
+>   the rest `loading="lazy" decoding="async"`. (c) `js/v237.js` — the accordion keeps the tapped
+>   `summary` in view and closes its siblings, so a click never moves the page under your thumb.
+> - **Still no CSS layer change**: the bundle is **70 layers / 70 blocks** (910,723 B raw / 181,498 B
+>   gzipped). Do not rebuild it for v237 or v238.
+> - **Gate status — be honest about it:** `node --check` clean on `app.js`, `sw.js`, `js/v237.js`,
+>   `js/v238.js`; `python3 qa/check-handoff.py` green. **The full `bash qa/v238-gate.sh` was NOT run.**
+>   It must be created from `qa/v236-gate.sh` with its pins rolled and run to 0 red **before the owner
+>   applies the zip**. That is the one unfinished step of this release.
+> - **v236 detail stays below as history** — it is the release that is actually live.
 
 
 # Shivaa — agent working guide

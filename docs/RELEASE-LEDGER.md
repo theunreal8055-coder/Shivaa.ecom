@@ -17,14 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Newest release** | **v237 — “The Weight Release”** (packaged 12 Nov 2026, **awaiting the owner's yes**) |
-| Package | `shivaa-update-v237.zip` · 369 files · 37,448,114 B · `10752b0ad94f11730a32ae9f19ee4d4f8449354e6958792912d374f1be8cbd77` |
+| **Newest release** | **v238 — “The Drawer Guard”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237) |
+| Package | `shivaa-update-v238.zip` · 370 files · 37,450,998 B · `234f7b01326f58aa8fb4c9002658ef70888c8a91fc99964349fc9f09de48f556` |
 | **On the site** | **v236 — “The Counter Book”** (the owner's own `/api/version` read `rel: 236` on 12 Nov 2026; v235 is therefore live too) |
 | Package on the site | `shivaa-update-v236.zip` · 368 files · 37,445,481 B · `b6483f250bc1600b4cde420d80d78abf68ca65a4f3137c781417d09d129d6655` |
-| **Next release** | **v238** |
+| **Next release** | **v239** |
 | Work branch | `arena/95be65a4-shivaa-ecom` (cut from `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Release chain | v232 (21 Oct) → v233 → v234 (23 Oct) → v235 → **v236 (live)** → **v237 (packaged 12 Nov)** |
+| Release chain | v232 (21 Oct) → v233 → v234 (23 Oct) → v235 → **v236 (live)** → v237 (packaged, superseded) → **v238 (packaged 12 Nov)** |
 
 ---
 
@@ -48,7 +48,9 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | **v234** | **`5337f26`** | **The Desk App** | **366** | **37,416,420** | **`16adae14b9745f5d…585e1b84`** | **applied 23 Oct** |
 | v235 | `67e48a1` | The Millisecond Desk | 367 | 37,424,830 | `f5b14e8a274a1911e…8ad09b26ec35` | packaged 23 Oct — superseded by v236 before the owner applied it |
 | v236 | `c64a771` | The Counter Book | 368 | 37,445,481 | `b6483f250bc1600b…d129d6655` | **on the site** (owner's `/api/version` reads 236) |
-| v237 | `80a6d42` | The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
+| v237 | `80a6d42` | The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — never applied, v238 contains it |
+| v238 | (packaged) | The Drawer Guard | 370 | 37,450,998 | `234f7b01326f58aa…de48f556` | packaged 12 Nov — awaiting the owner's yes |
+<!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 
 Full 64-character hashes, byte counts and status live in `docs/release-ledger.json`.

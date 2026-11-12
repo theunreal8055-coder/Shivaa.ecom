@@ -2,6 +2,22 @@
 
 ---
 
+**v238 — THE DRAWER GUARD** (2026-11-12). The owner sent a phone screenshot of the open side
+drawer: the *Swarna Nidhi* row drew its label **one character per line** (S / w / a / r / n / a …),
+so the row became ~150 px wide and ~550 px tall, every row below it was pushed off the screen, and
+the menu looked like it had "expanded like crazy". The markup of that row is identical to the three
+above it (same classes, same children), so the cause is cascade, not HTML: `.dw-tx{flex:1;min-width:0}`
+lets the label shrink to nothing the moment a late layer resets a width or an alignment on
+`.nav-scroll`. `js/v238.js` closes it two ways, both inside one file — **no CSS layer, no bundle
+rebuild**: a scoped `@media (max-width:860px)` block that pins the drawer to a column of full-width
+rows and refuses to break a label mid-word, plus one measurement per drawer open that gives any row
+found under 70 % of the drawer's width an inline width (which outranks every layer, including future
+ones). Also carries v237: a 200 KB black-card photograph that was preloaded at `fetchpriority=high`
+on every route, a product gallery that fetched all its photographs at once, and the accordion that
+never moves the page under your thumb. **370 files**, gate `bash qa/v238-gate.sh`.
+
+---
+
 **v237 — THE WEIGHT RELEASE** (2026-11-12). Two weights taken off the storefront and one
 stuck click. (1) **A 200 KB picture nobody drew**: `/images/black/hero-v186.jpg` was preloaded
 at `fetchpriority="high"` on *every* route, although only the `#/black-card` page paints it — so
@@ -325,10 +341,7 @@ flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
 **COUNTDOWN: release 235 pending owner review — nothing goes live without the
 owner's explicit yes.** The owner's own `/api/version` read **rel 236** on 12 Nov 2026, so v235 and v236 are on the site; the last build the ledger recorded as applied is **v234**.
-Packaged and not live: **v237 — deploy v237**, the weight release: a 200 KB black-card
-photograph preloaded on every route, a product gallery that downloaded all of its
-photographs at once, and an accordion that grew the page by two answers. Forward-only rule
-in force — next release number is **v238**.
+Packaged and not live: **v238 — deploy v238**, which contains v237 and adds the drawer guard: a menu row that printed its label one character per line and grew the drawer, fixed by a scoped mobile block plus a measured self-heal per open. Forward-only rule in force — next release number is **v239**.
 Updated 2026-11-12 (v237) on the `arena/95be65a4-shivaa-ecom` session branch, cut from the
 v236 tip `a9445dc` of `arena/800194ed-shivaa-ecom`.
 
