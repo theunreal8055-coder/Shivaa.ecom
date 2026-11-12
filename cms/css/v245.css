@@ -1,0 +1,89 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SHIVAA v245 — "scroll back" (the v244 regression, closed at the root)
+
+   THE OWNER, after installing v244: "i cant even scroll anything on mobile
+   now, everything has just stopped".
+
+   He was right, and the cause was `content-visibility` — not the blur, not
+   the layers. It had been sprinkled over the app across several releases as
+   a paint saving (on `.p-grid`, `.pillars`, `.ugc-wall`, `.catbar-outer`,
+   `.p-card`, `.ds-card`, the footer, `#view > section` …) and v244 added two
+   more. A `content-visibility:auto` box is NOT laid out until it is near the
+   viewport: it reports the placeholder height from `contain-intrinsic-size`
+   instead of its real one, and the lazy images inside it never start,
+   because a skipped subtree triggers nothing.
+
+   On a real phone that is exactly the two symptoms reported:
+     · the grid claims 320/720 px where the cards are 3 000 px, so the
+       document is shorter than its content — the page stops scrolling part
+       way down ("i cant even scroll anything");
+     · every skipped card is a blank rectangle until it is scrolled to, and
+       some browsers never wake it ("blank space in whole app").
+
+   So it is gone — every `content-visibility` and `contain-intrinsic-size`
+   declaration has been deleted from the bundle, and rule 1 below makes sure
+   nothing can bring one back: not a cached layer, not a future rule. The
+   paint saving was never worth a scrollbar that lies.
+
+   Also closed here:
+     · `html, body { overflow-x: hidden }` — v244 added it. On iOS that is a
+       well-known scroll stopper (the body becomes the scroll container and
+       momentum dies). Deleted from the bundle; the document stays the
+       scroller.
+     · `?nofx=1` — the kill switch. With it in the URL nothing is ever parked:
+       every animation keeps running, so if a device still misbehaves the
+       owner can point at the layer without waiting for a new build.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · nothing on this site may skip rendering ──────────────────────── */
+*,
+*::before,
+*::after {
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}
+
+/* ── 2 · the document is the scroller, and only the document ──────────── */
+html {
+  overflow-x: clip;      /* clip never becomes a scroll container */
+  overflow-y: auto;
+}
+/* `clip` does not create a scroll container — unlike `hidden`, it cannot
+   freeze a phone's momentum. This is what the older layer intended. */
+body { overflow-x: clip; }
+
+/* ── 3 · the kill switch (?nofx=1 → html.shv-plain) ───────────────────── */
+html.shv-plain *,
+html.shv-plain *::before,
+html.shv-plain *::after {
+  animation-play-state: running !important;
+}
+
+/* ── 4 · a picture that has not arrived is cream, never a white hole ───── */
+.pc-imgwrap,
+.pcmp-img,
+.shv-stud-img-wrap,
+.look-item,
+.cb-img,
+.cat-mini-media,
+.gal-slide,
+.qv-media {
+  background-color: var(--cream-2, #f3ece1);
+}
+.pc-imgwrap::before,
+.pcmp-img::before {
+  /* nothing to paint: the wrapper colour above is the placeholder */
+  content: none;
+}
+
+/* ── 5 · no layout containment on the grids either ────────────────────── */
+.p-grid,
+.fine-grid,
+.svc-grid,
+.story-grid,
+.pillars,
+.ugc-wall,
+.catbar-outer,
+.shv-offer-wrap {
+  contain: none !important;
+}

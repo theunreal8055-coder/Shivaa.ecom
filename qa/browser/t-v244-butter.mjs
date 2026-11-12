@@ -45,7 +45,8 @@ const flatTail = flat(tail);
 ok('js/v244.js is loaded exactly once', (index.match(/\/js\/v244\.js\?v=\d+/g) || []).length === 1);
 ok('the layer rides at the end of the bundle', marker > 0 && marker > bundle.indexOf('/* v241.css */'));
 ok('the layer in the bundle is the file on disk',
-  flatTail.includes(flat('will-change: auto !important')) && flatTail.includes(flat('content-visibility: auto')));
+  flatTail.includes(flat('will-change: auto !important')) &&
+  flatTail.includes(flat('backdrop-filter: none !important')));
 ok('every stamp is one release',
   REL >= 244 && new RegExp('const APP_REL = ' + REL + ';').test(app) &&
   new RegExp("'rel' => " + REL).test(api) && new RegExp('const REL = ' + REL + ';').test(sw));
@@ -74,12 +75,22 @@ ok('the layer is granted on hover, on fine pointers only',
   /@media \(hover: hover\) and \(pointer: fine\)/.test(tail) && /\.p-card:hover[\s\S]{0,400}?will-change:\s*transform\s*!important/.test(flatTail));
 ok('the desktop category bar drops its layout hint', /\.header > \.nav\s*\{\s*will-change:\s*auto\s*!important/.test(tail));
 
-/* ── 4 · the tail of a long grid is not built ───────────────────────────── */
-ok('grid cards from the seventh on are content-visibility:auto',
-  /\.p-grid > \*:nth-child\(n \+ 7\)[\s\S]{0,200}?content-visibility:\s*auto/.test(flatTail));
-ok('their placeholder keeps the scrollbar honest',
-  /contain-intrinsic-size:\s*auto 430px/.test(tail) && /contain-intrinsic-size:\s*auto 330px/.test(tail));
-ok('phones skip from the fifth card (two columns)', /\.p-grid > \*:nth-child\(n \+ 5\)/.test(tail));
+/* ── 4 · the grid tail idea was withdrawn in v245 (it broke phones) ─────── */
+/* v244 put `content-visibility:auto` on the tail of the grid. On a real phone
+   that is a document shorter than its content (the page stops scrolling) and
+   cards that stay blank because a skipped subtree never starts its lazy
+   images. v245 removed every content-visibility from the bundle and added a
+   universal guard; this pins that it cannot come back through this layer. */
+ok('the withdrawn content-visibility rule is not in the bundle',
+  !/content-visibility:\s*(auto|hidden)/.test(bundle) && !/contain-intrinsic-size:\s*(auto|[0-9])/.test(bundle));
+ok('nothing in the shipped css may skip rendering',
+  /\*,\s*\*::before,\s*\*::after\s*\{\s*content-visibility:\s*visible\s*!important/.test(flat(bundle)));
+const layerCode = layer.replace(/\/\*[\s\S]*?\*\//g, ' ');
+ok('the v244 source no longer carries the grid rule',
+  !/content-visibility:\s*auto/.test(layerCode) && !/contain-intrinsic-size:/.test(layerCode));
+ok('html/body are not turned into a scroll container',
+  !/html,\s*body\s*\{\s*overflow-x:\s*hidden/.test(flat(bundle)) &&
+  !/html,\s*body\s*\{\s*overflow-x:\s*hidden/.test(flat(layer)));
 
 /* ── 5 · decoration parks while the thumb moves ─────────────────────────── */
 ok('the stylesheet parks for html.shv-scrolling', /html\.shv-scrolling \.ticker-wrap/.test(tail));
@@ -92,12 +103,16 @@ ok('a hidden tab parks too', /html\.shv-blurred/.test(tail));
 /* ── 6 · the runtime does the three things css cannot ───────────────────── */
 ok('one scroll listener sets the class, passively',
   /win\.addEventListener\('scroll', parkOn, \{ passive: true \}\)/.test(v244));
-ok('the class is released shortly after the gesture',
-  /setTimeout\(parkOff, 190\)/.test(v244));
+ok('the class is released shortly after the gesture, from one interval',
+  /setInterval\(parkCheck, 120\)/.test(v244) && /performance\.now\(\) - lastScroll > 200/.test(v244) &&
+  !/setTimeout\(parkOff/.test(v244));
 ok('the scroll path reads no layout', !/getBoundingClientRect|offsetHeight|offsetTop|scrollHeight/.test(
   v244.slice(v244.indexOf('scroll governor'), v244.indexOf('decode ahead'))));
-ok('pictures are warmed a screen early',
-  /rootMargin: '700px 0px 700px 0px'/.test(v244) && /img\.decode/.test(v244));
+ok('pictures are warmed a screen early on a desktop, a hand-span on a phone',
+  /ahead = \(coarse \|\| saveData\) \? '240px 0px 240px 0px' : '700px 0px 700px 0px'/.test(v244) &&
+  /rootMargin: ahead/.test(v244) && /img\.decode/.test(v244));
+ok('a phone is never forced to fetch its pictures early',
+  /if \(!coarse && !saveData && img\.getAttribute\('loading'\) === 'lazy'\)/.test(v244));
 ok('the sweep re-arms on every route render',
   /new MutationObserver\(queueSweep\)/.test(v244) && /setTimeout\(sweep, 2600\)/.test(v244));
 ok('every image ends up with decoding=async',
@@ -174,7 +189,7 @@ if (!up) {
 
   /* the diagnostic must appear only when asked for */
   const d1 = await boot('?perfdiag=1#/');
-  await wait(1800);
+  await wait(3200);
   ok('?perfdiag=1 draws the readout', !!d1.window.document.getElementById('shvPerfDiag'));
   d1.window.close();
 }

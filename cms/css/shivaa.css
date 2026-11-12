@@ -9272,12 +9272,12 @@ body.drawer-open .ds-bar {
  
 @media (max-width: 920px) {
   #view > section:nth-of-type(n+5) {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 680px;
+
+
   }
   footer.footer {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 860px;
+
+
   }
 }
 
@@ -9441,8 +9441,8 @@ body.shv-ready .shv-skeleton { display: none !important; }
  
 @media (max-width: 920px) {
   .p-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 320px;
+
+
   }
 }
 /* v122.css */
@@ -9480,8 +9480,8 @@ body.shv-ready .shv-skeleton { display: none !important; }
  
 @media (max-width: 920px) {
   .ds-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 300px;
+
+
   }
 }
 
@@ -10481,8 +10481,8 @@ body { overflow-x: clip; }
 html.js-aurum body { text-rendering: optimizeLegibility; }
 
 html.js-aurum .footer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 900px;
+
+
 }
 
  
@@ -10973,7 +10973,7 @@ html.au-lite .wa-fab::before,
 html.au-lite .loading-spin::after,
 html.au-lite .p-card::after { animation: none !important; }
 html.au-lite .au-px { transform: none !important; }
-html.au-lite .footer { content-visibility: visible; }
+html.au-lite .footer {}
 
  
 @media (prefers-reduced-motion: reduce) {
@@ -17521,8 +17521,8 @@ html.js-aurum .p-card:hover::after {
 .pillars,
 .shv-offer-wrap,
 .catbar-outer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 720px;
+
+
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -17551,9 +17551,7 @@ html.js-motion #view img.img-ok{
   transition:opacity .45s ease}
 
  
-#view footer,.testi-grid{
-  content-visibility:auto;
-  contain-intrinsic-size:auto 560px}
+#view footer,.testi-grid{ }
 
  
 
@@ -17728,8 +17726,8 @@ html.js-motion #view img.img-ok{
 .ds-card,
 .testi-grid,
 .rev-marquee {
-  content-visibility: visible !important;
-  contain-intrinsic-size: none !important;
+
+
 }
 
  
@@ -20583,23 +20581,6 @@ a, button, [role="button"], summary, label,
 
 .header > .nav { will-change: auto !important; }
 
-.p-grid > *:nth-child(n + 7),
-.fine-grid > *:nth-child(n + 7),
-.svc-grid > *:nth-child(n + 7),
-.story-grid > *:nth-child(n + 7) {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 430px;
-}
-@media (max-width: 820px) {
-  .p-grid > *:nth-child(n + 5),
-  .fine-grid > *:nth-child(n + 5),
-  .svc-grid > *:nth-child(n + 5),
-  .story-grid > *:nth-child(n + 5) {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 330px;
-  }
-}
-
 html.shv-scrolling .ticker-wrap,
 html.shv-scrolling .rev-track,
 html.shv-scrolling .bd-marq-in,
@@ -20674,7 +20655,50 @@ html.shv-blurred .wa-fab::before {
   }
 }
 
-@media (max-width: 820px) {
-  html, body { overflow-x: hidden; }
-  .sheet-body, .fsheet-body, .cart-body, .drawer-body { overscroll-behavior: contain; }
+/* v245.css */
+*,
+*::before,
+*::after {
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}
+
+html {
+  overflow-x: clip;
+  overflow-y: auto;
+}
+
+body { overflow-x: clip; }
+
+html.shv-plain *,
+html.shv-plain *::before,
+html.shv-plain *::after {
+  animation-play-state: running !important;
+}
+
+.pc-imgwrap,
+.pcmp-img,
+.shv-stud-img-wrap,
+.look-item,
+.cb-img,
+.cat-mini-media,
+.gal-slide,
+.qv-media {
+  background-color: var(--cream-2, #f3ece1);
+}
+.pc-imgwrap::before,
+.pcmp-img::before {
+
+  content: none;
+}
+
+.p-grid,
+.fine-grid,
+.svc-grid,
+.story-grid,
+.pillars,
+.ugc-wall,
+.catbar-outer,
+.shv-offer-wrap {
+  contain: none !important;
 }

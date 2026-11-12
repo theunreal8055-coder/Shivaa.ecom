@@ -85,6 +85,12 @@ ADDED = {
     # out of every card, the script parks the decoration during a gesture,
     # decodes pictures a screen early and remembers the scroll for Back.
     244: ['js/v244.js'],
+    # v245 "scroll back" — the v244 regression: content-visibility (a skipped
+    # subtree reports a placeholder height and never starts its lazy images)
+    # froze a phone's scroll and left blank cards. Deleted from the bundle, a
+    # universal guard forbids it, the parking cannot stick, and ?nofx=1 is the
+    # kill switch. One css layer (auto-detected) + one js layer.
+    245: ['js/v245.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

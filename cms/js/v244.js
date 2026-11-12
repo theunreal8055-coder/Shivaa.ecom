@@ -40,27 +40,43 @@
   var stats = { sweeps: 0, decodeAsked: 0, decoded: 0, gestures: 0, restored: 0, imgs: 0, warmedPdp: 0 };
 
   /* ── 1 · scroll governor ─────────────────────────────────────────────── */
-  var scrollT = 0, scrolling = false;
+  /* v245 — this used to clear and re-arm a setTimeout on EVERY scroll event,
+     which is two timer operations per frame for the whole gesture. On a phone
+     that is main-thread work spent on nothing. One interval now runs only
+     while the class is on, and stops the moment it is off. */
+  var scrolling = false, lastScroll = 0, parkTick = 0;
+  var NOFX = /[?&]nofx=1/.test(location.search);
+  if (NOFX) root.classList.add('shv-plain');
   function parkOn() {
-    if (!scrolling) { scrolling = true; stats.gestures++; root.classList.add('shv-scrolling'); }
-    scheduleIdle();                        /* every event pushes the end out */
+    lastScroll = performance.now();
+    if (NOFX) return;
+    if (scrolling) return;
+    scrolling = true; stats.gestures++;
+    root.classList.add('shv-scrolling');
+    if (!parkTick) parkTick = setInterval(parkCheck, 120);
+  }
+  function parkCheck() {
+    if (performance.now() - lastScroll > 200) parkOff();
   }
   function parkOff() {
+    if (parkTick) { clearInterval(parkTick); parkTick = 0; }
     if (!scrolling) return;
     scrolling = false;
     root.classList.remove('shv-scrolling');
-  }
-  function scheduleIdle() {
-    if (scrollT) clearTimeout(scrollT);
-    scrollT = setTimeout(parkOff, 190);
   }
   win.addEventListener('scroll', parkOn, { passive: true });
   win.addEventListener('wheel', parkOn, { passive: true });
   win.addEventListener('touchmove', parkOn, { passive: true });
   win.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'PageDown' || e.key === 'PageUp' ||
-        e.key === 'Home' || e.key === 'End' || e.key === ' ') scheduleIdle();
+        e.key === 'Home' || e.key === 'End' || e.key === ' ') parkOn();
   }, { passive: true });
+  /* never leave the page parked: a route change, a restored tab or a focus
+     returning from an overlay all release it */
+  ['hashchange', 'pageshow', 'focus'].forEach(function (ev) {
+    win.addEventListener(ev, parkOff, { passive: true });
+  });
+  parkOff.force = parkOff;
 
   doc.addEventListener('visibilitychange', function () {
     root.classList.toggle('shv-blurred', doc.hidden);
@@ -70,6 +86,19 @@
   /* ── 2 · decode ahead ────────────────────────────────────────────────── */
   var view = doc.getElementById('view');
   var ioPics = null;
+  /* v245 — 700 px of eager pictures is fine on a laptop and is a pile of
+     decodes on a phone: a coarse pointer gets 240 px, and its images are
+     never forced to `eager` (the native lazy loader is better at this than
+     we are). */
+  var coarse = false;
+  try {
+    coarse = (win.matchMedia && win.matchMedia('(hover: none) and (pointer: coarse)').matches) ||
+             ('ontouchstart' in win) || (navigator.maxTouchPoints || 0) > 0;
+  } catch (e) { coarse = true; }
+  var saveData = false;
+  try { saveData = !!(navigator.connection && navigator.connection.saveData); } catch (e) {}
+  var ahead = (coarse || saveData) ? '240px 0px 240px 0px' : '700px 0px 700px 0px';
+  var inFlight = 0, PIC_CAP = coarse ? 3 : 8;
   try {
     if (win.IntersectionObserver) {
       ioPics = new IntersectionObserver(function (entries) {
@@ -79,20 +108,25 @@
           ioPics.unobserve(en.target);
           warm(en.target);
         }
-      }, { rootMargin: '700px 0px 700px 0px' });
+      }, { rootMargin: ahead });
     }
   } catch (e) { ioPics = null; }
 
   function warm(img) {
     if (!img || img.tagName !== 'IMG') return;
     try {
-      if (img.getAttribute('loading') === 'lazy') img.setAttribute('loading', 'eager');
       if (img.getAttribute('decoding') !== 'async') img.setAttribute('decoding', 'async');
+      /* a phone keeps the browser's own lazy scheduling; a desktop may ask
+         for the next screenful a moment early */
+      if (!coarse && !saveData && img.getAttribute('loading') === 'lazy') img.setAttribute('loading', 'eager');
+      if (saveData || inFlight >= PIC_CAP || !img.decode) return;
+      if (img.complete && img.naturalWidth === 0) return;      /* broken: do not queue it */
       stats.decodeAsked++;
-      /* decode() resolves once the pixels are ready; ignoring it is safe —
-         the browser decodes on paint exactly as it would have. */
-      var p = img.decode && img.decode();
-      if (p && p.then) p.then(function () { stats.decoded++; }, function () {});
+      inFlight++;
+      var done = function () { inFlight--; };
+      var p = img.decode();
+      if (p && p.then) p.then(function () { stats.decoded++; done(); }, done);
+      else done();
     } catch (e) {}
   }
 
@@ -304,6 +338,8 @@
   win.Shivaa.v244 = {
     stats: stats,
     sweep: sweep,
+    parkOn: parkOn,
+    parkOff: parkOff,
     warmAll: function () { var im = doc.querySelectorAll('#view img'); for (var i = 0; i < im.length; i++) warm(im[i]); },
     get scrolling() { return scrolling; },
     get reduced() { return reduced; }

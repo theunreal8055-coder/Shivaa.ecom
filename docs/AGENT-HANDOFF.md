@@ -1,40 +1,43 @@
-> ## CURRENT STATE — **v244 “Butter” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v245 “Scroll back” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v241 is APPLIED. v242 and v243 were packaged and never installed** — the owner moved straight to the
->   smoothness brief. **v244 contains the whole of both**, so **v244 is the only zip to install** (v237–v243).
-> - **v244 “Butter” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v244.zip` — **686 files · 43,657,910 B ·
->   `5b3bfdb3fa490fc32071bb17339ecfbc30ca634cfd5f9439f56a487c784453d8`**. **Next release number: v245.**
+> - **v244 was INSTALLED BY THE OWNER AND IT BROKE HIS PHONE.** His words: *“i cant even scroll anything on
+>   mobile now, everything has just stopped”*. **v245 is the repair, packaged the same hour, and is the only
+>   zip to install.** It contains v237–v244.
+> - **v245 “Scroll back” is the newest release** — packaged 12 Nov 2026, **not deployed**.
+>   `shivaa-update-v245.zip` — **688 files · 43,663,243 B ·
+>   `68c2e0b3d9b951aab4d96fcd3a031f0e0d5e0dcc0dea5de861aba7d0386c8552`**. **Next release number: v246.**
 > - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD. Then `python3 qa/check-handoff.py`,
->   `node qa/browser/t-v244-butter.mjs` (51), `t-v243-header.mjs` (36), `t-v242-taps.mjs` (37),
->   `t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
-> - **WHY v244 EXISTS — carry this forward.** The owner, after v243: *“buttery smooth, easy to navigate, every
->   button like butter, fast loading of EVERY page without stutter, the page shouldn't feel stuck.”* The frame
->   cost was still in four places, all now closed in `css/v244.css` + `js/v244.js`:
->   1. **The sticky header re-blurred the whole page every scroll frame.** `.header.scrolled` declared
->      `backdrop-filter:blur(20px) saturate(1.25)` and that is the state it is in the entire time you scroll.
->      **v241 removed exactly this on phones and deliberately left desktop** (“desktop has the GPU headroom” —
->      it does not). Every sticky/fixed bar is now an opaque fill at every width, same colours.
->   2. **Every card held a compositor layer for its life** (`will-change:transform` on `.p-card` and friends;
->      v241 had fixed touch only, via `html.au-touch`). Now promoted on `:hover`/`:focus-within`, fine pointers.
->   3. **A long grid built all of its cards** on every render — `.p-grid > *:nth-child(n+7)` is
->      `content-visibility:auto` with `contain-intrinsic-size:auto 430px` (330px ≤820px, from the 5th).
->   4. **~180 infinite decorative shimmers repainted forever.** `html.shv-scrolling` (set by js/v244.js for the
->      gesture) pauses the repaint-heavy list in CSS and resumes them when the thumb stops; `html.shv-blurred`
->      does the same for a hidden tab.
->   Plus: pictures decode one screen early (IO, 700px), a product's photograph is warmed on hover intent,
->   **Back restores the remembered scroll offset** instead of the top, and **`?perfdiag=1`** is a live
->   FPS / long-task / LCP / CLS readout with a Copy-report button — that is how the next “atak” gets diagnosed
->   instead of guessed.
-> - **Gate status — be honest about it:** `node --check` clean (v244, sw, app) · `t-v244-butter` **51/51** ·
->   `t-v243-header` **36/36** · `t-v242-taps` **37/37** · `t-v241-perf` **43/43** · `t-v240-rip` **16/16** ·
->   `check-handoff.py` **211 checks, 0 red** · jsdom sweep of 12 routes: 0 page errors, 0 images without
->   `decoding=async`. **`qa/v2NN-gate.sh` for v242/v243/v244 was never created** — make them from
->   `qa/v236-gate.sh` with the pins rolled.
-> - **No browser engine in this sandbox** (jsdom has no layout and no compositor): the frame work is proven by
->   reading the shipped rules and by class/DOM assertions, never by a screenshot. `?perfdiag=1` exists precisely
->   because real FPS can only be measured on the owner's machine.
-> - **v243 and older detail stays below as history.**
+>   `node qa/browser/t-v245-scroll.mjs` (39), `t-v244-butter.mjs` (53), `t-v243-header.mjs` (36),
+>   `t-v242-taps.mjs` (37), `t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
+> - **THE ROOT CAUSE — carry this forward, it is the most important line in this file.**
+>   **`content-visibility: auto` must never be used on this site again.** A skipped subtree is not laid out:
+>   it reports the placeholder height from `contain-intrinsic-size` instead of its real height, and the lazy
+>   images inside it never start. On a phone that is (a) a document shorter than its content — the page stops
+>   scrolling part way, exactly what the owner reported — and (b) blank cards that never wake. It had been
+>   sprinkled over `.p-grid`, `.pillars`, `.ugc-wall`, `.catbar-outer`, `.p-card`, `.ds-card`, `#view >
+>   section` and the footer across several releases, and v244 added two more. **v245 deleted every
+>   `content-visibility` and `contain-intrinsic-size` declaration from `css/shivaa.css` and added a universal
+>   guard (`*, *::before, *::after{content-visibility:visible!important}`) so it cannot return.** The paint
+>   saving was never worth a scrollbar that lies.
+>   Second cause: **`html, body { overflow-x: hidden }`** (v244) — an iOS scroll stopper. Now `overflow-x:
+>   clip`, which clips without creating a scroll container.
+> - **What v245 kept from v244 (it is sound):** opaque sticky/fixed bars (the per-frame backdrop blur was
+>   real), hover-only card layers, decoration parking during a gesture, decode-ahead, Back remembering the
+>   scroll, `?perfdiag=1`. What changed inside them: parking now has a **400 ms watchdog** plus release on
+>   `hashchange`/`pageshow`/`visibilitychange`, and **`?nofx=1`** is a kill switch (no parking, no
+>   decode-ahead, plain site). Decode-ahead is **240 px on a coarse pointer** (700 px is desktop-only) and a
+>   phone is never forced to `eager`.
+> - **Also new in v245:** `js/v245.js` wakes any image that is on screen but has not started (bounded, 40 per
+>   pass, never re-points a `src`), cream placeholders behind card media, and
+>   `window.Shivaa.v245.audit()` → `{scroll.max, scroll.cards, imagesInView, skipped, parked}` for reports.
+> - **Gate status — be honest about it:** `node --check` clean (v244, v245, sw, app) · `t-v245-scroll`
+>   **39/39** · `t-v244-butter` **53/53** · `t-v243-header` **36/36** · `t-v242-taps` **37/37** ·
+>   `t-v241-perf` **43/43** · `t-v240-rip` **16/16** · `check-handoff.py` 0 red. jsdom sweep of 9 routes ×
+>   phone/PC: 0 page errors, 0 skipped subtrees, 19–20 cards per grid, nothing parked at idle.
+>   **jsdom has no scroll engine and no compositor** — the scroll bug was found by knowing what
+>   content-visibility does to layout, not by measuring it here. That is why `?nofx=1` and `?perfdiag=1`
+>   exist: the owner's device is the only place this can be confirmed.
+> - **v244 and older detail stays below as history.**
 
 
 
