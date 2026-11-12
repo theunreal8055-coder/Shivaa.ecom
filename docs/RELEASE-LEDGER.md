@@ -56,7 +56,7 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v242 | (packaged) | Responsive | 683 | 43,644,946 | `ceaa75c99a516f01…aecfa0c` | packaged 12 Nov, **never installed** — the owner reported the desktop header categories gone; v243 contains all of it |
 | v243 | `f9a91e9` | Header bar | 684 | 43,648,349 | `00aac36db94b231c…b9e13b65` | packaged 12 Nov, **never installed** — desktop header category bar restored; v244 contains all of it |
 | v244 | `8fa6dc8` | Butter | 686 | 43,657,910 | `5b3bfdb3fa490fc3…784453d8` | **installed 12 Nov — broke the phone's scroll (`content-visibility`), superseded within the hour** sticky bars opaque, hover-only card layers, decoration parked, decode-ahead, Back remembers scroll, `?perfdiag=1` |
-| **v245** | **(packaged)** | **Scroll back** | **688** | **43,663,243** | **`68c2e0b3d9b951aa…386c8552`** | **packaged 12 Nov — every `content-visibility` deleted from the bundle + universal guard, `overflow-x:hidden` gone, parking watchdog, blank-image wake, `?nofx=1` kill switch** |
+| **v245** | **`c00549b`** | **Scroll back** | **688** | **43,663,243** | **`68c2e0b3d9b951aa…386c8552`** | **packaged 12 Nov — every `content-visibility` deleted from the bundle + universal guard, `overflow-x:hidden` gone, parking watchdog, blank-image wake, `?nofx=1` kill switch** |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 

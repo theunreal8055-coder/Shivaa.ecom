@@ -2,7 +2,9 @@
 
 **Package:** `shivaa-update-v245.zip` · **688 files** · **43,663,243 B** · sha256
 `68c2e0b3d9b951aab4d96fcd3a031f0e0d5e0dcc0dea5de861aba7d0386c8552`
-**Site ab:** v244 (aapne lagaya — aur usi ne phone tod diya) · **Yeh release:** v245
+> **Commit:** `c00549b` · branch `arena/95be65a4-shivaa-ecom`
+>
+> **Site ab:** v244 (aapne lagaya — aur usi ne phone tod diya) · **Yeh release:** v245
 
 ---
 
