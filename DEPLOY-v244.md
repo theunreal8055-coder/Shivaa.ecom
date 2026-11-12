@@ -2,7 +2,9 @@
 
 **Package:** `shivaa-update-v244.zip` · **686 files** · **43,657,910 B** · sha256
 `5b3bfdb3fa490fc32071bb17339ecfbc30ca634cfd5f9439f56a487c784453d8`
-**Site ab:** v241 (aapne lagaya) · **Yeh release:** v244 (v237–v243 andar hain) · **Sirf yehi zip install karein.**
+> **Commit:** `8fa6dc8` · branch `arena/95be65a4-shivaa-ecom`
+>
+> **Site ab:** v241 (aapne lagaya) · **Yeh release:** v244 (v237–v243 andar hain) · **Sirf yehi zip install karein.**
 
 > v242 aur v243 aapne install nahi ki. **v244 me dono ka poora kaam hai** — clicks, ₹0 wala pehla screen, product
 > ki badi photo, aur PC header ki categories. Ek hi file sab le aayegi.

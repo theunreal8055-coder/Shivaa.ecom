@@ -55,7 +55,7 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v241 | (applied 12 Nov) | Smooth | 682 | 43,636,784 | `6987184a07398433…0c7c8cdf` | **applied — smooth, but taps died** (rebuilt `trimMedia`, instant repaint, ₹0 fast paint, soft PDP photo) |
 | v242 | (packaged) | Responsive | 683 | 43,644,946 | `ceaa75c99a516f01…aecfa0c` | packaged 12 Nov, **never installed** — the owner reported the desktop header categories gone; v243 contains all of it |
 | v243 | `f9a91e9` | Header bar | 684 | 43,648,349 | `00aac36db94b231c…b9e13b65` | packaged 12 Nov, **never installed** — desktop header category bar restored; v244 contains all of it |
-| **v244** | **(packaged)** | **Butter** | **686** | **43,657,910** | **`5b3bfdb3fa490fc3…784453d8`** | **packaged 12 Nov — sticky bars opaque (no per-frame backdrop blur), cards promoted only on hover, `content-visibility` on long grids, decoration parked during a gesture, decode-ahead, Back remembers scroll, `?perfdiag=1`** |
+| **v244** | **`8fa6dc8`** | **Butter** | **686** | **43,657,910** | **`5b3bfdb3fa490fc3…784453d8`** | **packaged 12 Nov — sticky bars opaque (no per-frame backdrop blur), cards promoted only on hover, `content-visibility` on long grids, decoration parked during a gesture, decode-ahead, Back remembers scroll, `?perfdiag=1`** |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 
