@@ -1,28 +1,32 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-**Written 12 Nov 2026 (Asia/Calcutta), after v242 was packaged.**
-**Site: v241 (applied — smooth, but taps stopped working). Newest release: v242 “Responsive”** — packaged,
-awaiting the owner's yes; it contains v237–v241. **Next release: v243.** Session branch:
+**Written 12 Nov 2026 (Asia/Calcutta), after v243 was packaged.**
+**Site: v241 (applied — smooth, but taps stopped working). Newest release: v243 “Header bar”** — packaged,
+awaiting the owner's yes; it contains v237–v242. **Next release: v244.** Session branch:
 `arena/95be65a4-shivaa-ecom`.
 
 **Live package (v241):** `shivaa-update-v241.zip` · 682 files · 43,636,784 B · sha256
 `6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf`.
 
-**v242 package:** `shivaa-update-v242.zip` · **683 files** · **43,644,946 B** · sha256
-`ceaa75c99a516f0157037557aaa82a6c7ee7f84943dc374438bc443a3aecfa0c` — one new js layer
-(`js/v242.js`), no new css layer (bundle stays **71 layers / 71 blocks**).
+**v243 package:** `shivaa-update-v243.zip` · **684 files** · **43,648,349 B** · sha256
+`00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65` — one new js layer
+(`js/v243.js`), no new css layer (bundle stays **71 layers / 71 blocks**). **v242 (683 files,
+43,644,946 B, `ceaa75c9…aecfa0c`) was packaged and never installed; v243 contains all of it.**
 
-**Why v242 exists:** after v241 the owner said *“clicks are not working now and buttons are
-unresponsive”*. Taps were **eaten, not lost**. (1) the worker scanned its whole image cache after every
-picture (`trimMedia`, 160 entries × ~100 images on home); (2) v241 repainted the whole view 1–3 s after
-paint, closing whatever the tap had just opened; (3) a leftover full-screen layer could swallow taps.
-All three fixed; **`?tapdiag=1`** now names the layer if it ever recurs. Two silent v241 bugs also fixed:
-the 800 ms paint had no gold rate (₹0 on the first screen — reverted to the honest 6 s ceiling), and the
-product page's main photograph had been swapped for a 560 px thumbnail (now grids only).
+**Why v243 exists:** on his PC the owner reported *“PC main header se jo categories thi vo sab ud chuki
+hain”*. **Nothing was deleted** — `#mainNav` is one element with two jobs (drawer ≤820 px, header category
+bar above it), and the drawer repairs v238/v239 wrote their full-width rows **inline with no viewport
+check**, so on a laptop nine links each claimed the whole 52 px bar and the categories vanished; inline
+outranks all 71 css layers. v239 is now gated to drawer mode, v240 is mode-aware, and the new `js/v243.js`
+strips the drawer's inline traces from the bar on a desktop, re-checks 0.4/1.5/3.5 s after load, and touches
+nothing on a phone. It never writes a width, never hides or removes an element.
 
-> ⚠ **v242 was packaged without the full gate run.** `node --check` (4 files), `t-v242-taps` (**36/36**),
-> `t-v241-perf` (43/43), `t-v240-rip` (16/16) and `python3 qa/check-handoff.py` are green;
-> `bash qa/v241-gate.sh` / `v242-gate.sh` still have to be created from the v236 gate, pins rolled, 0 red.
+> ⚠ **v243 was packaged without the full per-release gate script.** `node --check` (v239, v240, v243, sw,
+> app), `t-v243-header` (**36/36**), `t-v242-taps` (**37/37** — its release pins now read the live stamp from
+> `index.html` instead of a typed 242), `t-v241-perf` (43/43), `t-v240-rip` (16/16) and `check-handoff.py`
+> (**209 checks, 0 red**) are green; `qa/v242-gate.sh` / `qa/v243-gate.sh` still have to be created from the
+> v236 gate with the pins rolled. jsdom has no layout engine — the bar is verified by inline/computed style on
+> a 1280 px boot vs a 390 px boot, not by a screenshot.
 
 ---
 
@@ -36,8 +40,8 @@ Before anything else run: bash qa/where-am-i.sh
   exit 0 → forward, work here.   exit 3 → this tree is BEHIND: stop and run the
   three commands it prints; never work, build a zip or write docs on an old tree.
 Then: git fetch origin arena/95be65a4-shivaa-ecom && git reset --hard FETCH_HEAD
-The site is on v241. Newest release is v242 “Responsive” (packaged, awaiting the owner's yes).
-Next release is v243. Never rebuild, renumber or re-ship v242 or older.
+The site is on v241. Newest release is v243 “Header bar” (packaged, awaiting the owner's yes; it
+contains all of v242). Next release is v244. Never rebuild, renumber or re-ship v243 or older.
 Machine truth: docs/release-ledger.json. After any doc edit: python3 qa/check-handoff.py
 ```
 

@@ -75,6 +75,11 @@ ADDED = {
     # product page photograph). One new js layer; the thumbnails ride forward
     # from the v241 list, so they are NOT re-declared here.
     242: ['js/v242.js'],
+    # v243 "the header bar is not a drawer" — one js layer, no css. The desktop
+    # category bar is #mainNav, the same element as the mobile drawer, and the
+    # drawer guards (v238/v239/v240) had written their full-width rows onto it
+    # inline. v243 removes those on a desktop and leaves the drawer alone.
+    243: ['js/v243.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

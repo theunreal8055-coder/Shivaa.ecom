@@ -49,9 +49,42 @@
   } catch (_) {}
 
   /* ── undo v239's experiment (it was built on the wrong diagnosis) ─────── */
+  /* v243 — the same viewport split v239 needed: below 820 px this is the side
+     drawer and the row styles belong there; above it this is the header's
+     horizontal category bar, and ANY inline width on a row (999 px of
+     `width:100% !important`) drags the categories out of the bar. On a desktop
+     every trace of the drawer work is removed, including the ones an older
+     cached script already planted in this DOM. */
+  var ROW_PROPS = ['display', 'grid-template-columns', 'align-items', 'width', 'max-width', 'box-sizing', 'min-width'];
+  var TX_PROPS = ['min-width', 'width', 'max-width', 'display'];
+  var B_PROPS = ['display', 'white-space', 'overflow', 'text-overflow', 'max-width'];
+  var SM_PROPS = ['display', '-webkit-box-orient', '-webkit-line-clamp', 'overflow', 'word-break', 'overflow-wrap', 'max-width'];
+  function strip(el, props) { if (!el || !el.style) return; for (var i = 0; i < props.length; i++) el.style.removeProperty(props[i]); }
+  function isDrawer() {
+    try { return !window.matchMedia || window.matchMedia('(max-width: 820px)').matches; }
+    catch (e) { return true; }
+  }
+  function restoreBar() {
+    var nav = document.getElementById('mainNav');
+    if (!nav) return;
+    var nodes = nav.querySelectorAll('.nav-scroll > a, .nav-scroll > button, .nav-jwl');
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      strip(a, ROW_PROPS);
+      var tx = a.querySelector('.dw-tx');
+      if (tx) {
+        strip(tx, TX_PROPS);
+        strip(tx.querySelector('b'), B_PROPS);
+        strip(tx.querySelector('small'), SM_PROPS);
+      }
+      a.__shvRowFixed = false;
+    }
+  }
+
   function undoRows() {
     var nav = document.getElementById('mainNav');
     if (!nav) return;
+    if (!isDrawer()) { restoreBar(); return; }     // v243 — desktop gets the plain bar
     var rows = nav.querySelectorAll('.nav-scroll > a');
     for (var i = 0; i < rows.length; i++) {
       var a = rows[i];
@@ -85,6 +118,15 @@
   }
 
   function run() { undoRows(); sweepRipples(); }
+  /* v243 — crossing the boundary (rotate, resize, a docked window) re-decides:
+     leaving the drawer restores the bar, entering it hands back to the guard. */
+  try {
+    var mq = window.matchMedia('(max-width: 820px)');
+    var onMode = function () { try { restoreBar(); } catch (e) {} undoRows(); };
+    if (mq.addEventListener) mq.addEventListener('change', onMode);
+    else if (mq.addListener) mq.addListener(onMode);
+  } catch (e) {}
+  window.addEventListener('resize', function () { if (!isDrawer()) { try { restoreBar(); } catch (e) {} } }, { passive: true });
   if (document.readyState !== 'loading') run();
   document.addEventListener('DOMContentLoaded', run);
   window.addEventListener('load', run);

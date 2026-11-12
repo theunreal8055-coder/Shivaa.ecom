@@ -1,47 +1,38 @@
-> ## CURRENT STATE — **v242 “Responsive” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v243 “Header bar” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v241 is APPLIED and it broke taps.** The owner: *“website is smooth but clicks are not working now and
->   buttons are unresponsive.”* **The site is on v241.** v242 fixes it and is the only zip to install
->   (it contains v237–v241).
-> - **v242 “Responsive” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v242.zip` — **683 files · 43,644,946 B ·
->   `ceaa75c99a516f0157037557aaa82a6c7ee7f84943dc374438bc443a3aecfa0c`**. **Next release number: v243.**
+> - **v241 is APPLIED. v242 was packaged but the owner never installed it** — before he did, he reported a new
+>   desktop regression: *“PC main header se jo categories thi vo sab ud chuki hain”*. **v243 contains the whole of
+>   v242** plus that fix, so **v243 is the only zip to install** (it carries v237–v242).
+> - **v243 “Header bar” is the newest release** — packaged 12 Nov 2026, **not deployed**.
+>   `shivaa-update-v243.zip` — **684 files · 43,648,349 B ·
+>   `00aac36db94b231c3a4554eb74d170b1697bf0a66493643a7c147624b9e13b65`**. **Next release number: v244.**
 > - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD. Then `python3 qa/check-handoff.py`,
->   `node qa/browser/t-v242-taps.mjs` (36), `node qa/browser/t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
-> - **WHY TAPS DIED — carry this forward.** Taps were **eaten, not lost**; a DOM-only test still fires every
->   control. Three mechanisms, all removed:
->   1. **The worker scanned its whole image cache after every picture.** v241 raised `MEDIA_MAX` 60 → 160
->      because thumbnails are small, but `trimMedia()` ran `c.match()` for every entry after every write —
->      ~160 CacheStorage reads × ~100 images on the home page, all on the worker's single thread. Now the
->      count trim is deletions only and the age sweep runs at most once an hour (+ once on activation).
->   2. **A full repaint 1–3 s after paint.** v241 painted from the device catalogue at 800 ms, then
->      re-entered `boot()` the moment the API answered; `route()` closes sheets, empties the bag and rewrites
->      `#view` — so a tap in that window was dropped and a tap that had just opened something had it closed
->      under the finger. app.js now queues a **calm repaint** (no touch for 4 s, no sheet open, tab visible,
->      retries up to 12 times) — the data still lands, just never under a finger.
->   3. **A leftover full-screen layer.** A closed overlay stayed clickable, which makes a site that scrolls
->      perfectly feel dead. `js/v242.js` injects `.modal-overlay:not(.open){pointer-events:none!important}`,
->      neutralises any screen-covering layer that carries no control (marked `[data-v242-stray]`), and
->      **`?tapdiag=1`** names what the browser actually hit under the last taps.
-> - **Two silent v241 bugs the owner never mentioned, also fixed:**
->   · the 800 ms paint had **no gold rate** (rates are never cached, deliberately — a jeweller must not show
->     an old price as today's), so `price()` could print **₹0 / ₹NaN** on the first screen. Reverted to the
->     honest 6 s ceiling; the speed the owner can feel comes from the pictures and the blur, both kept.
->   · the product page's **main gallery photograph** was being replaced by the 560 px thumbnail (v241 upgraded
->     every image in four folders by measured width). The upgrade is now scoped to grids/cards only
->     (`GRID_IMG`), so a gallery or hero photo is always the original.
-> - **Also in v242:** the hover photograph (`.pc-img-b`, opacity 0, absolutely placed) is no longer rendered on
->   touch devices — a phone can never hover it, yet it downloaded ~25 KB × 13 cards; the boot tickers can no
->   longer stack when boot() runs twice; the duplicated `v237` worker precache entry is gone; the review form's
->   button declares `type="submit"`; the brand logo declares width/height (no header re-flow).
-> - **Gate status — be honest about it:** `node --check` clean (app, sw, v241, v242) · `t-v242-taps` **36/36** ·
->   `t-v241-perf` **43/43** (its four release pins relaxed to “current stamp”) · `t-v240-rip` **16/16** ·
->   `check-handoff.py` green · jsdom mobile run: 13/13 cards from thumbnails, 0 hover photos, PDP photo is the
->   original, tile tap navigates, quick view opens, 0 stray layers, 0 page errors.
->   **`bash qa/v242-gate.sh` was NOT created/run** — make both gates from `qa/v236-gate.sh` with pins rolled.
-> - **No browser engine in this sandbox** (jsdom has no layout) — the tap problem was found by reading what
->   each v241 change actually did at runtime, not by guessing at CSS.
-> - **v241 and older detail stays below as history.**
+>   `node qa/browser/t-v243-header.mjs` (36), `t-v242-taps.mjs` (37), `t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
+> - **WHY THE HEADER CATEGORIES VANISHED — carry this forward. Nothing was deleted.**
+>   `#mainNav` is **one element with two jobs**: the side drawer at ≤820 px (a column of full-width rows) and,
+>   above 820 px, the horizontal **category bar inside the header** (52 px, nine equal flex links). v238/v239 fixed
+>   the drawer's collapsed rows and **v239 wrote the fix INLINE with no viewport check** —
+>   `width:100%!important` on all nine rows — while v240's cleanup deliberately kept that width. Inline beats all
+>   71 css layers, so on a laptop nine links each demanded the entire bar and the categories disappeared from
+>   view. On a phone the same styles are exactly right, which is why only the desktop showed it.
+>   · **v239** now early-returns outside drawer mode (`drawerMode()`, `matchMedia('(max-width: 820px)')`);
+>   · **v240** is mode-aware: desktop gets `restoreBar()` (strips the drawer's inline traces), the drawer keeps
+>     `undoRows()`, and crossing 820 px (rotate/resize/dock) re-decides via the matchMedia change event;
+>   · **`js/v243.js`** (new layer) removes those inline properties from the bar on a desktop — row, label,
+>     sub-label, and a column layout on `.nav-scroll` — and re-checks 0.4 s / 1.5 s / 3.5 s after load so a
+>     cached older layer cannot put them back. **It never writes a width, never hides, never removes an element.**
+> - **v242's work is inside v243** (taps were *eaten, not lost*: the worker scanned its whole image cache after
+>   every picture, and `boot()` repainted the view 1–3 s after paint, closing whatever had just been opened; plus
+>   a closed overlay stayed clickable → `?tapdiag=1` names what the browser hit). Also the two silent v241 bugs:
+>   ₹0/₹NaN on the 800 ms first screen, and the product page's main photograph replaced by a 560 px thumbnail.
+> - **Gate status — be honest about it:** `node --check` clean (v239, v240, v243, sw, app) · `t-v243-header`
+>   **36/36** (18 static + PC bar DOM + phone drawer DOM + tap routing) · `t-v242-taps` **37/37** (its release
+>   pins now read the live stamp from `index.html` instead of a typed 242) · `t-v241-perf` **43/43** ·
+>   `t-v240-rip` **16/16** · `check-handoff.py` **209 checks, 0 red**.
+>   **`qa/v242-gate.sh` / `qa/v243-gate.sh` were never created** — make them from `qa/v236-gate.sh` with the pins rolled.
+> - **No browser engine in this sandbox** (jsdom has no layout) — the bar is verified by inspecting inline/computed
+>   styles on a 1280 px boot vs a 390 px boot, never by a screenshot.
+> - **v242 and older detail stays below as history.**
 
 
 

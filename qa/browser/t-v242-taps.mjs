@@ -35,6 +35,13 @@ const index = read('cms/index.html');
 const api = read('cms/api.php');
 const flat = (s) => s.replace(/\s+/g, ' ');
 
+/* v243 rolled the release forward. These checks are about the SHAPE of the
+   stamp — one release everywhere, v242 still loaded, no stale v=241 URL — not
+   about the number, so the number is read from index.html instead of typed. */
+const REL = +(index.match(/window\.__SHIVAA_REL=(\d+);/) || [])[1];
+const rel = (n) => n === REL;
+ok('the release stamp is a single coherent number', REL >= 242, 'REL=' + REL);
+
 /* ── 1 · the service worker stops grinding the cache ────────────────────── */
 ok('sw.js still keeps 160 small pictures warm', /const MEDIA_MAX = 160;/.test(sw));
 ok('the age sweep is rate-limited (no scan after every image)',
@@ -43,10 +50,11 @@ ok('trimMedia no longer reads every entry on every write',
    !flat(sw).includes('for (const k of await c.keys()) { try { const res = await c.match(k);'));
 ok('the expensive sweep runs once on activation instead',
    /e\.waitUntil\(trimMedia\(\)\.catch\(\(\) => \{\}\)\);/.test(sw));
-ok('sw shell + REL are 242', /shivaa-shell-v242/.test(sw) && /const REL = 242;/.test(sw));
-ok('sw precaches js/v242.js', /'\/js\/v242\.js\?v=242'/.test(sw));
+ok('sw shell + REL carry the live release',
+   new RegExp('shivaa-shell-v' + REL).test(sw) && new RegExp('const REL = ' + REL + ';').test(sw));
+ok('sw precaches js/v242.js', /'\/js\/v242\.js\?v=\d+'/.test(sw));
 ok('the duplicated v237 precache entry is gone',
-   (sw.match(/'\/js\/v237\.js\?v=242'/g) || []).length === 1);
+   (sw.match(/'\/js\/v237\.js\?v=\d+'/g) || []).length === 1);
 
 /* ── 2 · no repaint under a finger ──────────────────────────────────────── */
 ok('the device-catalogue fast paint is reverted (rates are never cached)',
@@ -103,13 +111,14 @@ ok('the panel reports sheet / scroll-lock state', /scroll locked:/.test(v242) &&
 
 /* ── 6 · release plumbing ───────────────────────────────────────────────── */
 ok('index.html loads v242 after v241',
-   index.indexOf('/js/v241.js?v=242') > -1 && index.indexOf('/js/v242.js?v=242') > index.indexOf('/js/v241.js?v=242'));
-ok('index.html stamps rel 242', /window\.__SHIVAA_REL=242;/.test(index));
-ok('every asset URL rides v=242', !/\?v=241/.test(index));
+   index.indexOf('/js/v241.js?v=' + REL) > -1 &&
+   index.indexOf('/js/v242.js?v=' + REL) > index.indexOf('/js/v241.js?v=' + REL));
+ok('index.html stamps the live rel', /window\.__SHIVAA_REL=\d+;/.test(index));
+ok('every asset URL rides the live release', !/\?v=(24[01])\b/.test(index));
 ok('index.html still links exactly one stylesheet', (index.match(/<link rel="stylesheet"/g) || []).length === 1);
 ok('the Cashfree SDK is still off the critical path', !/sdk\.cashfree\.com\/js/.test(index));
-ok('app.js APP_REL is 242', /const APP_REL = 242;/.test(app));
-ok('api.php reports rel 242', /'rel' => 242/.test(api));
+ok('app.js APP_REL is the live release', /const APP_REL = \d+;/.test(app) && new RegExp('const APP_REL = ' + REL + ';').test(app));
+ok('api.php reports the live release', new RegExp("'rel' => " + REL).test(api));
 
 console.log(`\n${pass}/${pass + fail} passing`);
 if (fail) { console.log('RESULT: FAILURES'); process.exit(1); }

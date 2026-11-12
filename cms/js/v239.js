@@ -34,6 +34,20 @@
   try { DIAG = /(?:\?|&)navdiag=1\b/.test(location.search); } catch (_) {}
 
   function drawer() { return document.getElementById('mainNav'); }
+  /* ── v243 · THE DRAWER FIX MAY NEVER TOUCH THE DESKTOP BAR ─────────────
+     `#mainNav` is two different things depending on the screen:
+       · ≤820 px  → the side drawer (a column of rows, this file's target);
+       · >820 px  → the horizontal category bar inside the header, where each
+         row is an equal flex link.
+     v239 wrote `width:100% !important` inline onto every row with NO viewport
+     check, and inline styles outrank all 71 cascade layers — so on a laptop
+     the header bar got nine links each demanding the full bar width and the
+     categories visibly vanished ("PC main header se jo categories thi vo sab
+     ud chuki hain"). Every rule in this file is now drawer-only. */
+  function drawerMode() {
+    try { return !window.matchMedia || window.matchMedia('(max-width: 820px)').matches; }
+    catch (e) { return true; }
+  }
   function isRow(el) {
     return el && el.tagName === 'A' &&
       (el.classList.contains('dw-row') || el.classList.contains('nav-jwl'));
@@ -42,6 +56,7 @@
   /* ── 1 · the rows ─────────────────────────────────────────────────────── */
   function fixRow(a) {
     if (!isRow(a)) return;
+    if (!drawerMode()) return;               // v243 — the header bar is not a drawer
     if (a.__shvRowFixed) return;
     var tx = a.querySelector('.dw-tx');
     if (!tx) return;
