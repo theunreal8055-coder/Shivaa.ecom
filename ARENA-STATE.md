@@ -1,43 +1,51 @@
-> ## CURRENT STATE — **v245 “Scroll back” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v246 “Lightning” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v244 was INSTALLED BY THE OWNER AND IT BROKE HIS PHONE.** His words: *“i cant even scroll anything on
->   mobile now, everything has just stopped”*. **v245 is the repair, packaged the same hour, and is the only
->   zip to install.** It contains v237–v244.
-> - **v245 “Scroll back” is the newest release** — packaged 12 Nov 2026, **not deployed**.
->   `shivaa-update-v245.zip` — **688 files · 43,663,243 B ·
->   `68c2e0b3d9b951aab4d96fcd3a031f0e0d5e0dcc0dea5de861aba7d0386c8552`**. **Next release number: v246.**
-> - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD. Then `python3 qa/check-handoff.py`,
->   `node qa/browser/t-v245-scroll.mjs` (39), `t-v244-butter.mjs` (53), `t-v243-header.mjs` (36),
->   `t-v242-taps.mjs` (37), `t-v241-perf.mjs` (43), `t-v240-rip.mjs` (16).
-> - **THE ROOT CAUSE — carry this forward, it is the most important line in this file.**
->   **`content-visibility: auto` must never be used on this site again.** A skipped subtree is not laid out:
->   it reports the placeholder height from `contain-intrinsic-size` instead of its real height, and the lazy
->   images inside it never start. On a phone that is (a) a document shorter than its content — the page stops
->   scrolling part way, exactly what the owner reported — and (b) blank cards that never wake. It had been
->   sprinkled over `.p-grid`, `.pillars`, `.ugc-wall`, `.catbar-outer`, `.p-card`, `.ds-card`, `#view >
->   section` and the footer across several releases, and v244 added two more. **v245 deleted every
->   `content-visibility` and `contain-intrinsic-size` declaration from `css/shivaa.css` and added a universal
->   guard (`*, *::before, *::after{content-visibility:visible!important}`) so it cannot return.** The paint
->   saving was never worth a scrollbar that lies.
->   Second cause: **`html, body { overflow-x: hidden }`** (v244) — an iOS scroll stopper. Now `overflow-x:
->   clip`, which clips without creating a scroll container.
-> - **What v245 kept from v244 (it is sound):** opaque sticky/fixed bars (the per-frame backdrop blur was
->   real), hover-only card layers, decoration parking during a gesture, decode-ahead, Back remembering the
->   scroll, `?perfdiag=1`. What changed inside them: parking now has a **400 ms watchdog** plus release on
->   `hashchange`/`pageshow`/`visibilitychange`, and **`?nofx=1`** is a kill switch (no parking, no
->   decode-ahead, plain site). Decode-ahead is **240 px on a coarse pointer** (700 px is desktop-only) and a
->   phone is never forced to `eager`.
-> - **Also new in v245:** `js/v245.js` wakes any image that is on screen but has not started (bounded, 40 per
->   pass, never re-points a `src`), cream placeholders behind card media, and
->   `window.Shivaa.v245.audit()` → `{scroll.max, scroll.cards, imagesInView, skipped, parked}` for reports.
-> - **Gate status — be honest about it:** `node --check` clean (v244, v245, sw, app) · `t-v245-scroll`
->   **39/39** · `t-v244-butter` **53/53** · `t-v243-header` **36/36** · `t-v242-taps` **37/37** ·
->   `t-v241-perf` **43/43** · `t-v240-rip` **16/16** · `check-handoff.py` 0 red. jsdom sweep of 9 routes ×
->   phone/PC: 0 page errors, 0 skipped subtrees, 19–20 cards per grid, nothing parked at idle.
->   **jsdom has no scroll engine and no compositor** — the scroll bug was found by knowing what
->   content-visibility does to layout, not by measuring it here. That is why `?nofx=1` and `?perfdiag=1`
->   exist: the owner's device is the only place this can be confirmed.
-> - **v244 and older detail stays below as history.**
+> - **v246 “Lightning” is the newest release** — packaged 12 Nov 2026, **not deployed**. The only zip to
+>   install. `shivaa-update-v246.zip` — **689 files · 43,776,814 B ·
+>   `d389c28b1829541aae93deade6b1029f423e01b4fb9c77d5100366560a98ef88`**. **Next release number: v247.**
+>   It contains v237–v245. Code commit `28a0992`.
+> - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD (exit 3 = this tree is behind;
+>   stop and move to the release branch it names). Then `python3 qa/check-handoff.py` and
+>   `node qa/browser/t-v246-light.mjs` (58).
+> - **The owner's report, and what it actually was:** *“App lags and feel stuck and doesn't load everything
+>   fast and lighteining speed”*. Measured on this tree before anything was changed: the phone home page
+>   asked for **72 pictures = 5,113 KB**, and `index.html` asked for **33 separate `<script>` files** with
+>   `defer` (each one waits for the one before it). Nothing about the rendering was slow; the page was
+>   simply heavy.
+> - **PICTURES — the rule, carry it forward.** Five render sites wrote `p.images[0]` straight into `src=`
+>   instead of calling `thumbAttrs()`: a **409 KB** `reviews/cust-2.jpg` in a 150 px circle, a **244 KB**
+>   `products/necklace-rani.jpg` in a 360 px card, the 18-chip category rail (40–132 KB originals in 72 px
+>   circles), the UGC product chip, and a 244 KB quick-view overlay. The 320/560 webp thumbs had been in
+>   `images/thumbs/` since v241 — nothing asked for them. **A picture in a slot narrower than the original
+>   may only reach the DOM through `thumbAttrs()` / `thumbUrl()`.** Home fell to **1,832 KB** of image
+>   markup, and a real browser picks the 320 far more often than that measurement does.
+> - **REQUESTS — one file.** `tools/build-js-bundle.py` concatenates the 31 behaviour layers, in document
+>   order (`tools/js-bundle-order.txt`), into `js/rel.js`; `index.html` now asks for **two** scripts
+>   (`app.js` + `rel.js`) and preloads both from the head. **`app.js` is deliberately not in the bundle:** a
+>   behaviour layer must never be able to stop the shop from opening. Rebuild with
+>   `python3 tools/build-js-bundle.py --write` — it refuses to write a bundle that does not parse. Never
+>   hand-edit `rel.js`. The source layers stay on disk and in the zip, so a rollback is one `index.html`.
+> - **The service worker** now installs the shell **four files at a time** and takes fonts/icons/pictures
+>   from the http cache instead of `cache:'reload'` re-downloads: the precache list fell from ~40 files to
+>   **18**, and an update no longer competes with the page it is updating.
+> - **A silent trap, closed:** v245 stripped `content-visibility` out of the *shipped* `css/shivaa.css` by
+>   hand, so the next `build-css-bundle.py --write` would have put all 19 declarations straight back. The
+>   declarations are now deleted from the **twelve source layers** and the bundle is regenerated: exactly
+>   **one** `content-visibility` remains — the universal guard. Never re-introduce it, and never edit the
+>   bundle instead of a layer.
+> - **Nothing was hidden, parked or deferred to make a number look better.** No new `content-visibility`, no
+>   `overflow-x: hidden`, no eager-forcing. The v245 scroll repair is intact and re-tested in both
+>   orientations and on both pointer types.
+> - **Gate status — be honest about it:** `t-v246-light` **58/58** (new: one-request bundle, worker storm,
+>   small-slot originals, and a picture budget measured on a rendered home/shop page on phone and PC) ·
+>   `t-v245-scroll` **39/39** · `t-v244-butter` **54/54** · `t-v243-header` **36/36** · `t-v242-taps`
+>   **37/37** · `t-v241-perf` **43/43** · `t-v240-rip` **16/16** · `check-handoff.py` 0 red. The older
+>   suites were re-pointed at the bundle ("is vXXX inside `rel.js`, at the right index?") instead of
+>   per-file `<script>` tags.
+> - **jsdom has no scroll engine, no compositor and no network**: the *bytes* here are real (they are file
+>   sizes), the *feel* is not measurable in this sandbox. That is why `?perfdiag=1` and `?nofx=1` exist —
+>   the owner's device is the only place the result can be confirmed.
+> - **v245 and older detail stays below as history.**
 
 
 
