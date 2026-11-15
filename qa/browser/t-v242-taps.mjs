@@ -70,8 +70,23 @@ ok('the duplicated v237 layer is in the bundle exactly once',
    relLayers.filter(n => n === 'v237.js').length === 1);
 
 /* ── 2 · no repaint under a finger ──────────────────────────────────────── */
-ok('the device-catalogue fast paint is reverted (rates are never cached)',
-   /const _capMs = isRedraw \? 15000 : 6000;/.test(app));
+/* v247 — the 800 ms paint came back in a safer form, so the claim had to be
+   restated rather than deleted. The rule was never "wait six seconds"; it was
+   "never compute a price from a rate you do not have". v247 paints the home
+   screen at 700 ms ONLY when the catalogue is already on the device, and every
+   price slot in that paint is a skeleton (priceHTML/PRICE_PENDING) that the
+   `rates` event fills in place. So the test now asks for exactly that:
+     · the fast branch is gated on a local catalogue and the home route;
+     · a missing rate can never produce a number — it produces the skeleton;
+     · the six second ceiling still stands for every other case. */
+ok('the fast paint is gated on a device catalogue, never on a guess',
+   /const _homeFirst = !isRedraw[\s\S]{0,200}?_capMs = isRedraw \? 15000 : \(_homeFirst && _realCount\(\) > 0 \? 700 : 6000\)/.test(app));
+ok('a missing rate renders a skeleton, never ₹0 and never ₹NaN',
+   /function moneyOK\(p, R\)/.test(app) && /const PRICE_PENDING = '<i class="pr-sk"/.test(app) &&
+   /function priceHTML\(p, qty, R\) \{\s*if \(!moneyOK\(p, R\)\) return PRICE_PENDING;/.test(app));
+ok('the product card prices through that helper',
+   /const pend = !moneyOK\(p\)/.test(app) && /\$\{pend \? PRICE_PENDING : fmt\(pr\.total\)\}/.test(app));
+ok('the cold-visit ceiling is still six seconds', /: 6000\)/.test(app));
 ok('a late batch queues a CALM repaint, not an immediate one',
    /_firstBatch\.then\(\(\) => \{ calmBoot\(0\); \}\)/.test(app));
 ok('calmBoot waits for no-touch / no-sheet / visible',

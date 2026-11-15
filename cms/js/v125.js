@@ -196,8 +196,17 @@
     var wrap = doc.createElement('div');
     wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden';
     wrap.className = 'sv-film-wrap';
+    /* v247 — a poster is 40–75 KB of camera file drawn in a ~300 px tile. It now
+       asks app.js for the same 320/560 webp siblings as every other small
+       picture (window.thumbAttrs), and falls back to the original exactly as
+       before if a sibling is missing. */
+    var posterAttrs = (window.thumbAttrs ? window.thumbAttrs(fl.p, '(max-width:600px) 86vw, 420px') : '')
+      .replace(/\s(onerror|data-full)="[^"]*"/g, '');
+    var posterTag = '<img ' + (posterAttrs || ('src="' + fl.p + '"'))
+      + ' alt="' + fl.title + '" style="width:100%;height:100%;object-fit:cover"'
+      + (posterAttrs ? '' : ' loading="lazy" decoding="async"') + '>';
     if (liteMode) {
-      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"><span class="sv-film-tap" aria-hidden="true">▶ Tap to play</span>';
+      wrap.innerHTML = posterTag + '<span class="sv-film-tap" aria-hidden="true">▶ Tap to play</span>';
       return wrap;
     }
     /* v211 — the poster is a real <img> UNDER the video, always. If the film
@@ -205,7 +214,20 @@
        the case still turns: the feature can never show a dead black card. */
     var posterImg = doc.createElement('img');
     posterImg.className = 'sv-film-poster';
-    posterImg.src = fl.p;
+    var _p560 = (window.thumbUrl ? window.thumbUrl(fl.p, 560) : '');
+    var _p320 = (window.thumbUrl ? window.thumbUrl(fl.p, 320) : '');
+    if (_p560) {
+      posterImg.src = _p560;
+      posterImg.srcset = _p320 + ' 320w, ' + _p560 + ' 560w';
+      posterImg.sizes = '(max-width:600px) 86vw, 420px';
+      posterImg.setAttribute('data-full', fl.p);
+      posterImg.onerror = function () {
+        if (!this.dataset.fb) { this.dataset.fb = 1; this.removeAttribute('srcset'); this.src = fl.p; }
+        else { this.onerror = null; }
+      };
+    } else {
+      posterImg.src = fl.p;
+    }
     posterImg.alt = fl.title;
     posterImg.loading = 'lazy';
     posterImg.decoding = 'async';

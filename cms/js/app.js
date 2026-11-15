@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 246;
+const APP_REL = 247;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -182,7 +182,7 @@ const safeUrl = s => { const u = String(s ?? '').trim(); return /^(https?:|mailt
    a picture added tomorrow (no siblings yet) still shows at full quality after
    one honest fallback. Anything outside those four folders — banners, page
    heroes, uploads, product-page art — is returned exactly as it was. */
-const THUMB_RE = /^\/images\/(?:products|categories|reviews|offers)\/.+\.(?:jpe?g|png)$/i;
+const THUMB_RE = /^\/images\/(?:products|categories|reviews|offers|banners|films)\/.+\.(?:jpe?g|png)$/i;
 function thumbUrl(src, w) {
   const u = String(src == null ? '' : src).split('?')[0];
   if (!THUMB_RE.test(u)) return '';
@@ -206,6 +206,12 @@ function thumbAttrs(src, sizes) {
     + `data-full="${full}" ${rest} `
     + `onerror="if(!this.dataset.fb){this.dataset.fb=1;this.removeAttribute('srcset');this.src=this.dataset.full}else{this.onerror=null;this.src='/images/logo.png'}"`;
 }
+/* v247 — the layers outside this file draw pictures too (v125 builds the film
+   posters with createElement). They used to hard-code the full-size file, which
+   is how 450 KB of poster art came back after v246 had cleaned the grid. One
+   global each, so the thumb convention lives in exactly one place. */
+try { window.thumbAttrs = thumbAttrs; window.thumbUrl = thumbUrl; } catch (e) {}
+
 /* v82 — embed a value as a JS string argument inside an inline on* handler.
    esc() alone is wrong there: the HTML attribute decodes &#39; back to a
    quote BEFORE the JS runs, so a name containing ' breaks the string.
@@ -640,6 +646,32 @@ window.Shivaa.shareProduct = async id => {
 const TAGS = { wedding: 'Wedding', festive: 'Festive', daily: 'Everyday', gifting: 'Gifting', mens: "Men's", heritage: 'Heritage', luxe: 'Luxe', new: 'New In', bestseller: 'Bestsellers' };
 
 /* price computation — mirrors the server exactly */
+/* ─── v247 · THE PRICE SLOT BEFORE THE RATE LANDS ──────────────────────────
+   v242 was right about one thing: a jeweller must never show yesterday's gold
+   price as today's, and `price()` returns NaN when no rate is loaded — which
+   printed ₹NaN or ₹0 on the first screen. So the shop waited for the rates
+   call before it painted anything, and on a slow connection that wait is a
+   splash screen with nothing behind it.
+   The honest third answer is a skeleton: the card is real, the photo is real,
+   the name is real, and the price slot is visibly *loading* until the rate
+   arrives (the `rates` event patches every .js-price in place — see the live
+   price refresh section). Nothing is guessed and nothing is hidden. */
+function moneyOK(p, R) {
+  R = R || state.rates || {};
+  const rate = p && p.metal === 'Silver' ? R.silver : R['gold' + String((p && p.purity) || '22K').replace('K', '')];
+  return typeof rate === 'number' && isFinite(rate) && rate > 0;
+}
+const PRICE_PENDING = '<i class="pr-sk" aria-hidden="true"></i><span class="sr-only">Price loading</span>';
+/** the visible price, or a skeleton when the rate is not here yet */
+function priceHTML(p, qty, R) {
+  if (!moneyOK(p, R)) return PRICE_PENDING;
+  return fmt(Math.round(price(p, R).total * (+qty || 1)));
+}
+/* exposed for the diagnostics layer and for qa/browser/t-v247-premium.mjs, which
+   has to prove that a missing rate can never become a number. Pure: it takes the
+   rate table as an argument, so a test never has to mutate the live state. */
+try { window.Shivaa = window.Shivaa || {}; window.Shivaa.priceHTML = priceHTML; } catch (e) {}
+
 function price(p, R) {
   R = R || state.rates || {};
   const rate = p.metal === 'Silver' ? R.silver : R['gold' + p.purity.replace('K', '')];
@@ -2205,7 +2237,7 @@ function renderStudsCollection(gender = 'gents') {
                 <div class="shv-stud-price-row">
                   <div>
                     <span style="font-size:10px;text-transform:uppercase;color:#e9c877;letter-spacing:0.12em;display:block">Live All-Inclusive</span>
-                    <b class="shv-stud-price js-price" data-pid="${esc(s.id)}">₹${total.toLocaleString('en-IN')}</b>
+                    <b class="shv-stud-price js-price" data-pid="${esc(s.id)}">${isFinite(total) ? '₹' + total.toLocaleString('en-IN') : '<i class="pr-sk" aria-hidden="true"></i>'}</b>
                   </div>
                   <div style="text-align:right">
                     <span class="shv-stud-mc">${s.mcPct}% MC + 3% GST</span>
@@ -2725,7 +2757,7 @@ async function loadSocialProof() {
 /* ─────────── v54 HOME STRIPS: trending + recently viewed ─────────── */
 const tvCard = (x) => `<a class="tv-card" href="#/product/${esc(x.id)}">
   <div class="tv-ph"><img ${thumbAttrs(x.img || ((x.images || [])[0]), '(max-width:600px) 46vw, 220px')} alt=""></div>
-  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(x.price || 0).toLocaleString('en-IN')}</span></div></a>`;
+  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span class="js-price" data-pid="${esc(x.id)}" data-qty="1">${priceHTML(x, 1)}</span></div></a>`;
 function tvSection(id, label, sub, items) {
   if (!items.length) return null;
   const sec = document.createElement('section');
@@ -3290,6 +3322,7 @@ function initHeroStage() {
 function savedRingSize() { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } }
 function productCard(p, opts = {}) {
   const pr = price(p);
+  const pend = !moneyOK(p);     // v247 — no rate yet: the slot shows a skeleton
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
   const mySize = savedRingSize();
@@ -3316,8 +3349,8 @@ function productCard(p, opts = {}) {
       <div class="pc-cat">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))} · ${p.metal === 'Silver' ? 'Silver ' + esc(p.purity || '') : esc(p.purity || '') + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
       <div class="pc-meta">Approx. ${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
-      <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
-      <div class="pc-live"><span class="live-dot"></span>live price · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g today</div>
+      <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${pend ? PRICE_PENDING : fmt(pr.total)}</b><small>incl. 3% GST</small></div>
+      <div class="pc-live"><span class="live-dot"></span>${pend ? 'syncing today\u2019s rate…' : `live price · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g today`}</div>
     </div>
   </article>`;
 }
@@ -4935,7 +4968,7 @@ pages.home = async (view) => {
   <section class="container shv-home-campaign-entry" style="margin: 28px auto 20px;">
     <div class="shv-home-campaign-card rv">
       <div class="shv-hcc-art">
-        <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit Prize" loading="lazy">
+        <img ${thumbAttrs('/images/banners/gold-biscuit-campaign.jpg', '(max-width:820px) 92vw, 420px')} alt="10g 24K Gold Biscuit Prize">
         <span class="shv-hcc-badge">✦ 10g 24K Bullion Prize</span>
       </div>
       <div class="shv-hcc-content">
@@ -4985,7 +5018,7 @@ pages.home = async (view) => {
         <h2 style="font-size:34px;margin-top:8px">${esc(spot.name)}</h2>
         <p style="color:var(--ink-2);margin:12px 0 8px">${esc(spot.desc.split('.')[0])}.</p>
         <div style="display:flex;align-items:baseline;gap:14px;margin:14px 0 22px">
-          <b style="font-family:var(--ff-disp);font-size:34px;color:var(--maroon-deep)" class="js-price" data-pid="${spot.id}" data-qty="1">${fmt(spotPr.total)}</b>
+          <b style="font-family:var(--ff-disp);font-size:34px;color:var(--maroon-deep)" class="js-price" data-pid="${spot.id}" data-qty="1">${moneyOK(spot) ? fmt(spotPr.total) : PRICE_PENDING}</b>
           <small style="color:var(--ink-3)">live price · incl. GST · 18K ${spot.weightG}g + listed stone value</small>
         </div>
         <a class="btn btn-primary" href="#/product/${spot.id}">View the Piece</a>
@@ -6106,11 +6139,22 @@ function recentHint(x) {
   return `${word}<span class="tv-when">${when}</span>`;
 }
 function recentCard(x) {
+  /* v247 — same bug as the trending card, one line further down the page:
+     `sh_recent` is a snapshot taken when the piece was last seen, and its
+     `price` is the whole price OBJECT the API returns ({metalValue, gst, total,
+     …}), so Math.round() of it is NaN and the strip printed ₹NaN for every
+     piece. The catalogue is the truth; the snapshot is only a fallback for a
+     piece that has since left the catalogue, and then a plain number (or
+     nothing) is honest.
+     The photograph also went through thumbAttrs: a recently-viewed strip is a
+     46 vw tile, not a product page. */
   const live = (state.productsCache || []).find(c => c.id === x.id);
-  const nowPrice = live ? price(live).total : (x.price || 0);
+  const shot = (live && live.images && live.images[0]) || x.img;
+  const priceBit = live ? priceHTML(live, 1)
+    : (typeof x.price === 'number' && isFinite(x.price)) ? fmt(x.price) : '';
   return `<a class="tv-card" href="#/product/${esc(x.id)}">
-  <div class="tv-ph"><img src="${safeUrl(x.img) || '/images/logo.png'}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
-  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(nowPrice).toLocaleString('en-IN')}</span>${recentHint(x)}</div></a>`;
+  <div class="tv-ph"><img ${thumbAttrs(shot, '(max-width:600px) 46vw, 220px')} alt=""></div>
+  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span class="js-price" data-pid="${esc(x.id)}" data-qty="1">${priceBit}</span>${recentHint(x)}</div></a>`;
 }
 window.Shivaa.pdAdd = (id, ev) => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
@@ -12881,7 +12925,20 @@ async function boot(isRedraw) {
      prices is worse than a splash screen. The speed the owner can actually feel
      comes from the pictures and the blur (v241, kept) — not from this number.
      The cap also protects the slow-network case: six seconds, then paint. */
-  const _capMs = isRedraw ? 15000 : 6000;
+  /* v247 — THE SPLASH COULD NOT ALWAYS BE DEFENDED. v242's 6 s ceiling exists
+     because a price is not known until the gold rate lands, and ₹0 on a
+     jeweller's first screen is a lie. But on a phone that already has the
+     catalogue, waiting up to six seconds to paint a page whose photos and names
+     are all local is the "feels stuck" the owner keeps reporting.
+     So: when the device already holds the catalogue AND the first screen is the
+     home grid, the shop paints at 700 ms. The price slots render as a skeleton
+     (PRICE_PENDING) and the `rates` event patches every .js-price in place the
+     moment the rate arrives — usually a few hundred ms later, with the existing
+     flash-price animation. Nothing is guessed, nothing is ₹NaN, and the six
+     second ceiling still stands for every other case (cold device, deep link,
+     any other route). */
+  const _homeFirst = !isRedraw && (!location.hash || location.hash === '#' || location.hash === '#/');
+  const _capMs = isRedraw ? 15000 : (_homeFirst && _realCount() > 0 ? 700 : 6000);
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),

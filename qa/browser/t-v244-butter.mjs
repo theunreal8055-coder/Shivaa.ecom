@@ -111,8 +111,12 @@ ok('html/body are not turned into a scroll container',
 ok('the stylesheet parks for html.shv-scrolling', /html\.shv-scrolling \.ticker-wrap/.test(tail));
 ok('it covers the repaint-heavy loops, not just transforms',
   ['em.shimmer', '.foil-txt', '.rate-strip::before', '.hero.ken-on .hero-img', '.dust i', '.bc-noise'].every((s) => tail.includes(s)));
+/* v247 — this used to scan everything after the v244 marker, and later layers
+   (the v247 kill switch, the phone's still hero) legitimately say
+   `animation: none`. The claim is about v244's own layer, so it reads that file. */
+const v244Css = read('cms/css/v244.css').replace(/\/\*[\s\S]*?\*\//g, ' ');
 ok('it pauses rather than removes (nothing jumps on resume)',
-  (tail.match(/animation-play-state:\s*paused/g) || []).length >= 2 && !/animation:\s*none !important/.test(tail));
+  (v244Css.match(/animation-play-state:\s*paused/g) || []).length >= 2 && !/animation:\s*none !important/.test(v244Css));
 ok('a hidden tab parks too', /html\.shv-blurred/.test(tail));
 
 /* ── 6 · the runtime does the three things css cannot ───────────────────── */

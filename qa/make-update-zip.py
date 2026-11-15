@@ -96,6 +96,11 @@ ADDED = {
     # shop from opening. The source layers stay in the zip so a rollback is one
     # index.html edit, and so the QA suites can keep reading them.
     246: ['js/rel.js'],
+    # v247 — the feel layer (one css layer + one js layer) and the two picture
+    # folders that are now drawn small: the campaign banners and the film
+    # posters. Without the thumbs the new srcset would 404 and every one of
+    # those pictures would fall back to the 167 KB original.
+    247: ['js/v247.js', 'images/thumbs/banners/**', 'images/thumbs/films/**'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

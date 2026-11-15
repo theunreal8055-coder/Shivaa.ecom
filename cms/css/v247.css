@@ -1,0 +1,360 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v247 · “ATELIER” — the feel layer.
+
+   The owner, after v246: “it is better than before but still not as perfect as
+   I want — a smooth UI UX, like a premium designer.” He is describing *feel*,
+   and feel on a phone is made of four things, in this order:
+
+     1 · nothing costs the compositor anything while it sits still;
+     2 · nothing moves layout after it has been painted;
+     3 · every touch answers within ~90 ms;
+     4 · motion is one vocabulary, not eleven.
+
+   So this layer is mostly subtraction. Three experiments were quietly charging
+   every card a GPU layer for decoration nobody asked to keep:
+
+     · `will-change: transform` on ten component families — ten permanent
+       compositor layers, per screen. That is texture memory and raster work the
+       phone pays on every scroll frame, forever, for a hover that a phone can
+       never perform.
+     · `transform-style: preserve-3d` on the same families — the browser has to
+       keep a 3D rendering context alive for each one.
+     · a BASE `transform: scale(1.08)` on every card photograph, so the image
+       was always resampled 8% larger (soft on a 2x screen) and the GPU was
+       always compositing a scaled layer.
+
+   All three are gone at rest. Hover keeps its lift, but only where hover
+   exists (`@media (hover:hover) and (pointer:fine)`).
+
+   Then the craft: one motion vocabulary (`--sx-*`), tabular numerals for money,
+   balanced headline wrapping, no tap flash, press feedback in 90 ms, focus
+   rings instead of outline:none, a 16 px input floor so iOS never zooms the
+   page on focus, reserved picture boxes so nothing shifts, images that fade in
+   from the placeholder instead of popping, and a 320 ms rise when a route
+   changes. Every one of them is opacity/transform only — nothing here reads
+   layout, nothing here hides content.
+
+   The rule from v245 stands above everything in this file: NO
+   `content-visibility`, no `overflow-x: hidden`, nothing that defers real
+   content. This layer is polish, not parking.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · ONE MOTION VOCABULARY ─────────────────────────────────────────────
+   The bundle carried eleven different easings and fifteen durations from
+   eleven different releases. They are not wrong individually; together they
+   read as “assembled”, which is the opposite of premium. Everything this layer
+   touches uses these five, and nothing else. */
+:root {
+  --sx-dur-1: 90ms;    /* press */
+  --sx-dur-2: 160ms;   /* small state change: colour, shadow */
+  --sx-dur-3: 240ms;   /* a surface arriving */
+  --sx-dur-4: 420ms;   /* a picture easing to rest */
+  --sx-out:   cubic-bezier(.22, 1, .36, 1);      /* decelerate: enters */
+  --sx-soft:  cubic-bezier(.4, 0, .2, 1);        /* symmetric: fades */
+  --sx-spring: cubic-bezier(.34, 1.28, .64, 1);  /* a sheet, gently settled */
+
+  /* press + hover depth, tuned to the maroon ink of the brand */
+  --sx-ring: 0 0 0 3px rgba(185, 138, 47, .28);
+  --sx-lift: 0 18px 40px -22px rgba(61, 14, 21, .34), 0 2px 6px rgba(61, 14, 21, .05);
+  --sx-hair: 0 1px 0 rgba(61, 14, 21, .05);
+}
+
+/* ── 2 · A PAGE AT REST COSTS NOTHING ──────────────────────────────────────
+   See the header. These are the exact selectors that were forcing layers. */
+.p-card, .cat-card, .acct-tile, .addr-card, .order-card, .adm-card, .catlog,
+.testi, .trust, .pillar, .cat-mini-card, .bc-card {
+  will-change: auto !important;
+  transform-style: flat !important;
+}
+/* hover is real work: ask for the layer only for the duration of a hover, and
+   only on a device that can hover. v244 established this rule for the header;
+   this applies it to the grid it was always meant for. */
+@media (hover: hover) and (pointer: fine) {
+  .p-card:hover, .cat-card:hover, .cat-mini-card:hover, .pillar:hover {
+    will-change: transform !important;
+  }
+}
+
+/* ── 3 · PICTURES STAY CRISP ───────────────────────────────────────────────
+   A base 1.08 scale means every card photo is drawn 8% larger than its pixels
+   and resampled on every frame. Cards now show the photograph at its own size;
+   the zoom belongs to hover, where it is a gesture, not a resting state. */
+.pc-imgwrap img, .cat-card img, .tv-ph img, .ugc-ph img {
+  transform: none !important;
+  image-rendering: auto;
+  backface-visibility: visible;
+}
+.pc-imgwrap img { transition: transform var(--sx-dur-4) var(--sx-out); }
+.p-card:hover .pc-imgwrap { transform: none !important; }
+@media (hover: hover) and (pointer: fine) {
+  .p-card:hover .pc-imgwrap img { transform: scale(1.045) !important; }
+  .cat-card:hover img { transform: scale(1.03) !important; }
+}
+/* the wrapper is always the box: no picture may ever add height to the page */
+.pc-imgwrap { aspect-ratio: 1 / 1; background: var(--cream-2); }
+.tv-ph, .ugc-ph, .rev-photo, .cb-img { overflow: hidden; }
+
+/* ── 3b · NOTHING IS HIDDEN BY DEFAULT, ANY MORE ─────────────────────────
+   v215 was right about the blur (it cost a paint spike per image) but it kept
+   the dangerous half: every content image in #view starts at `opacity: 0`, and
+   only motion.js adding `.img-ok` ever brings it back. Any picture that misses
+   that class — one already in the cache, a tab restored from the back/forward
+   cache, an observer that never fired, a layer that failed to load — stays
+   invisible for good, and the shop shows a grid of empty frames.
+   v247 owns the fade from the other end: an image is VISIBLE from the start and
+   fades in on its own load event (§ css `.shv-img-in`, § js watch()). There is
+   nothing to add and nothing to un-break. `.pc-img-b` is excluded because it is
+   the hover photograph and is meant to be invisible until a pointer is over the
+   card. Same selector list as v215, one layer later, so specificity is a tie
+   and document order decides — no !important needed. */
+html.js-motion #view .pc-imgwrap img:not(.pc-img-b),
+html.js-motion #view .catlog img,
+html.js-motion #view .cat-card img,
+html.js-motion #view .cat-mini-card img,
+html.js-motion #view .poster img,
+html.js-motion #view .testi img,
+html.js-motion #view .acct-tile img,
+html.js-motion #view [class*="gallery"] img,
+html.js-motion #view [class*="slider"] img,
+html.js-motion #view [class*="thumb"] img,
+html.js-motion #view .ph-img,
+html.js-motion #view .ds-card img,
+html.js-motion #view .rv-media img,
+html.js-motion #view .cat-thumb img {
+  opacity: 1;
+}
+
+/* ── 3c · THE CARD BODY COMES BACK TO THE PLANE ──────────────────────────
+   `.pc-body { transform: translateZ(10px) }` was part of the same 3D
+   experiment: a subpixel layer for the text inside every card. Text on its own
+   pixel grid is sharper, and a flat card body is one less layer per card. */
+.pc-body { transform: none !important; }
+/* a hairline frame around the photograph, the way a print is mounted — it also
+   keeps a white-on-white picture from bleeding into the card */
+.pc-imgwrap { box-shadow: inset 0 0 0 1px rgba(61, 14, 21, .055); }
+.pc-live { font-variant-numeric: tabular-nums; }
+/* dots that animate `all` also animate their size: specify what actually moves */
+.qv-dot, .ds-dot { transition: background-color var(--sx-dur-2) var(--sx-soft),
+                               transform var(--sx-dur-2) var(--sx-spring); }
+
+/* ── 4 · TYPE THAT SITS STILL ──────────────────────────────────────────────
+   Two cheap, unmistakable “designed” signals: headlines that wrap in balanced
+   lines instead of leaving one orphan word, and money in tabular figures so a
+   price that ticks with the gold rate never jitters sideways. */
+.hero h1, .page-hero h1, .sec-h h2, .pc-name, h1, h2 {
+  text-wrap: balance;
+}
+p, .pc-meta, .shv-hcc-sub, .pdp-desc { text-wrap: pretty; }
+.pc-price b, .js-price, .shv-stud-price, .rate-big, .tick-val, [data-rate-age] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.pc-name { letter-spacing: -.008em; }
+.pc-price b { font-weight: 700; letter-spacing: -.01em; }
+
+/* ── 5 · TOUCH ANSWERS IMMEDIATELY ─────────────────────────────────────────
+   The grey rectangle the browser paints over a tapped link is the single
+   loudest “this is a web page, not an app” tell on Android. It is gone, and in
+   its place is a 90 ms press: the surface gives 1.5%, then springs back. */
+html, body, a, button, [role="button"], input, select, textarea, label {
+  -webkit-tap-highlight-color: transparent;
+}
+/* `manipulation` tells the browser a tap is a tap: no 300 ms "is this a
+   double-tap-to-zoom?" hesitation on the way to the handler, and no accidental
+   zoom when the shopper's thumb is 1 px off. */
+a, button, [role="button"], .btn, .pc-card, summary, label { touch-action: manipulation; }
+.btn, .btn-primary, .btn-gold, .btn-ghost, .btn-outline {
+  transition: transform var(--sx-dur-1) var(--sx-soft),
+              box-shadow var(--sx-dur-2) var(--sx-soft),
+              background-color var(--sx-dur-2) var(--sx-soft),
+              color var(--sx-dur-2) var(--sx-soft),
+              border-color var(--sx-dur-2) var(--sx-soft);
+}
+.btn:active, .btn-primary:active, .btn-gold:active, .btn-ghost:active,
+.btn-outline:active, .qv-nav:active, .pc-quick:active, .mcta:active {
+  transform: scale(.975);
+  transition-duration: var(--sx-dur-1);
+}
+@media (pointer: coarse) {
+  .p-card:active { transform: scale(.994); transition: transform var(--sx-dur-1) var(--sx-soft); }
+  .cb-item:active, .cat-mini-card:active, .pillar:active { transform: scale(.985); }
+}
+/* every tappable thing keeps a 44 px target even when it is drawn smaller —
+   a hit area is invisible, so growing it costs nothing */
+.pc-wish, .pc-compare, .qv-nav, .qv-dot, .hdr-ic, .mnav a { min-height: 40px; }
+
+/* ── 6 · FOCUS AND SELECTION ───────────────────────────────────────────────
+   A premium site is keyboard-clean as well as touch-clean: a real ring for
+   keyboard users, none for a mouse, and brand-coloured selection. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+:focus:not(:focus-visible) { outline: none; }
+::selection { background: var(--gold-soft); color: var(--maroon-deep); }
+html { scrollbar-width: thin; scrollbar-color: var(--cream-3) transparent; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+body { overscroll-behavior-y: contain; }   /* no rubber-band leak to the browser */
+
+/* ── 7 · CARDS: REST, HOVER, PRESS ──────────────────────────────────────── */
+.p-card {
+  border: 1px solid rgba(61, 14, 21, .055);
+  box-shadow: var(--sx-hair);
+  transition: transform var(--sx-dur-3) var(--sx-out),
+              box-shadow var(--sx-dur-3) var(--sx-out),
+              border-color var(--sx-dur-2) var(--sx-soft);
+}
+@media (hover: hover) and (pointer: fine) {
+  .p-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--sx-lift);
+    border-color: rgba(185, 138, 47, .32);
+  }
+}
+.cat-card, .cat-mini-card, .pillar {
+  transition: transform var(--sx-dur-3) var(--sx-out),
+              box-shadow var(--sx-dur-3) var(--sx-out),
+              border-color var(--sx-dur-2) var(--sx-soft);
+}
+@media (hover: hover) and (pointer: fine) {
+  .cat-card:hover, .pillar:hover { transform: translateY(-2px); box-shadow: var(--sx-lift); }
+}
+/* the images easing in, not popping */
+@keyframes shvImgIn { from { opacity: 0 } to { opacity: 1 } }
+.shv-img-in { animation: shvImgIn var(--sx-dur-3) var(--sx-soft) both; }
+
+/* ── 8 · THE PRICE SLOT BEFORE THE RATE LANDS ─────────────────────────────
+   v247 paints the home screen at 700 ms instead of waiting for the gold rate
+   (see boot()), so for a few hundred milliseconds a card is complete except
+   for its price. That slot is a skeleton in the shape of the number it will
+   become — never ₹0, never ₹NaN — and the `rates` event fills it in place with
+   the existing flash animation. `currentColor` means it looks right on the
+   ivory grid AND on the dark campaign card without a second rule. */
+.pr-sk {
+  display: inline-block;
+  width: 5.4em;
+  height: .78em;
+  border-radius: 4px;
+  vertical-align: -.04em;
+  background: currentColor;
+  opacity: .16;
+  animation: shvSk 1.35s var(--sx-soft) infinite;
+}
+.pr-sk + .sr-only, .pr-sk ~ .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pc-price .pr-sk { width: 4.6em; height: 1.05em; }
+.shv-stud-price .pr-sk { width: 5.6em; height: 1em; }
+@keyframes shvSk { 0%, 100% { opacity: .10 } 50% { opacity: .24 } }
+.pc-live { transition: color var(--sx-dur-2) var(--sx-soft); }
+
+/* ── 9 · A ROUTE CHANGE RISES ─────────────────────────────────────────────
+   320 ms, opacity and 6 px of travel on the first few blocks of the new view.
+   No fill-mode on purpose: before the animation starts and after it ends the
+   element is at its natural state, so nothing can ever be left invisible by it
+   — the v245 lesson, applied to motion. */
+@keyframes shvRise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+#view.shv-rise > section:nth-child(-n+6),
+#view.shv-rise > div:nth-child(-n+6) {
+  animation: shvRise var(--sx-dur-3) var(--sx-out);
+}
+
+/* ── 10 · SHEETS AND SCRIMS ───────────────────────────────────────────────
+   One fade vocabulary for every sheet the shop opens (pay, quote, invoice,
+   quick view, receipt). Opacity only: several of these are anchored with a
+   transform of their own, and animating transform here would fight it. */
+@keyframes shvFade { from { opacity: 0 } to { opacity: 1 } }
+[class$="-sheet"].on, [class$="-sheet"].open,
+.wa-modal.on, .nb-modal.on, .modal.on, [role="dialog"].on {
+  animation: shvFade var(--sx-dur-2) var(--sx-soft);
+}
+.drawer-scrim { transition: opacity var(--sx-dur-2) var(--sx-soft); }
+
+/* ── 11 · THE HEADER STAYS A HEADER ───────────────────────────────────────
+   A hairline at the top of the page, a real shadow once the page has moved:
+   the cheapest signal there is that the page is a considered object. */
+.header { box-shadow: var(--sx-hair); transition: box-shadow var(--sx-dur-3) var(--sx-out); }
+.header.scrolled { box-shadow: 0 10px 30px -22px rgba(61, 14, 21, .55), var(--sx-hair); }
+
+/* ── 12 · FORMS THAT DO NOT ZOOM THE PAGE ─────────────────────────────────
+   iOS Safari zooms the whole page when a focused input is under 16 px. That
+   jump — page scaled up, layout cropped, no way to un-zoom without a pinch —
+   is the single most “cheap” interaction on an iPhone. Only fields inside the
+   storefront view are raised, so the admin and desk panels keep their density. */
+@media (pointer: coarse) {
+  #view input[type="text"], #view input[type="email"], #view input[type="tel"],
+  #view input[type="number"], #view input[type="search"], #view input[type="password"],
+  #view textarea, #view select, .hdr-search input {
+    font-size: 16px !important;
+  }
+}
+input, select, textarea { transition: border-color var(--sx-dur-2), box-shadow var(--sx-dur-2); }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  border-color: var(--gold) !important;
+  box-shadow: var(--sx-ring);
+  outline: none;
+}
+
+/* ── 13 · THE SKELETON, TUNED ─────────────────────────────────────────────
+   The first paint (index.html) is a shimmer shaped like the page it is about
+   to become. A slow, low-contrast sweep reads as “loading, deliberately”;
+   a fast one reads as “broken”. */
+.shv-skeleton .sk-hero { border-radius: var(--r-lg); background: var(--cream-2); }
+.shv-skeleton .sk-card {
+  border-radius: var(--r-lg);
+  background: var(--cream-2);
+  aspect-ratio: 1 / 1.32;
+}
+.shv-skeleton .sk-hero,
+.shv-skeleton .sk-card { position: relative; overflow: hidden; }
+.shv-skeleton .sk-hero::after,
+.shv-skeleton .sk-card::after {
+  content: "";
+  position: absolute; inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+  animation: shvSweep 1.5s var(--sx-soft) infinite;
+}
+@keyframes shvSweep { to { transform: translateX(100%) } }
+
+/* ── 13b · ?nofx=1 KILLS THIS LAYER TOO ──────────────────────────────────
+   v245's kill switch already stops parking and decode-ahead. If a device still
+   misbehaves, it must also get a site with no motion at all — otherwise the
+   diagnostic is only half a diagnostic. */
+html.shv-plain *, html.shv-plain *::before, html.shv-plain *::after {
+  animation: none !important;
+  transition: none !important;
+}
+html.shv-plain #view.shv-rise > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+/* ── 13c · THE ONE ANIMATION THAT NEVER STOPS ────────────────────────────
+   `.hero.ken-on .hero-img` is a 24 s infinite alternate Ken Burns across the
+   whole first screen, and `.page-hero.ken-on::before` a 9 s infinite glow. On a
+   desktop they are a lovely, almost subliminal breath. On a phone they are a
+   continuous repaint of the largest layer on the page, for as long as the
+   shopper leaves the tab open — every frame of it competing with the scroll.
+   A still hero photograph loses nothing; the parallax-safe crop is the same.
+   Coarse pointers only: the desktop keeps its breath. */
+@media (pointer: coarse) {
+  .hero.ken-on .hero-img { animation: none !important; }
+  /* the magnetic-press effect is a pointer effect; a thumb cannot use it, so a
+     phone never pays for its layers */
+  .v107-press, .magnetic, .btn, .btn-gold { will-change: auto !important; }
+  .page-hero.ken-on::before { animation: none !important; }
+  .hero-img { will-change: auto !important; }
+}
+
+/* ── 14 · REDUCED MOTION IS NOT A POLITE SUGGESTION ───────────────────────
+   One block, at the end, so it wins. A shopper who asked the OS for less motion
+   gets a site that is still, and a site that is still is a site that paints
+   faster. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .pr-sk { animation: none !important; opacity: .18; }
+}

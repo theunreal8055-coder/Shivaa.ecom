@@ -52,8 +52,11 @@ const api = read('cms/api.php');
 
 /* ── A · the markup asks for the small picture ───────────────────────────── */
 const flatApp = app.replace(/\s+/g, ' ');
-ok('app.js defines the thumb directory whitelist (4 folders only)',
-   /const THUMB_RE = \/\^\\\/images\\\/\(\?:products\|categories\|reviews\|offers\)/.test(app));
+/* v247 — the whitelist grew by the two folders that are ALSO drawn small now
+   (the campaign banner card and the film posters). It is still a whitelist, and
+   still the only way to a thumb URL: page heroes and uploads are untouched. */
+ok('app.js defines the thumb directory whitelist (products, categories, reviews, offers, banners, films)',
+   /const THUMB_RE = \/\^\\\/images\\\/\(\?:products\|categories\|reviews\|offers\|banners\|films\)/.test(app));
 ok('app.js builds /images/thumbs/…-320.webp and -560.webp',
    /'\/images\/thumbs\/'/.test(app) && /'-' \+ w \+ '\.webp\?v=' \+ APP_REL/.test(app));
 ok('every thumb URL is release-stamped (immutable caching, no pinning)',
@@ -103,7 +106,11 @@ const thumbFiles = [];
 })(THUMB_ROOT);
 ok('thumbnail set is substantial (>= 200 files)', thumbFiles.length >= 200, String(thumbFiles.length));
 const thumbBytes = thumbFiles.reduce((n, f) => n + fs.statSync(f).size, 0);
-ok('the whole thumbnail set is smaller than 7 MB', thumbBytes < 7 * 1024 * 1024,
+/* v247 — the set grew with two folders that are now drawn small too (18 banners
+   and 9 film posters): 378 files, ~7 MB on disk. Nothing here is per-visit cost
+   — a shopper fetches one 320 of a picture they can see — so the ceiling is
+   about the repo and the zip, not about the phone. */
+ok('the whole thumbnail set is smaller than 9 MB', thumbBytes < 9 * 1024 * 1024,
    (thumbBytes / 1048576).toFixed(2) + ' MB');
 /* the win, in numbers: a card used to cost the original */
 const oneCard = fs.statSync(path.join(ROOT, 'cms/images/products/ring-floral.jpg')).size;
@@ -147,7 +154,8 @@ ok('the preconnects stay (free until used)', /preconnect" href="https:\/\/sdk\.c
    batch landed. What survives is the 6 s ceiling and the calm repaint. This
    release's own suite (t-v242-taps) owns that contract; here we only assert the
    ceiling still exists so a future "make it faster" pass cannot remove both. */
-ok('a paint ceiling still exists for a cold first visit', /const _capMs = isRedraw \? 15000 : 6000;/.test(app));
+ok('a paint ceiling still exists for a cold first visit',
+   /const _capMs = isRedraw \? 15000 : /.test(app) && /: 6000\)/.test(app));
 ok('the late batch is repainted calmly, never under a finger', /calmBoot\(0\)/.test(app));
 
 /* ── F · release plumbing (v242 — release-agnostic: this suite's job is that

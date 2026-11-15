@@ -33,7 +33,18 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CMS = os.path.join(ROOT, 'cms')
-SRC_DIRS = ['images/products', 'images/categories', 'images/reviews', 'images/offers']
+SRC_DIRS = ['images/products', 'images/categories', 'images/reviews', 'images/offers',
+            # v247 — the two pieces of art the home page draws small are no longer
+            # page-width heroes: the campaign banner sits in a ~420 px card and each
+            # film poster in a ~300 px tile, so a 167 KB banner and five 40–75 KB
+            # posters (450 KB together) become 560/320 webp siblings like everything
+            # else. Page heroes (gen-page-*) are deliberately NOT here: a 560 px
+            # backdrop behind a full-width headline would look soft on a desktop.
+            'images/films']
+# every banner, not just the one wired today: the moment a banner is drawn small
+# it must already have a sibling, or the shopper gets a 404-shaped hole where a
+# picture should be (that is how b2b-bullion.jpg was caught).
+BANNERS = 'images/banners'
 WIDTHS = (320, 560)
 QUALITY = 70
 # Both widths are ALWAYS written, even from a source narrower than the target.
@@ -44,6 +55,10 @@ QUALITY = 70
 
 def sources():
     out = []
+    base_b = os.path.join(CMS, BANNERS)
+    for f in sorted(os.listdir(base_b)) if os.path.isdir(base_b) else []:
+        if f.lower().endswith(('.jpg', '.jpeg', '.png')):
+            out.append(os.path.join(base_b, f))
     for d in SRC_DIRS:
         base = os.path.join(CMS, d)
         for root, _dirs, files in os.walk(base):
