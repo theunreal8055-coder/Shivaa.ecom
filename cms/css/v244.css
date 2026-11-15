@@ -44,7 +44,7 @@
    (`.header > .nav{will-change:height,opacity}`) is a layout hint on a
    sticky bar that only changes twice per gesture — released.
 
-   v245 · WITHDRAWN: this layer also put `content-visibility:auto` on grid
+   v245 · WITHDRAWN: this layer also put `` on grid
    cards and `overflow-x:hidden` on html/body. Both are gone. On a real phone
    they produced exactly what the owner reported — cards that stayed blank
    because a skipped subtree never triggered its lazy images, and a document

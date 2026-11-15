@@ -966,7 +966,7 @@
   .priv-table th, .priv-table td { padding: 10px 11px; }
 
   /* ─────────────── §10 · SCROLL COST ───────────────
-     v98 REVERTED — `content-visibility:auto` was removed from `.rev-marquee`
+     v98 REVERTED — `` was removed from `.rev-marquee`
      and `.footer`. It caused the reported gap on the home page: an off-screen
      element is not rendered, so the browser substitutes
      `contain-intrinsic-size` as a placeholder, and I had guessed 620px for

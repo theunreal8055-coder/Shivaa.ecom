@@ -8,7 +8,7 @@
    the layers. It had been sprinkled over the app across several releases as
    a paint saving (on `.p-grid`, `.pillars`, `.ugc-wall`, `.catbar-outer`,
    `.p-card`, `.ds-card`, the footer, `#view > section` …) and v244 added two
-   more. A `content-visibility:auto` box is NOT laid out until it is near the
+   more. A `` box is NOT laid out until it is near the
    viewport: it reports the placeholder height from `contain-intrinsic-size`
    instead of its real one, and the lazy images inside it never start,
    because a skipped subtree triggers nothing.

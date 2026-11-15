@@ -21,6 +21,19 @@ import path from 'node:path';
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
+/* v246 — the behaviour layers are no longer 31 separate <script> tags. They are
+   concatenated, in document order, into /js/rel.js by tools/build-js-bundle.py
+   (one request instead of 32, and no layer can be late because the one before
+   it was slow). "Is vXXX still shipped, and still after vYYY?" therefore means
+   "is it inside the bundle, at that index?" — the same guarantee, expressed
+   against the file that now delivers it. A missing layer is a red test, not a
+   silent absence. */
+const relSrc = (() => { try { return read('cms/js/rel.js'); } catch (e) { return ''; } })();
+const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
+  .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
+const layerAt = (n) => relLayers.indexOf(n);
+const relShips = (n) => layerAt(n) >= 0;
+
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
   if (cond) { pass++; console.log('  ok   ' + name); }
@@ -58,10 +71,10 @@ ok('v240 reverts v239 inline grid (display:flex !important)',
    /display['"]?\s*,\s*['"]flex['"]/.test(v240) || /setProperty\('display',\s*'flex'/.test(v240));
 
 /* ── 3 · it is actually loaded, in the right order, and precached ────────── */
-const at226 = index.indexOf('/js/v226.js');
-const at240 = index.indexOf('/js/v240.js');
-ok('index.html loads v240', at240 > 0);
-ok('v240 loads after v226.js (so it wins the cascade)', at240 > at226, `v226@${at226} v240@${at240}`);
+ok('v240 ships inside js/rel.js', relShips('v240.js'), relLayers.join(' '));
+ok('v240 runs after v226.js (so it wins the cascade)',
+   layerAt('v240.js') > layerAt('v226.js') && relShips('v226.js'),
+   `v226@${layerAt('v226.js')} v240@${layerAt('v240.js')}`);
 /* v241 — these three used to pin the release NUMBER (240), so every later
    release turned this suite red for no reason and the drawer guard stopped
    being a signal. They now check that v240 is still shipped and still
@@ -69,8 +82,8 @@ ok('v240 loads after v226.js (so it wins the cascade)', at240 > at226, `v226@${a
    the ripple rule must reach the phone. */
 const stamp = (index.match(/window\.__SHIVAA_REL=(\d+)/) || [])[1];
 ok('index.html stamps a release >= 240', Number(stamp) >= 240, String(stamp));
-ok('sw.js precaches v240 at the current stamp',
-   new RegExp('/js/v240\\.js\\?v=' + stamp + "'").test(sw), 'stamp ' + stamp);
+ok('sw.js precaches the bundle that carries v240, at the current stamp',
+   new RegExp("'/js/rel\\.js\\?v=" + stamp + "'").test(sw), 'stamp ' + stamp);
 ok('sw.js shell + REL agree with that stamp',
    /shivaa-shell-v\d+/.test(sw) && new RegExp('const REL = ' + stamp + ';').test(sw));
 

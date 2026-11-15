@@ -91,6 +91,11 @@ ADDED = {
     # universal guard forbids it, the parking cannot stick, and ?nofx=1 is the
     # kill switch. One css layer (auto-detected) + one js layer.
     245: ['js/v245.js'],
+    # v246 — the 31 behaviour layers are now one file (tools/build-js-bundle.py).
+    # app.js stays separate on purpose: a layer must never be able to stop the
+    # shop from opening. The source layers stay in the zip so a rollback is one
+    # index.html edit, and so the QA suites can keep reading them.
+    246: ['js/rel.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

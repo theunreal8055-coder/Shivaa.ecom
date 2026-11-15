@@ -18,6 +18,19 @@ import path from 'node:path';
 
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+
+/* v246 — the behaviour layers are no longer 31 separate <script> tags. They are
+   concatenated, in document order, into /js/rel.js by tools/build-js-bundle.py
+   (one request instead of 32, and no layer can be late because the one before
+   it was slow). "Is vXXX still shipped, and still after vYYY?" therefore means
+   "is it inside the bundle, at that index?" — the same guarantee, expressed
+   against the file that now delivers it. A missing layer is a red test, not a
+   silent absence. */
+const relSrc = (() => { try { return read('cms/js/rel.js'); } catch (e) { return ''; } })();
+const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
+  .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
+const layerAt = (n) => relLayers.indexOf(n);
+const relShips = (n) => layerAt(n) >= 0;
 const flat = (s) => s.replace(/\s+/g, ' ');
 
 let pass = 0, fail = 0;
@@ -42,7 +55,9 @@ const tail = marker < 0 ? '' : bundle.slice(marker);
 const flatTail = flat(tail);
 
 /* ── 1 · the release is wired, once ─────────────────────────────────────── */
-ok('js/v244.js is loaded exactly once', (index.match(/\/js\/v244\.js\?v=\d+/g) || []).length === 1);
+ok('js/v244.js is bundled exactly once', relLayers.filter(n => n === 'v244.js').length === 1);
+ok('index.html asks for two scripts, not 33',
+   (index.match(/<script src="\/js\/[^"]+"/g) || []).length === 2);
 ok('the layer rides at the end of the bundle', marker > 0 && marker > bundle.indexOf('/* v241.css */'));
 ok('the layer in the bundle is the file on disk',
   flatTail.includes(flat('will-change: auto !important')) &&
@@ -51,7 +66,7 @@ ok('every stamp is one release',
   REL >= 244 && new RegExp('const APP_REL = ' + REL + ';').test(app) &&
   new RegExp("'rel' => " + REL).test(api) && new RegExp('const REL = ' + REL + ';').test(sw));
 ok('the worker shell names this release', new RegExp('shivaa-shell-v' + REL).test(sw));
-ok('the worker precaches the new layer', /'\/js\/v244\.js\?v=\d+'/.test(sw) && /'\/js\/v244\.js\?v=\d+'/.test(sw));
+ok('the worker precaches the bundle that carries it', /'\/js\/rel\.js\?v=\d+'/.test(sw));
 ok('the feature flags are not double-installed', /if \(window\.__shvButter2\) return;/.test(v244));
 
 /* ── 2 · nothing blurs the scroll path any more ─────────────────────────── */

@@ -29,7 +29,7 @@
    shapes the scrollbar on the very first pass. Same v117-sections pattern. */
 @media (max-width: 920px) {
   .p-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 320px;
+
+
   }
 }

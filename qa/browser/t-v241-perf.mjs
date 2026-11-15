@@ -21,6 +21,19 @@ import path from 'node:path';
 
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+
+/* v246 — the behaviour layers are no longer 31 separate <script> tags. They are
+   concatenated, in document order, into /js/rel.js by tools/build-js-bundle.py
+   (one request instead of 32, and no layer can be late because the one before
+   it was slow). "Is vXXX still shipped, and still after vYYY?" therefore means
+   "is it inside the bundle, at that index?" — the same guarantee, expressed
+   against the file that now delivers it. A missing layer is a red test, not a
+   silent absence. */
+const relSrc = (() => { try { return read('cms/js/rel.js'); } catch (e) { return ''; } })();
+const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
+  .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
+const layerAt = (n) => relLayers.indexOf(n);
+const relShips = (n) => layerAt(n) >= 0;
 const exists = (p) => fs.existsSync(path.join(ROOT, 'cms', p));
 
 let pass = 0, fail = 0;
@@ -142,14 +155,15 @@ ok('the late batch is repainted calmly, never under a finger', /calmBoot\(0\)/.t
    the site froze at 241) ─────────────────────────────────────────────────── */
 const stamp = (index.match(/window\.__SHIVAA_REL=(\d+)/) || [])[1];
 ok('index.html stamps a release >= 241', Number(stamp) >= 241, String(stamp));
-ok('index.html still loads js/v241.js after js/v240.js',
-   index.indexOf(`/js/v240.js?v=${stamp}`) > -1 &&
-   index.indexOf(`/js/v241.js?v=${stamp}`) > index.indexOf(`/js/v240.js?v=${stamp}`));
+ok('v241 still runs after v240, inside the one bundle',
+   layerAt('v241.js') > layerAt('v240.js') && layerAt('v240.js') > -1,
+   `v240@${layerAt('v240.js')} v241@${layerAt('v241.js')}`);
 ok('no older asset stamp is left in index.html', !/\?v=240/.test(index));
 ok('app.js APP_REL is at least 241', Number((app.match(/const APP_REL = (\d+);/) || [])[1]) >= 241);
 ok('sw.js shell + REL agree with the page stamp',
    new RegExp(`shivaa-shell-v${stamp}`).test(sw) && new RegExp(`const REL = ${stamp};`).test(sw));
-ok('sw.js precaches js/v241.js at that stamp', new RegExp(`'/js/v241\\.js\\?v=${stamp}'`).test(sw));
+ok('sw.js precaches the bundle that carries v241 at that stamp',
+   relShips('v241.js') && new RegExp(`'/js/rel\\.js\\?v=${stamp}'`).test(sw));
 ok('sw.js keeps more small pictures warm (MEDIA_MAX 160)', /const MEDIA_MAX = 160;/.test(sw));
 ok('api.php reports the same release', new RegExp(`'rel' => ${stamp}`).test(api));
 ok('v241.js is syntactically loadable and self-guarding', /'use strict'/.test(v241) && /document\.readyState === 'loading'/.test(v241));

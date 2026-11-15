@@ -21,6 +21,19 @@ import path from 'node:path';
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
+/* v246 — the behaviour layers are no longer 31 separate <script> tags. They are
+   concatenated, in document order, into /js/rel.js by tools/build-js-bundle.py
+   (one request instead of 32, and no layer can be late because the one before
+   it was slow). "Is vXXX still shipped, and still after vYYY?" therefore means
+   "is it inside the bundle, at that index?" — the same guarantee, expressed
+   against the file that now delivers it. A missing layer is a red test, not a
+   silent absence. */
+const relSrc = (() => { try { return read('cms/js/rel.js'); } catch (e) { return ''; } })();
+const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
+  .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
+const layerAt = (n) => relLayers.indexOf(n);
+const relShips = (n) => layerAt(n) >= 0;
+
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
   if (cond) { pass++; console.log('  ok   ' + name); }
@@ -52,9 +65,9 @@ ok('the expensive sweep runs once on activation instead',
    /e\.waitUntil\(trimMedia\(\)\.catch\(\(\) => \{\}\)\);/.test(sw));
 ok('sw shell + REL carry the live release',
    new RegExp('shivaa-shell-v' + REL).test(sw) && new RegExp('const REL = ' + REL + ';').test(sw));
-ok('sw precaches js/v242.js', /'\/js\/v242\.js\?v=\d+'/.test(sw));
-ok('the duplicated v237 precache entry is gone',
-   (sw.match(/'\/js\/v237\.js\?v=\d+'/g) || []).length === 1);
+ok('the bundle that carries v242 is precached', relShips('v242.js') && /'\/js\/rel\.js\?v=\d+'/.test(sw));
+ok('the duplicated v237 layer is in the bundle exactly once',
+   relLayers.filter(n => n === 'v237.js').length === 1);
 
 /* ── 2 · no repaint under a finger ──────────────────────────────────────── */
 ok('the device-catalogue fast paint is reverted (rates are never cached)',
@@ -110,9 +123,10 @@ ok('the panel names the element the browser actually hit',
 ok('the panel reports sheet / scroll-lock state', /scroll locked:/.test(v242) && /sheet open:/.test(v242));
 
 /* ── 6 · release plumbing ───────────────────────────────────────────────── */
-ok('index.html loads v242 after v241',
-   index.indexOf('/js/v241.js?v=' + REL) > -1 &&
-   index.indexOf('/js/v242.js?v=' + REL) > index.indexOf('/js/v241.js?v=' + REL));
+ok('v246 — the layers ride in ONE request, in document order (v242 after v241)',
+   layerAt('v242.js') > layerAt('v241.js') && layerAt('v237.js') > layerAt('v242.js') &&
+   /<script src="\/js\/rel\.js\?v=\d+" defer><\/script>/.test(index),
+   `v241@${layerAt('v241.js')} v242@${layerAt('v242.js')}`);
 ok('index.html stamps the live rel', /window\.__SHIVAA_REL=\d+;/.test(index));
 ok('every asset URL rides the live release', !/\?v=(24[01])\b/.test(index));
 ok('index.html still links exactly one stylesheet', (index.match(/<link rel="stylesheet"/g) || []).length === 1);

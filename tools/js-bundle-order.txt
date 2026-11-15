@@ -1,0 +1,37 @@
+# v246 — the order the layers run in. This is DOCUMENT ORDER from index.html and
+# it is load-bearing: later layers patch earlier ones on purpose (v238/v239/v240
+# own the drawer, v241 the images, v242 the taps, v244/v245 the scroll).
+# app.js is NOT here: it stays its own request so a layer can never stop the
+# shop from opening. Add a new layer at the bottom, and rebuild.
+otp-autofill.js
+hallmark.js
+trust.js
+auth.js
+v219.js
+v107.js
+v116.js
+v117.js
+v118.js
+v119.js
+v120.js
+v122.js
+v125.js
+v127.js
+v139.js
+v140.js
+v166.js
+v167.js
+v178.js
+v194.js
+v225.js
+v226.js
+v227.js
+v238.js
+v239.js
+v240.js
+v241.js
+v242.js
+v243.js
+v244.js
+v245.js
+v237.js

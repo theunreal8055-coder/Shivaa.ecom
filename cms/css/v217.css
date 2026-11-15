@@ -13,7 +13,7 @@
 
 /* ── 1 · SCROLL STABILITY — the "jumps to the top" fix ───────────────────
    v117 / v121 / v122 / v214 / v215 gave below-the-fold sections and product
-   cards content-visibility:auto with a FIXED height guess. When a section
+   cardswith a FIXED height guess. When a section
    with a real height of 1100px was guessed at 680px, the page height changed
    as the shopper scrolled past it, the browser lost its place, and the page
    jumped toward the top — the \"refreshing\" feel. Off-screen skipping is
@@ -25,8 +25,6 @@
 .ds-card,
 .testi-grid,
 .rev-marquee {
-  content-visibility: visible !important;
-  contain-intrinsic-size: none !important;
 }
 
 /* sideways overflow (case cards flying wide) must never move the page */

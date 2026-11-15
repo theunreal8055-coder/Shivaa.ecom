@@ -45,8 +45,8 @@ html.js-motion #view img.img-ok{
    late blocks so the page has almost no layout surprise while scrolling.
    NEVER put content-visibility on .sv-case / .sv-thread — JS measures them. */
 #view footer,.testi-grid{
-  content-visibility:auto;
-  contain-intrinsic-size:auto 560px}
+
+}
 
 /* ── 3 · THE CASE — flat 2D, drags anywhere on the stage ─────────────
    The ring is now a plain 0×0 origin (v125.js layoutCards). Kill its 3D

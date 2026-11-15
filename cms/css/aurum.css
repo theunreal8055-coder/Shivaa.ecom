@@ -22,8 +22,8 @@ body { overflow-x: clip; }             /* body-only: keeps sticky header intact 
 html.js-aurum body { text-rendering: optimizeLegibility; }
 
 html.js-aurum .footer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 900px;
+
+
 }
 
 /* silky image zoom on media hovers (desktop only) */
@@ -519,7 +519,7 @@ html.au-lite .wa-fab::before,
 html.au-lite .loading-spin::after,
 html.au-lite .p-card::after { animation: none !important; }
 html.au-lite .au-px { transform: none !important; }
-html.au-lite .footer { content-visibility: visible; }
+html.au-lite .footer { }
 
 /* ═══ reduced motion — total safety net ════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {

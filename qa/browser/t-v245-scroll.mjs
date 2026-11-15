@@ -21,6 +21,19 @@ import path from 'node:path';
 
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+
+/* v246 — the behaviour layers are no longer 31 separate <script> tags. They are
+   concatenated, in document order, into /js/rel.js by tools/build-js-bundle.py
+   (one request instead of 32, and no layer can be late because the one before
+   it was slow). "Is vXXX still shipped, and still after vYYY?" therefore means
+   "is it inside the bundle, at that index?" — the same guarantee, expressed
+   against the file that now delivers it. A missing layer is a red test, not a
+   silent absence. */
+const relSrc = (() => { try { return read('cms/js/rel.js'); } catch (e) { return ''; } })();
+const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
+  .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
+const layerAt = (n) => relLayers.indexOf(n);
+const relShips = (n) => layerAt(n) >= 0;
 const flat = (s) => s.replace(/\s+/g, ' ');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 
@@ -85,12 +98,13 @@ ok('?nofx=1 is honoured by the script', /\[\?&\]nofx=1\/\.test\(location\.search
 ok('a kill-switched page never parks', /if \(NOFX\) return;/.test(v244));
 
 /* ── 6 · the release is wired ───────────────────────────────────────────── */
-ok('js/v245.js is loaded exactly once', (index.match(/\/js\/v245\.js\?v=\d+/g) || []).length === 1);
+ok('js/v245.js is bundled exactly once', relLayers.filter(n => n === 'v245.js').length === 1);
 ok('every stamp is one release',
   REL >= 245 && new RegExp('const APP_REL = ' + REL + ';').test(app) &&
   new RegExp("'rel' => " + REL).test(api) && new RegExp('const REL = ' + REL + ';').test(sw));
-ok('the worker shell names this release and precaches the layer',
-  new RegExp('shivaa-shell-v' + REL).test(sw) && /'\/js\/v245\.js\?v=\d+'/.test(sw));
+ok('the worker shell names this release and precaches the bundle that carries the layer',
+  new RegExp('shivaa-shell-v' + REL).test(sw) && relShips('v245.js') &&
+  /'\/js\/rel\.js\?v=\d+'/.test(sw));
 ok('the v244 blur work was NOT rolled back with it',
   /backdrop-filter:\s*none\s*!important/.test(bundle) && /\.header\.scrolled/.test(bundle));
 

@@ -20,6 +20,19 @@ import path from 'node:path';
 
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+
+/* v246 — the behaviour layers are no longer 31 separate <script> tags. They are
+   concatenated, in document order, into /js/rel.js by tools/build-js-bundle.py
+   (one request instead of 32, and no layer can be late because the one before
+   it was slow). "Is vXXX still shipped, and still after vYYY?" therefore means
+   "is it inside the bundle, at that index?" — the same guarantee, expressed
+   against the file that now delivers it. A missing layer is a red test, not a
+   silent absence. */
+const relSrc = (() => { try { return read('cms/js/rel.js'); } catch (e) { return ''; } })();
+const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
+  .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
+const layerAt = (n) => relLayers.indexOf(n);
+const relShips = (n) => layerAt(n) >= 0;
 const flat = (s) => s.replace(/\s+/g, ' ');
 
 let pass = 0, fail = 0, skip = 0;
@@ -44,9 +57,10 @@ const app = read('cms/js/app.js');
 /* ── 1 · the layer exists and is loaded ──────────────────────────────────── */
 ok('js/v243.js ships the desktop/drawer split',
   /function barMode\(\)/.test(v243) && /min-width: 821px/.test(v243));
-ok('index.html loads v243 after v242',
-  index.indexOf('/js/v243.js?v=' + REL) > index.indexOf('/js/v242.js?v=' + REL));
-ok('index.html loads v243 exactly once', (index.match(/v243\.js/g) || []).length === 1);
+ok('v243 runs after v242, inside the one bundle',
+  layerAt('v243.js') > layerAt('v242.js') && layerAt('v242.js') > -1,
+  `v242@${layerAt('v242.js')} v243@${layerAt('v243.js')}`);
+ok('v243 is bundled exactly once', relLayers.filter(n => n === 'v243.js').length === 1);
 ok('the release stamp is one release everywhere it is written',
   REL >= 243 && new RegExp('__SHIVAA_REL\\s*=\\s*' + REL).test(index) &&
   new RegExp('const APP_REL = ' + REL + ';').test(app) &&
@@ -86,8 +100,9 @@ ok('no desktop rule forces the rows to full width',
   !/@media \(min-width:821px\)[\s\S]{0,4000}?\.nav-scroll > a\{[^}]*width:100%!important/.test(flat(css)));
 ok('the mobile width guard (v238-injected) is scoped to .nav.open',
   /\.nav\.open \.nav-scroll>\*\{[^}]*width:100%!important/.test(v238));
-ok('v243 is in the service-worker shell',
-  /'\/js\/v243\.js\?v=\d+'/.test(sw) && new RegExp('shivaa-shell-v' + REL).test(sw));
+ok('v243 rides in the precached bundle',
+  relShips('v243.js') && /'\/js\/rel\.js\?v=\d+'/.test(sw) &&
+  new RegExp('shivaa-shell-v' + REL).test(sw));
 
 /* ── 5 · live DOM: desktop bar vs mobile drawer ──────────────────────────── */
 const BASE = process.env.SHIVAA_BASE || 'http://127.0.0.1:8090';

@@ -124,8 +124,8 @@ html.js-aurum .p-card:hover::after {
 .pillars,
 .shv-offer-wrap,
 .catbar-outer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 720px;
+
+
 }
 
 @media (prefers-reduced-motion: reduce) {

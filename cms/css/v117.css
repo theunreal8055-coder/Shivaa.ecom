@@ -42,7 +42,7 @@
 #heroCarousel .c-arrow { z-index: 5; }
 
 /* ── 2 · MOBILE RENDERING — skip off-screen work ─────────────
-   content-visibility:auto lets the browser defer layout+paint of
+lets the browser defer layout+paint of
    below-the-fold sections until the shopper scrolls near them. The
    intrinsic-size placeholder keeps the scrollbar geometry stable so
    anchors/jumps don't shift. Only sections AFTER the fourth (the hero,
@@ -50,12 +50,12 @@
    and only on smaller screens where render time is precious. */
 @media (max-width: 920px) {
   #view > section:nth-of-type(n+5) {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 680px;
+
+
   }
   footer.footer {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 860px;
+
+
   }
 }
 

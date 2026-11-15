@@ -10973,7 +10973,7 @@ html.au-lite .wa-fab::before,
 html.au-lite .loading-spin::after,
 html.au-lite .p-card::after { animation: none !important; }
 html.au-lite .au-px { transform: none !important; }
-html.au-lite .footer {}
+html.au-lite .footer { }
 
  
 @media (prefers-reduced-motion: reduce) {
@@ -17551,7 +17551,9 @@ html.js-motion #view img.img-ok{
   transition:opacity .45s ease}
 
  
-#view footer,.testi-grid{ }
+#view footer,.testi-grid{
+
+}
 
  
 
@@ -17726,8 +17728,6 @@ html.js-motion #view img.img-ok{
 .ds-card,
 .testi-grid,
 .rev-marquee {
-
-
 }
 
  
@@ -20519,8 +20519,10 @@ a, button, [role="button"], summary, label,
 .btn, .pc-card, .p-card, .cat-mini-card, .mnav a, .dw-row, .chip, .tagx, input, select, textarea {
   touch-action: manipulation;
 }
-
 /* v244.css */
+ 
+
+ 
 .header,
 .header.scrolled,
 .header.compact,
@@ -20536,7 +20538,7 @@ a, button, [role="button"], summary, label,
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-
+ 
 .header,
 .header.scrolled,
 .header.compact,
@@ -20547,6 +20549,7 @@ a, button, [role="button"], summary, label,
 .utilbar { background: rgba(29, 5, 9, .985) !important; }
 .mnav { background: rgba(26, 4, 7, .985) !important; }
 
+ 
 .p-card,
 .cat-card,
 .cat-mini-card,
@@ -20578,9 +20581,10 @@ a, button, [role="button"], summary, label,
     will-change: transform !important;
   }
 }
-
+ 
 .header > .nav { will-change: auto !important; }
 
+ 
 html.shv-scrolling .ticker-wrap,
 html.shv-scrolling .rev-track,
 html.shv-scrolling .bd-marq-in,
@@ -20627,6 +20631,7 @@ html.shv-scrolling .page-hero.ken-on::before {
   animation-play-state: paused !important;
 }
 
+ 
 html.shv-blurred .ticker-wrap,
 html.shv-blurred .rev-track,
 html.shv-blurred .rate-strip::before,
@@ -20639,11 +20644,12 @@ html.shv-blurred .wa-fab::before {
   animation-play-state: paused !important;
 }
 
+ 
 @media (hover: hover) and (pointer: fine) {
   a, button, [role="button"], summary, label, .btn, .p-card, .cat-card {
     -webkit-tap-highlight-color: transparent;
   }
-
+   
   .btn:active,
   .pc-quick:active,
   .icon-btn:active,
@@ -20655,7 +20661,11 @@ html.shv-blurred .wa-fab::before {
   }
 }
 
+ 
 /* v245.css */
+ 
+
+ 
 *,
 *::before,
 *::after {
@@ -20663,19 +20673,22 @@ html.shv-blurred .wa-fab::before {
   contain-intrinsic-size: none !important;
 }
 
+ 
 html {
-  overflow-x: clip;
+  overflow-x: clip;       
   overflow-y: auto;
 }
-
+ 
 body { overflow-x: clip; }
 
+ 
 html.shv-plain *,
 html.shv-plain *::before,
 html.shv-plain *::after {
   animation-play-state: running !important;
 }
 
+ 
 .pc-imgwrap,
 .pcmp-img,
 .shv-stud-img-wrap,
@@ -20688,10 +20701,11 @@ html.shv-plain *::after {
 }
 .pc-imgwrap::before,
 .pcmp-img::before {
-
+   
   content: none;
 }
 
+ 
 .p-grid,
 .fine-grid,
 .svc-grid,

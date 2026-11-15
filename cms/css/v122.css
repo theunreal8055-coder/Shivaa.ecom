@@ -39,8 +39,8 @@
 /* long desk: skip layout+paint for off-screen cards (the v121 p-card pattern) */
 @media (max-width: 920px) {
   .ds-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 300px;
+
+
   }
 }
 

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 245;
+const APP_REL = 246;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -792,7 +792,7 @@ function updateCompareUI() {
   if (!n || document.body.dataset.page === 'compare') { tray.hidden = true; return; }
   const thumbs = items.map(p => `
     <span class="ct-thumb">
-      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
+      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img ${thumbAttrs(p.images && p.images[0], '72px')} alt=""></a>
       <button type="button" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
     </span>`).join('');
   tray.innerHTML = `
@@ -2690,7 +2690,7 @@ async function loadSocialProof() {
       <div class="rev-head"><span class="rev-av">${r[0].split(' ').map(w => w[0]).slice(0, 2).join('')}</span><div><b>${r[0]}</b><small>${r[1]}</small></div><span class="rev-ver">&#10003; Verified</span></div>
       <div class="rev-stars">${'<i>★</i>'.repeat(r[3])}</div>
       <p>“${r[2]}”</p>
-      <img class="rev-photo" src="${r[5]}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+      <img class="rev-photo" ${thumbAttrs(r[5], '(max-width:600px) 30vw, 150px')} alt="">
       <span class="rev-qr">✦</span></div>`;
     const half = revs.map(card).join('');
     track.innerHTML = half + half; // seamless loop
@@ -2699,7 +2699,7 @@ async function loadSocialProof() {
   if (wall) {
     wall.innerHTML = UGC.map(r => `<figure class="ugc-card" tabindex="0">
       <div class="ugc-ph">
-        <img src="${r[2]}" alt="${esc(r[0])} wearing ${esc(r[5])}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
+        <img ${thumbAttrs(r[2], '(max-width:820px) 88vw, (max-width:1100px) 44vw, 420px')} alt="${esc(r[0])} wearing ${esc(r[5])}">
         <span class="ugc-badge"><i>&#10003;</i> Verified buyer</span>
         <figcaption class="ugc-cap">
           <div class="st">${'&#9733;'.repeat(r[4])}</div>
@@ -2708,7 +2708,7 @@ async function loadSocialProof() {
       </div>
       <div class="ugc-body">
         <p>&ldquo;${r[3]}&rdquo;</p>
-        <div class="ugc-prod"><img src="${r[6]}" alt="" loading="lazy"><span>Purchased<b>${esc(r[5])}</b></span></div>
+        <div class="ugc-prod"><img ${thumbAttrs(r[6], '56px')} alt=""><span>Purchased<b>${esc(r[5])}</b></span></div>
       </div>
     </figure>`).join('');
     const io = new IntersectionObserver((es, ob) => es.forEach((e, i) => {
@@ -2724,7 +2724,7 @@ async function loadSocialProof() {
 
 /* ─────────── v54 HOME STRIPS: trending + recently viewed ─────────── */
 const tvCard = (x) => `<a class="tv-card" href="#/product/${esc(x.id)}">
-  <div class="tv-ph"><img src="${safeUrl(x.img || ((x.images || [])[0])) || '/images/logo.png'}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
+  <div class="tv-ph"><img ${thumbAttrs(x.img || ((x.images || [])[0]), '(max-width:600px) 46vw, 220px')} alt=""></div>
   <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(x.price || 0).toLocaleString('en-IN')}</span></div></a>`;
 function tvSection(id, label, sub, items) {
   if (!items.length) return null;
@@ -3152,7 +3152,7 @@ function catBarHTML() {
     /* v120 — Bug B: tile photos carry ?v=125 (busts poisoned pre-v113 SW entries) and a
        two-stage fallback — house logo, then hide to reveal the monogram underlay in
        css/v120.css — so a tile can never degrade to bare alt-text again. */
-    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&' + ASSET_V.slice(1) : ASSET_V); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
+    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cw = thumbUrl(_cb, 320); const _cs = _cw || (_cb + (_cb.indexOf('?') >= 0 ? '&' + ASSET_V.slice(1) : ASSET_V)); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="lazy" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 /* v139 · CATEGORY PAGE FOCUS — the owner's report (18 Sep 2026):
@@ -4990,7 +4990,7 @@ pages.home = async (view) => {
         </div>
         <a class="btn btn-primary" href="#/product/${spot.id}">View the Piece</a>
       </div>
-      <a href="#/product/${spot.id}" class="cat-card rv" style="aspect-ratio:auto;height:360px"><img src="${safeUrl(spot.images && spot.images[0])}" style="height:100%" alt="${esc(spot.name)}"><div class="glare"></div></a>
+      <a href="#/product/${spot.id}" class="cat-card rv" style="aspect-ratio:auto;height:360px"><img ${thumbAttrs(spot.images && spot.images[0], '(max-width:820px) 92vw, 420px')} style="height:100%;width:100%;object-fit:cover" alt="${esc(spot.name)}"><div class="glare"></div></a>
     </div>
   </section>` : `
   <section class="sec container" style="padding-top:0">
@@ -6998,7 +6998,7 @@ window.Shivaa.quickView = async (id) => {
     <div class="qv">
       <div class="qv-grab" id="qvGrab" title="Drag down or press Escape to close"><i></i></div>
       <div class="qv-media">
-        <img class="qv-photo" id="qvPhoto" src="${shots[0]}" alt="${esc(p.name)}" draggable="false">
+        <img class="qv-photo" id="qvPhoto" ${thumbAttrs(shots[0], '(max-width:600px) 94vw, 560px')} alt="${esc(p.name)}" draggable="false">
         ${shots.length > 1 ? `
           <button type="button" class="qv-nav qv-prev" id="qvPrev" aria-label="Previous photo">‹</button>
           <button type="button" class="qv-nav qv-next" id="qvNext" aria-label="Next photo">›</button>
