@@ -1,51 +1,55 @@
-> ## CURRENT STATE — **v246 “Lightning” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v247 “Atelier” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v246 “Lightning” is the newest release** — packaged 12 Nov 2026, **not deployed**. The only zip to
->   install. `shivaa-update-v246.zip` — **689 files · 43,776,814 B ·
->   `d389c28b1829541aae93deade6b1029f423e01b4fb9c77d5100366560a98ef88`**. **Next release number: v247.**
->   It contains v237–v245. Code commit `28a0992`.
+> - **v247 “Atelier” is the newest release** — packaged 12 Nov 2026, **not deployed**. The only zip to
+>   install. `shivaa-update-v247.zip` — **761 files · 45,038,330 B ·
+>   `6ca456deaacfcf523f2f151e46b3b0700c0252c18387a6abe4d153e99e3214c5`**. **Next release number: v248.**
+>   It contains v237–v246. Code commit `b4dbe47`.
 > - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD (exit 3 = this tree is behind;
 >   stop and move to the release branch it names). Then `python3 qa/check-handoff.py` and
->   `node qa/browser/t-v246-light.mjs` (58).
-> - **The owner's report, and what it actually was:** *“App lags and feel stuck and doesn't load everything
->   fast and lighteining speed”*. Measured on this tree before anything was changed: the phone home page
->   asked for **72 pictures = 5,113 KB**, and `index.html` asked for **33 separate `<script>` files** with
->   `defer` (each one waits for the one before it). Nothing about the rendering was slow; the page was
->   simply heavy.
-> - **PICTURES — the rule, carry it forward.** Five render sites wrote `p.images[0]` straight into `src=`
->   instead of calling `thumbAttrs()`: a **409 KB** `reviews/cust-2.jpg` in a 150 px circle, a **244 KB**
->   `products/necklace-rani.jpg` in a 360 px card, the 18-chip category rail (40–132 KB originals in 72 px
->   circles), the UGC product chip, and a 244 KB quick-view overlay. The 320/560 webp thumbs had been in
->   `images/thumbs/` since v241 — nothing asked for them. **A picture in a slot narrower than the original
->   may only reach the DOM through `thumbAttrs()` / `thumbUrl()`.** Home fell to **1,832 KB** of image
->   markup, and a real browser picks the 320 far more often than that measurement does.
-> - **REQUESTS — one file.** `tools/build-js-bundle.py` concatenates the 31 behaviour layers, in document
->   order (`tools/js-bundle-order.txt`), into `js/rel.js`; `index.html` now asks for **two** scripts
->   (`app.js` + `rel.js`) and preloads both from the head. **`app.js` is deliberately not in the bundle:** a
->   behaviour layer must never be able to stop the shop from opening. Rebuild with
->   `python3 tools/build-js-bundle.py --write` — it refuses to write a bundle that does not parse. Never
->   hand-edit `rel.js`. The source layers stay on disk and in the zip, so a rollback is one `index.html`.
-> - **The service worker** now installs the shell **four files at a time** and takes fonts/icons/pictures
->   from the http cache instead of `cache:'reload'` re-downloads: the precache list fell from ~40 files to
->   **18**, and an update no longer competes with the page it is updating.
-> - **A silent trap, closed:** v245 stripped `content-visibility` out of the *shipped* `css/shivaa.css` by
->   hand, so the next `build-css-bundle.py --write` would have put all 19 declarations straight back. The
->   declarations are now deleted from the **twelve source layers** and the bundle is regenerated: exactly
->   **one** `content-visibility` remains — the universal guard. Never re-introduce it, and never edit the
->   bundle instead of a layer.
-> - **Nothing was hidden, parked or deferred to make a number look better.** No new `content-visibility`, no
->   `overflow-x: hidden`, no eager-forcing. The v245 scroll repair is intact and re-tested in both
->   orientations and on both pointer types.
-> - **Gate status — be honest about it:** `t-v246-light` **58/58** (new: one-request bundle, worker storm,
->   small-slot originals, and a picture budget measured on a rendered home/shop page on phone and PC) ·
+>   `node qa/browser/t-v247-premium.mjs` (53).
+> - **The owner's two reports, in order.** v246 answered “doesn't load everything fast” (5,113 KB → 1,832 KB
+>   of pictures on the phone home screen, 33 script requests → 2). He then wrote *“it is better than before
+>   but still not as perfect as I want a smooth UI UX … like a premium designer”* — so v247 is about how the
+>   page FEELS, and the feeling was being spent on decoration:
+>   **1 · a page at rest cost money.** `will-change: transform` and `transform-style: preserve-3d` on ten
+>   card families, a BASE `transform: scale(1.08)` on every card photograph, `.pc-body{translateZ(10px)}` on
+>   the text inside every card, and a 24 s infinite Ken Burns across the first screen. Measured on the home
+>   screen: **37 elements in a 3D context and 23 compositor layers → 1 and 14** (the 14 are magnetic-press
+>   buttons; a thumb cannot hover, so the phone drops those too). Hover keeps its lift, under
+>   `@media (hover:hover) and (pointer:fine)` only.
+>   **2 · v215 hid every content image by default** (`opacity:0`, waiting for motion.js to add `.img-ok`). A
+>   picture that missed that class was invisible for good. v247 fades from the VISIBLE side: the image is
+>   visible from the start, and animates in on its own load event with a 4 s failsafe.
+>   **3 · touch now answers in 90 ms** — no grey tap rectangle, `touch-action: manipulation` (no 300 ms
+>   double-tap hesitation), press feedback, focus-visible rings, and a **16 px input floor** so iOS never
+>   zooms the page on focus.
+>   **4 · one motion vocabulary** — five tokens in `css/v247.css` (`--sx-*`), opacity/transform only,
+>   balanced headline wrapping, tabular numerals for money, a 240 ms route rise, and
+>   `prefers-reduced-motion` last so it wins. `?nofx=1` kills the layer too.
+> - **Speed this release:** the home screen paints at **700 ms** when the device already holds the
+>   catalogue, instead of waiting for the gold rate. The price slot renders as a **skeleton** (`.pr-sk`,
+>   never ₹0 and never ₹NaN) and the `rates` event patches every `.js-price` in place. The **six second**
+>   ceiling still stands for a cold device, a deep link and every other route. The campaign banner and the
+>   nine film posters now have 560/320 webp siblings: the phone home screen is **1.46 MB** of image markup,
+>   from 5.11 MB at v245.
+> - **Two real bugs found while measuring:** the trending strip and the recently-viewed strip printed
+>   **₹NaN on every card** — the API's `price` field is an object (`{metalValue, gst, total…}`) and both
+>   templates did `Math.round(x.price)`. They now use the same `moneyOK()/priceHTML()` path as the grid.
+> - **HARD RULES (do not re-learn these the hard way):** no `content-visibility`; no `overflow-x: hidden`
+>   on `html/body`; never write `images[0]` into `src=` (every picture goes through `thumbAttrs()`); never
+>   add a `<script>` tag per layer (add it to `tools/js-bundle-order.txt` and rebuild `rel.js`); never
+>   leave an image hidden by default; never `will-change` a card at rest.
+> - **Gate status — be honest about it:** `t-v247-premium` **53/53** · `t-v246-light` **58/58** ·
 >   `t-v245-scroll` **39/39** · `t-v244-butter` **54/54** · `t-v243-header` **36/36** · `t-v242-taps`
->   **37/37** · `t-v241-perf` **43/43** · `t-v240-rip` **16/16** · `check-handoff.py` 0 red. The older
->   suites were re-pointed at the bundle ("is vXXX inside `rel.js`, at the right index?") instead of
->   per-file `<script>` tags.
-> - **jsdom has no scroll engine, no compositor and no network**: the *bytes* here are real (they are file
->   sizes), the *feel* is not measurable in this sandbox. That is why `?perfdiag=1` and `?nofx=1` exist —
->   the owner's device is the only place the result can be confirmed.
-> - **v245 and older detail stays below as history.**
+>   **40/40** · `t-v241-perf` **43/43** · `t-v240-rip` **16/16** · `check-handoff.py` 0 red — **339 checks**.
+>   jsdom sweep of 8 routes × phone/PC: 0 page errors, 0 hidden pictures, no NaN.
+>   **jsdom has no scroll engine, no compositor, no animation clock and no network** — the layer counts, the
+>   byte counts and the cascade are real here; the *feel* is the owner's device.
+> - **If he still says it feels heavy:** ask for `?perfdiag=1` + the phone model, and look in this order —
+>   (1) is `rel.js?v=247` the script in the Network tab, (2) does `window.Shivaa.v247.audit()` report
+>   `compositedLayers` ≤ 15, (3) the `/api/rates` round trip, (4) `?nofx=1` to take every animation out of
+>   the picture.
+> - **v246 and older detail stays below as history.**
 
 
 

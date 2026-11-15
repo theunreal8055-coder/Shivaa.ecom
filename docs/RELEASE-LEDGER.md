@@ -17,14 +17,14 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 
 | | |
 |---|---|
-| **Newest release** | **v246 — “Lightning”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v245) |
-| Package | `shivaa-update-v246.zip` · 689 files · 43,776,814 B · `d389c28b1829541aae93deade6b1029f423e01b4fb9c77d5100366560a98ef88` |
+| **Newest release** | **v247 — “Atelier”** (packaged 12 Nov 2026, **awaiting the owner's yes**; contains v237–v246) |
+| Package | `shivaa-update-v247.zip` · 761 files · 45,038,330 B · `6ca456deaacfcf523f2f151e46b3b0700c0252c18387a6abe4d153e99e3214c5` |
 | **On the site** | **v244** — installed 12 Nov 2026 and **it broke the phone's scroll** (`content-visibility`); v245 repairs it, and v246 then makes the page light. The owner's next report (*“lag… doesn't load everything fast”*) arrived after v245 was handed over; whether it was installed is not stated, and v246 contains all of it either way. Before that, **v241**:: smooth, but *“clicks are not working now and buttons are unresponsive”*. v242 fixed that but was never installed; v243 restores the desktop header categories he reported gone and contains all of v242. |
 | Package on the site | `shivaa-update-v241.zip` · 682 files · 43,636,784 B · `6987184a07398433c59cb4304f3f0b0e2a27583fed97d13787a0bcf90c7c8cdf` |
-| **Next release** | **v247** |
+| **Next release** | **v248** |
 | Work branch | `arena/95be65a4-shivaa-ecom` (cut from `a9445dc`, the v236 tip of `arena/800194ed-shivaa-ecom`) |
 | Twin branch | `arena/09f3c79f-shivaa-ecom` — frozen at its v220 tip `4a9e239`, PR #106 open, untouched |
-| Release chain | v232 → … → v239 → v240 (applied 12 Nov, ripple fix) → v241 (applied 12 Nov, smooth — broke taps) → **v242 (packaged 12 Nov, never installed) → v243 (packaged 12 Nov, never installed) → v244 (installed 12 Nov, broke the phone) → v245 (packaged 12 Nov, the scroll repair) → **v246 (packaged 12 Nov, the weight: 5,113 KB → 1,832 KB of pictures on the home screen, 33 script requests → 2)** |
+| Release chain | v232 → … → v239 → v240 (applied 12 Nov, ripple fix) → v241 (applied 12 Nov, smooth — broke taps) → **v242 (packaged 12 Nov, never installed) → v243 (packaged 12 Nov, never installed) → v244 (installed 12 Nov, broke the phone) → v245 (packaged 12 Nov, the scroll repair) → v246 (packaged 12 Nov, the weight: 5,113 KB → 1,832 KB of pictures, 33 script requests → 2) → **v247 (packaged 12 Nov, the feel: 23 compositor layers → 14, one 3D context, images visible by default, touch answers in 90 ms, home paints at 700 ms with a price skeleton, ₹NaN gone)** |
 
 ---
 
@@ -57,7 +57,8 @@ python3 qa/check-handoff.py  # ledger == shipped tree == zips on disk == the doc
 | v243 | `f9a91e9` | Header bar | 684 | 43,648,349 | `00aac36db94b231c…b9e13b65` | packaged 12 Nov, **never installed** — desktop header category bar restored; v244 contains all of it |
 | v244 | `8fa6dc8` | Butter | 686 | 43,657,910 | `5b3bfdb3fa490fc3…784453d8` | **installed 12 Nov — broke the phone's scroll (`content-visibility`), superseded within the hour** sticky bars opaque, hover-only card layers, decoration parked, decode-ahead, Back remembers scroll, `?perfdiag=1` |
 | **v245** | **`c00549b`** | **Scroll back** | **688** | **43,663,243** | **`68c2e0b3d9b951aa…386c8552`** | packaged 12 Nov — every `content-visibility` deleted from the bundle + universal guard, `overflow-x:hidden` gone, parking watchdog, blank-image wake, `?nofx=1` kill switch. Never confirmed installed; superseded by v246 |
-| **v246** | **`28a0992`** | **Lightning** | **689** | **43,776,814** | **`d389c28b1829541a…60a98ef88`** | **packaged 12 Nov — the weight. Phone home 5,113 KB → 1,832 KB of pictures (every small slot through `thumbAttrs`), 33 script requests → 2 (`js/rel.js`, built by `tools/build-js-bundle.py`), worker install no longer storms the link, `content-visibility` finally gone from the source layers too** |
+| **v246** | **`28a0992`** | **Lightning** | **689** | **43,776,814** | **`d389c28b1829541a…60a98ef88`** | packaged 12 Nov — the weight. Phone home 5,113 KB → 1,832 KB of pictures (every small slot through `thumbAttrs`), 33 script requests → 2 (`js/rel.js`, built by `tools/build-js-bundle.py`), worker install no longer storms the link, `content-visibility` finally gone from the source layers too. Superseded by v247 |
+| **v247** | **`b4dbe47`** | **Atelier** | **761** | **45,038,330** | **`6ca456deaacfcf52…99e3214c5`** | **packaged 12 Nov — the feel. 23 compositor layers → 14 and 37 3D elements → 1 (card families flattened, base `scale(1.08)` gone, `translateZ` gone, Ken Burns still on phones), every image visible by default with a load-triggered fade, touch answers in 90 ms with no tap flash and no iOS zoom, one motion vocabulary, home paints at 700 ms with a price skeleton instead of waiting for the rate, banner + film poster thumbs, and `₹NaN` on the trending/recently-viewed strips fixed** |
 <!-- The Weight Release | 369 | 37,448,114 | `10752b0ad94f1173…be8cbd77` | packaged 12 Nov — awaiting the owner's yes |
 | **v236** | **`c64a771`** | **The Counter Book** | **368** | **37,445,481** | **`b6483f250bc1600b…d09d129d6655`** | **packaged 23 Oct — awaiting the owner's yes** |
 
