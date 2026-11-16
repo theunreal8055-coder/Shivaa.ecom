@@ -2074,6 +2074,43 @@ class Handler(SimpleHTTPRequestHandler):
                        "sqlCount": None, "jsonCount": len(d.get("products", [])),
                        "mirrorBehind": False},
             })
+        if route == "boot":
+            # v252 — mirrors api.php GET /api/boot (one round-trip for the six
+            # boot endpoints + footer pages).
+            last = d["rates"]["last"]
+            jr = current_rates(d)
+            rates_payload = {
+                **last,
+                "spot": {k: last[k] for k in ("gold24", "gold22", "gold18", "silver")},
+                "jaipur": jr,
+                "premium": {"gold": int(d["settings"].get("jaipurPremium", 55)),
+                            "gold22": int(d["settings"].get("gold22Premium", 398)),
+                            "silver": float(d["settings"].get("jaipurSilverPremium", 3))},
+                "anchorLevel": {"mode": "spot", "source": "preview-db",
+                                "goldPerG": int(last["gold24"]), "silverPerG": float(last["silver"]),
+                                "at": time.strftime("%Y-%m-%dT%H:%M:%S+05:30", time.localtime()), "ageMs": None},
+                "t": time.strftime("%Y-%m-%dT%H:%M:%S+05:30", time.localtime()),
+                "source": "preview",
+                "override": d["rates"].get("override"),
+                "history": d["rates"].get("history", [])[-120:],
+                "nextUpdateIn": 60,
+            }
+            u_boot = dev_token(self)
+            lst = [priced(d, x) for x in d["products"] if x.get("active")]
+            pgs = [{"title": x.get("title", ""), "slug": x.get("slug", ""),
+                    "updatedAt": x.get("updatedAt", "")}
+                   for x in d.get("pages", []) if x.get("published", True)]
+            return self._json(200, {
+                "ok": True,
+                "rel": 252,
+                "me": {"user": dev_pub_user(u_boot) if u_boot else None, "events": []},
+                "settings": d["settings"],
+                "mc": {"table": d["makingCharges"], "gst": 3},
+                "prods": {"products": lst, "rates": jr},
+                "cats": {"catalogs": [], "gated": True},
+                "pages": {"pages": pgs},
+                "rates": rates_payload,
+            })
         if route == "settings":
             return self._json(200, d["settings"])
         if route == "rates":

@@ -64,8 +64,7 @@ html.shv-mobile .tab,
 html.shv-mobile .dw-row,
 html.shv-mobile .icon-btn,
 html.shv-mobile .pc-quick {
-  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)),
-              box-shadow var(--sx-dur-2, 160ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
 }
 /* a press that also changes brightness is a PAINT on every press (v107 did it
    with `filter`). The scale is enough, and it costs nothing. */
@@ -135,7 +134,9 @@ html.shv-mobile .v107-press:active { filter: none !important; }
 html.shv-mobile .p-grid > .p-card:nth-child(-n+8),
 html.shv-mobile .tv-track > .tv-card:nth-child(-n+6),
 html.shv-mobile .cat-grid > .cat-card:nth-child(-n+8) {
-  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) both;
+  /* v252 — backwards (never both): holds translateY during the short stagger
+     delay, then lets go cleanly so :active / .shv-tap can scale the first row. */
+  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) backwards;
 }
 html.shv-mobile .p-grid > .p-card:nth-child(2),
 html.shv-mobile .cat-grid > .cat-card:nth-child(2) { animation-delay: 24ms }

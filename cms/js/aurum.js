@@ -211,15 +211,14 @@
     var lastOn = null;
     function move() {
       var on = $('.mnav a.on');
-      var cs = getComputedStyle(nav);
-      var visible = on && cs.display !== 'none' && cs.visibility !== 'hidden';
+      var nr = on ? nav.getBoundingClientRect() : null;
+      var visible = !!(on && nr && nr.width > 0 && nr.height > 0);
       if (!visible) {
         /* strictly idempotent toggles — no mutation, no observer feedback */
         if (nav.classList.contains('has-ind')) nav.classList.remove('has-ind');
         return;
       }
-      var nr = nav.getBoundingClientRect(), r = on.getBoundingClientRect();
-      if (!nr.width) return;
+      var r = on.getBoundingClientRect();
       var ix = (r.left - nr.left) + 'px', iw = r.width + 'px';
       if (nav.style.getPropertyValue('--au-ix') !== ix) nav.style.setProperty('--au-ix', ix);
       if (nav.style.getPropertyValue('--au-iw') !== iw) nav.style.setProperty('--au-iw', iw);
@@ -252,11 +251,13 @@
       rAF(function () {
         q = false;
         var y = window.scrollY;
-        var blocked = document.body.classList.contains('drawer-open') ||
-          document.body.classList.contains('cart-open') ||
-          !!$('.modal-overlay.open') || !!$('.filters.open');
-        if (y > 340 && y > lastY + 5 && !blocked) {
-          if (!hidden) { hidden = true; document.body.classList.add('nav-hide'); }
+        if (y > 340 && y > lastY + 5) {
+          if (!hidden) {
+            var blocked = document.body.classList.contains('drawer-open') ||
+              document.body.classList.contains('cart-open') ||
+              !!$('.modal-overlay.open') || !!$('.filters.open');
+            if (!blocked) { hidden = true; document.body.classList.add('nav-hide'); }
+          }
         } else if (y < lastY - 6 || y < 260) {
           if (hidden) { hidden = false; document.body.classList.remove('nav-hide'); }
         }
@@ -356,7 +357,8 @@
           }
           var prog = (((top - y) + h2 / 2) - vh / 2) / vh;
           var ty = Math.max(-pxAmp, Math.min(pxAmp, -prog * pxAmp));   /* v225 · 26 fine / 11 coarse */
-          im.style.setProperty('--au-py', ty.toFixed(1) + 'px');
+          var pxVal = ty.toFixed(1) + 'px';
+          if (im._auPy !== pxVal) { im._auPy = pxVal; im.style.setProperty('--au-py', pxVal); }
         }
       }
     }
@@ -942,24 +944,33 @@
     sweepShip();
     if (mnav.move) mnav.move();
   }
+  /* v252 — coalesce route and cart sweeps into a single post-paint pass and
+     never sweep in the middle of a thumb fling; retires the 20×8s idle poll. */
+  var sweepT = 0, shipT = 0;
+  function queueSweep(ms) {
+    if (sweepT) clearTimeout(sweepT);
+    sweepT = setTimeout(function () {
+      sweepT = 0;
+      if (document.hidden) return;
+      if (root.classList.contains('shv-scrolling')) { queueSweep(260); return; }
+      rAF(sweep);
+    }, ms || 90);
+  }
+  function queueShip() {
+    if (shipT) return;
+    shipT = setTimeout(function () {
+      shipT = 0;
+      if (!document.hidden && !root.classList.contains('shv-scrolling')) sweepShip();
+    }, 120);
+  }
   if (view) {
     new MutationObserver(function () {
-      rAF(sweep);
-      setTimeout(sweep, 350);
-      setTimeout(sweep, 1200);
-      setTimeout(sweep, 2600);
+      queueSweep(80);
     }).observe(view, { childList: true, subtree: false });
   }
-  new MutationObserver(sweepShip).observe(document.body, { childList: true, subtree: true });
-  setTimeout(sweep, 200);
-  setTimeout(sweep, 1000);
-  setTimeout(sweep, 3000);
-  /* idle catch-ups (like motion.js) */
-  var idleN = 0;
-  var idle = setInterval(function () {
-    sweep();
-    if (++idleN > 20) clearInterval(idle);
-  }, 8000);
+  new MutationObserver(queueShip).observe(document.body, { childList: true, subtree: true });
+  queueSweep(220);
+  setTimeout(function () { queueSweep(80); }, 1100);
 
   /* ═══════════════════════════════════════════════════════════════════
      v104 · COUTURE TOUCH — flagship mobile interaction layer
@@ -981,7 +992,6 @@
       clearTimeout(doneTimer); clearTimeout(hangTimer);
       busy = true;
       bar.classList.remove('done');
-      void bar.offsetWidth;
       bar.classList.add('on');
       bar.style.transition = 'none';
       if (reduced) { set(1); return finish(60); }

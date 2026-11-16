@@ -1486,8 +1486,12 @@
     host.id = 'v107FootTicker';
     foot.appendChild(host);
     renderTicker();
-    setInterval(() => safe('ticker', renderTicker), 2500);
-    window.addEventListener('hashchange', () => safe('ticker', renderTicker));
+    /* v252 — react immediately when live rates arrive instead of waking every
+       2.5 s; a quiet 30 s safety tick covers long idle stretches. */
+    document.addEventListener('rates', () => safe('ticker', renderTicker), { passive: true });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) safe('ticker', renderTicker); }, { passive: true });
+    setInterval(() => { if (!document.hidden) safe('ticker', renderTicker); }, 30000);
+    window.addEventListener('hashchange', () => safe('ticker', renderTicker), { passive: true });
   }
 
   /* ═══ 2 · TAP-REACTIVE GLOW + PRESS FEEDBACK + HIDDEN-TAB PAUSE ═════════ */
@@ -1515,15 +1519,21 @@
       const a = e.target.closest && e.target.closest('.v107-tabglow');
       if (a) setTimeout(() => applyTabGlow((a.getAttribute('href') || '').replace('#/', '').split('?')[0]), 0);
     }, true);
-    window.addEventListener('hashchange', () => applyTabGlow());
+    window.addEventListener('hashchange', () => applyTabGlow(), { passive: true });
     applyTabGlow();
-    setInterval(() => safe('glow', () => applyTabGlow()), 8000);
   }
   function pressFeedback() {
     const sel = '.foot-chips a, .fv-chips a, .ds-card, .btn, .pay-opt, .v107-sg-pick, .qv-nav button';
-    const arm = () => $$(sel).forEach(el => { if (!el.classList.contains('v107-press')) el.classList.add('v107-press'); });
+    let armT = 0;
+    const arm = () => {
+      armT = 0;
+      if (document.documentElement.classList.contains('shv-scrolling')) { armT = setTimeout(arm, 260); return; }
+      $$(sel).forEach(el => { if (!el.classList.contains('v107-press')) el.classList.add('v107-press'); });
+    };
+    const queue = () => { if (!armT) armT = setTimeout(arm, 90); };
     arm();
-    new MutationObserver(() => setTimeout(arm, 60)).observe(document.body, { childList: true, subtree: true });
+    const viewEl = document.getElementById('view') || document.body;
+    new MutationObserver(queue).observe(viewEl, { childList: true, subtree: true });
   }
   function hiddenPause() {
     const set = () => document.body.classList.toggle('is-hidden', document.hidden);
@@ -1661,8 +1671,14 @@
     if (go) go.onclick = () => { (S.closeModal || function () {})(); location.hash = '#/product/' + p.id; };
   }
   function designDetail() {
+    let ddsT = 0;
+    const run = () => {
+      ddsT = 0;
+      if (document.documentElement.classList.contains('shv-scrolling')) return;
+      armDdsButtons();
+    };
     armDdsButtons();
-    new MutationObserver(() => setTimeout(armDdsButtons, 80)).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(() => { if (!ddsT) ddsT = setTimeout(run, 110); }).observe(document.body, { childList: true, subtree: true });
   }
 
   /* ═══ 5 · #/size-guide — TRUE-SCALE RING SIZER ══════════════════════════ */
@@ -1908,7 +1924,11 @@
         host.appendChild(line);
       });
     };
-    new MutationObserver(() => setTimeout(paint, 40)).observe(document.body, { childList: true, subtree: true });
+    let chanT = 0;
+    new MutationObserver(() => {
+      if (chanT) return;
+      chanT = setTimeout(() => { chanT = 0; if (!document.documentElement.classList.contains('shv-scrolling')) paint(); }, 80);
+    }).observe(document.body, { childList: true, subtree: true });
     load();
   }
 
@@ -2330,9 +2350,12 @@ console.log('Shivaa v116 patches loaded \u2726');
   }
 
   function loadEnhancements() {
-    // order = the old static-defer order in index.html
+    /* v252 — yield an idle frame between each ambience file so parsing
+       aurum + motion + boost never merges into one long task under a tap. */
     inject('/js/aurum.js?v=' + REL)
+      .then(function () { return new Promise(function (r) { IDLE(r); }); })
       .then(function () { return inject('/js/motion.js?v=' + REL); })
+      .then(function () { return new Promise(function (r) { IDLE(r); }); })
       .then(function () { return inject('/js/boost.js?v=' + REL); })
       .catch(function () { /* ambience is optional — never noisy */ });
   }
@@ -2570,7 +2593,28 @@ console.log('Shivaa v116 patches loaded \u2726');
           }
         }
       });
-      mo.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['class'] });
+      /* v252 — watch only the five overlay roots directly instead of firing on
+         every class change in the entire document subtree during scroll/press. */
+      var watched = typeof WeakSet === 'function' ? new WeakSet() : null;
+      function bindOverlays() {
+        for (var i = 0; i < OVERLAYS.length; i++) {
+          var el = document.querySelector(OVERLAYS[i].sel);
+          if (!el) continue;
+          if (watched) { if (watched.has(el)) continue; watched.add(el); }
+          else if (el._v120Obs) continue;
+          else el._v120Obs = 1;
+          mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+        }
+      }
+      bindOverlays();
+      if (document.body) {
+        new MutationObserver(bindOverlays).observe(document.body, { childList: true, subtree: false });
+      } else {
+        document.addEventListener('DOMContentLoaded', function () {
+          bindOverlays();
+          if (document.body) new MutationObserver(bindOverlays).observe(document.body, { childList: true, subtree: false });
+        }, { once: true });
+      }
     }
   } catch (e) {}
 })();
@@ -6655,9 +6699,11 @@ var qrcode = function() {
     for (var i = 0; i < kids.length && i < 400; i++) {
       var el = kids[i];
       if (el.nodeType !== 1) continue;
+      /* v252 — fast path: only force getComputedStyle when a block actually overflows */
+      if (el.scrollWidth <= W + 1) continue;
       var cs = window.getComputedStyle(el);
       if (cs.position === 'fixed' || cs.position === 'sticky') continue;
-      if (el.scrollWidth > W + 1 && cs.overflowX === 'visible') {
+      if (cs.overflowX === 'visible') {
         el.style.overflowX = 'clip';
       }
     }
@@ -8114,14 +8160,16 @@ var qrcode = function() {
       var found = [];
       for (var i = 0; i < all.length; i++) {
         var el = all[i];
-        if (el.matches(NEVER) || el.closest(REAL_SHEETS)) continue;
+        if (/^(?:SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|IFRAME)$/.test(el.tagName)) continue;
+        if (el.hidden || el.matches(NEVER) || el.closest(REAL_SHEETS)) continue;
+        /* v252 — check viewport coverage first so non-covering nodes never force getComputedStyle */
+        var r = el.getBoundingClientRect();
+        if (r.width < innerWidth * 0.85 || r.height < innerHeight * 0.85) continue;
+        if (el.querySelector('a[href],button,input,select,textarea,[onclick]')) continue;
         var cs = getComputedStyle(el);
         if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
         if (cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none') continue;
-        var r = el.getBoundingClientRect();
-        if (r.width >= innerWidth * 0.85 && r.height >= innerHeight * 0.85 && !el.querySelector('a[href],button,input,select,textarea,[onclick]')) {
-          found.push(el);
-        }
+        found.push(el);
       }
       found.forEach(function (el) {
         if (looksStray(el)) { el.setAttribute('data-v242-stray', '1'); try { el.style.setProperty('pointer-events', 'none', 'important'); } catch (e) {} }
@@ -8691,8 +8739,15 @@ var qrcode = function() {
   }
   var wakeT = 0;
   function queueWake(ms) {
-    if (wakeT) return;
-    wakeT = setTimeout(function () { wakeT = 0; try { wakeVisible(); } catch (e) {} }, ms || 260);
+    /* v252 — true post-scroll debounce: reset the timer on every scroll tick
+       and defer while html.shv-scrolling is active so wakeVisible() never reads
+       getBoundingClientRect() in the middle of a fling. */
+    if (wakeT) clearTimeout(wakeT);
+    wakeT = setTimeout(function () {
+      wakeT = 0;
+      if (root.classList.contains('shv-scrolling')) { queueWake(260); return; }
+      try { wakeVisible(); } catch (e) {}
+    }, ms || 260);
   }
   try {
     if (win.MutationObserver && view) new MutationObserver(function () { queueWake(320); })
@@ -8890,6 +8945,9 @@ var qrcode = function() {
     var t = tracked.get(img);
     if (t) { clearTimeout(t); tracked.delete(img); }
     img.classList.add('shv-img-in');
+    /* v252 — release the fade class once its 240 ms curve completes so settled
+       photographs hold no residual animation declaration on return visits. */
+    setTimeout(function () { img.classList.remove('shv-img-in'); }, 320);
   }
 
   function watch(img) {
@@ -8960,10 +9018,14 @@ var qrcode = function() {
     doc.addEventListener('shv:rendered', function () { sweep(doc); });
     addEventListener('hashchange', function () { sweep(doc); }, { passive: true });
     if (MOTION) {
+      /* v252 — debounce so sweep() runs once after a fling settles, never mid-scroll */
       var t = 0;
       addEventListener('scroll', function () {
-        if (t) return;
-        t = setTimeout(function () { t = 0; if (!doc.hidden) sweep(doc); }, 400);
+        if (t) clearTimeout(t);
+        t = setTimeout(function () {
+          t = 0;
+          if (!doc.hidden && !doc.documentElement.classList.contains('shv-scrolling')) sweep(doc);
+        }, 300);
       }, { passive: true });
     }
 
@@ -9513,21 +9575,29 @@ var qrcode = function() {
      while something is still loading — a pending price, the skeleton, the live
      dot. Everything else that runs forever is decoration and stops. */
   var KEEP = /(^|\s)(rs-ticker-track|rev-track|pr-sk|sk-hero|sk-card|ub-live)(\s|$)/;
+  /* v252 — css/v250.css + css/v252.css already hold the phone compositor budget
+     from frame 0; check only known animated/inline candidates here instead of
+     forcing getComputedStyle() across all ~1,300 #view nodes 800 ms after every
+     navigation (which stalled taps right as the shopper touched the new page). */
+  var QUIET_SEL = '[style*="animation"],[style*="will-change"]';
   function quietThePage() {
     if (!isMobile() || NOFX) return 0;
+    if (root.classList.contains('shv-scrolling')) { scheduleQuiet(); return 0; }
     var scope = doc.getElementById('view');
     if (!scope) return 0;
-    var nodes = scope.querySelectorAll('*');
+    var nodes = scope.querySelectorAll(QUIET_SEL);
     var changed = 0;
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i], st;
+      if (KEEP.test(String(n.className || ''))) continue;
       try { st = getComputedStyle(n); } catch (e) { continue; }
       if (!st) continue;
       if (st.willChange && st.willChange !== 'auto') { n.style.willChange = 'auto'; changed++; }
       var it = st.animationIterationCount || '';
-      if (it.indexOf('infinite') >= 0 && n.animationName !== 'none') {
+      var an = st.animationName || 'none';
+      if (it.indexOf('infinite') >= 0 && an !== 'none') {
         if (!KEEP.test(String(n.className || ''))) { n.style.animationName = 'none'; changed++; }
-      } else if (n.animationName !== 'none') {
+      } else if (an !== 'none') {
         /* a child of something that moves forever: its own animation is invisible
            work. Seventy star pops inside the review marquee was the worst case. */
         var host = n.parentElement;
@@ -9804,5 +9874,273 @@ var qrcode = function() {
         ' · sync-decode fixups ' + (window.__shvImgFix || 0) +
         ' · page ' + Math.round((lastP < 0 ? 0 : lastP) * 100) + '%';
     }
+  };
+})();
+
+/* ─────────── v252.js ─────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHIVAA · v252 — “SILK”
+   Companion to css/v252.css. Four quiet responsibilities, zero idle timers,
+   zero layout reads during scroll, zero subtree class observers:
+
+     1 · FRAME-1 TACTILE SPRING. Stamps `.shv-tap` passively on `pointerdown` so
+         a quick phone tap answers on its first frame instead of losing the
+         80–150 ms browser `:active` hesitation; cancels in 0 ms if the thumb
+         moves > 8 px or a scroll starts.
+
+     2 · LIVE COUNTER RESPONSES. Wishlist heart taps spring (`.shv-heart-pop`),
+         the compare badge (`#cmpCount`) joins bag & wishlist badge pops, and a
+         2 px golden hairline (`#shvRouteGlide`) answers route changes on frame 1
+         even before deferred ambience scripts load.
+
+     3 · INTENT PRE-WARM. Hovering a piece card for 90 ms (desktop) or touching
+         it (phone, unless Save-Data / 2G is on) decodes its main photograph off
+         the main thread and warms its detail payload so the piece page opens
+         already finished, with full-resolution imagery intact.
+
+     4 · DIAGNOSTIC REPORT. `Shivaa.v252.audit()` and `Shivaa.v252.report()`
+         return measured boot mode/time, instant PDP opens, tactile responses,
+         route glides and pre-warmed pieces.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.__shvSilk) return;
+  window.__shvSilk = true;
+
+  var doc = document, root = doc.documentElement, win = window;
+  var REL = Number(win.__SHIVAA_REL || 252);
+  var NOFX = /[?&]nofx=1/.test(location.search || '');
+  var REDUCED = false;
+  try { REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  var LIVE = !NOFX && !REDUCED;
+
+  var isMobile = function () { return root.classList.contains('shv-mobile'); };
+  var stats = { taps: 0, cancelled: 0, hearts: 0, glides: 0, prewarmed: 0 };
+
+  /* ── 1 · frame-1 tactile spring (phone only) ──────────────────────────── */
+  var TAP_SEL = '.btn, .icon-btn, .pc-wish, .pc-quick, .dw-close, .qty button, ' +
+    '.cb-item, .chip, .tab, .dw-row, .dw-tile, .dw-more, .nav-jwl, .mnav a, .mnav button, ' +
+    '.p-card, .tv-card, .ugc-card, .pc-card, .cat-card, .cat-mini-card, .pillar, .catlog, .shv-offer-card';
+  var activeEl = null, startX = 0, startY = 0, relTimer = 0, cancelTimer = 0;
+
+  function releaseTap(instant) {
+    if (!activeEl) return;
+    var el = activeEl;
+    activeEl = null;
+    clearTimeout(relTimer);
+    if (instant) {
+      stats.cancelled++;
+      el.classList.remove('shv-tap');
+      el.classList.add('shv-tap-cancel');
+      clearTimeout(cancelTimer);
+      cancelTimer = setTimeout(function () { el.classList.remove('shv-tap-cancel'); }, 50);
+      return;
+    }
+    /* keep the press visible for at least 75 ms so a 35 ms flick-tap is felt */
+    relTimer = setTimeout(function () { el.classList.remove('shv-tap'); }, 75);
+  }
+
+  if (LIVE) {
+    doc.addEventListener('pointerdown', function (e) {
+      if (!isMobile()) return;
+      if (e.button && e.button !== 0) return;
+      var t = e.target && e.target.closest ? e.target.closest(TAP_SEL) : null;
+      if (!t || t.disabled) return;
+      if (activeEl && activeEl !== t) activeEl.classList.remove('shv-tap');
+      clearTimeout(relTimer);
+      activeEl = t;
+      startX = e.clientX || 0;
+      startY = e.clientY || 0;
+      t.classList.remove('shv-tap-cancel');
+      t.classList.add('shv-tap');
+      stats.taps++;
+    }, { passive: true });
+
+    doc.addEventListener('pointermove', function (e) {
+      if (!activeEl) return;
+      var dx = (e.clientX || 0) - startX, dy = (e.clientY || 0) - startY;
+      if (dx * dx + dy * dy > 64) releaseTap(true);
+    }, { passive: true });
+
+    doc.addEventListener('pointerup', function () { releaseTap(false); }, { passive: true });
+    doc.addEventListener('pointercancel', function () { releaseTap(true); }, { passive: true });
+    win.addEventListener('scroll', function () { if (activeEl) releaseTap(true); }, { passive: true });
+    win.addEventListener('blur', function () { releaseTap(true); }, { passive: true });
+  }
+
+  /* ── 2 · live counter responses (heart spring · compare pop · route glide) */
+  var HEART_SEL = '.pc-wish, [data-wish], #pdWish, [onclick*="toggleWish"]';
+  function pulseOnce(el, cls, ms) {
+    if (!LIVE || !el) return;
+    el.classList.remove(cls);
+    var raf = win.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () {
+      el.classList.add(cls);
+      clearTimeout(el._shvPulseT);
+      el._shvPulseT = setTimeout(function () { el.classList.remove(cls); }, ms || 340);
+    });
+  }
+
+  if (LIVE) {
+    /* capture: true so card hearts using event.stopPropagation() still spring */
+    doc.addEventListener('click', function (e) {
+      var h = e.target && e.target.closest ? e.target.closest(HEART_SEL) : null;
+      if (!h) return;
+      stats.hearts++;
+      pulseOnce(h, 'shv-heart-pop', 340);
+      try { if (win.Shivaa && typeof win.Shivaa.haptic === 'function') win.Shivaa.haptic(8); } catch (_) {}
+    }, { capture: true, passive: true });
+  }
+
+  function watchCompareBadge() {
+    if (!LIVE || !win.MutationObserver) return;
+    var b = doc.getElementById('cmpCount');
+    if (!b || b._shvWatched) return;
+    b._shvWatched = 1;
+    var last = b.textContent;
+    try {
+      new MutationObserver(function () {
+        var now = b.textContent;
+        if (now === last) return;
+        last = now;
+        if (!b.hidden && now && now !== '0') pulseOnce(b, 'shv-pop', 380);
+      }).observe(b, { childList: true, characterData: true, subtree: true });
+    } catch (_) {}
+  }
+
+  var glide = null, glideOffT = 0, glideResetT = 0, glideActive = false;
+  function ensureGlide() {
+    if (glide || !doc.body) return glide;
+    glide = doc.createElement('div');
+    glide.id = 'shvRouteGlide';
+    glide.setAttribute('aria-hidden', 'true');
+    doc.body.appendChild(glide);
+    return glide;
+  }
+  function startGlide() {
+    if (!LIVE || doc.hidden) return;
+    var g = ensureGlide();
+    if (!g) return;
+    clearTimeout(glideOffT);
+    clearTimeout(glideResetT);
+    glideActive = true;
+    stats.glides++;
+    g.classList.remove('is-done');
+    g.classList.add('is-on');
+    /* safety settle even if a route updates nothing in #view */
+    glideOffT = setTimeout(finishGlide, 420);
+  }
+  function finishGlide() {
+    if (!glide || !glideActive) return;
+    glideActive = false;
+    clearTimeout(glideOffT);
+    glide.classList.remove('is-on');
+    glide.classList.add('is-done');
+    clearTimeout(glideResetT);
+    glideResetT = setTimeout(function () {
+      if (glide) glide.classList.remove('is-done');
+    }, 220);
+  }
+
+  function wireRouteGlide() {
+    if (!LIVE) return;
+    win.addEventListener('hashchange', startGlide, { passive: true });
+    var view = doc.getElementById('view');
+    if (view && win.MutationObserver) {
+      try {
+        new MutationObserver(function () {
+          if (glideActive) {
+            clearTimeout(glideOffT);
+            glideOffT = setTimeout(finishGlide, 90);
+          }
+        }).observe(view, { childList: true });
+      } catch (_) {}
+    }
+  }
+
+  /* ── 3 · intent pre-warm (zero quality loss, save-data aware) ─────────── */
+  var warmed = Object.create(null), warmedCount = 0, hoverT = 0;
+  function dataSaverOn() {
+    try {
+      var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (!c) return false;
+      if (c.saveData) return true;
+      return /(^|-)2g$/i.test(String(c.effectiveType || ''));
+    } catch (_) { return false; }
+  }
+  function pidFromTarget(target) {
+    if (!target || !target.closest) return '';
+    var card = target.closest('[data-pid]');
+    if (card && card.dataset && card.dataset.pid) return String(card.dataset.pid);
+    var link = target.closest('a[href^="#/product/"]');
+    if (!link) return '';
+    var m = String(link.getAttribute('href') || '').match(/^#\/product\/([A-Za-z0-9_-]{1,40})/);
+    return m ? m[1] : '';
+  }
+  function warmPiece(pid) {
+    if (!pid || warmed[pid] || warmedCount >= 24 || dataSaverOn()) return;
+    if (root.classList.contains('shv-scrolling')) return;
+    warmed[pid] = 1;
+    warmedCount++;
+    stats.prewarmed++;
+    try {
+      if (win.Shivaa && typeof win.Shivaa.warmProduct === 'function') {
+        win.Shivaa.warmProduct(pid);
+      }
+    } catch (_) {}
+  }
+
+  doc.addEventListener('pointerover', function (e) {
+    if (isMobile()) return;
+    var pid = pidFromTarget(e.target);
+    if (!pid || warmed[pid]) return;
+    clearTimeout(hoverT);
+    hoverT = setTimeout(function () { warmPiece(pid); }, 90);
+  }, { passive: true });
+
+  doc.addEventListener('touchstart', function (e) {
+    var pid = pidFromTarget(e.target);
+    if (pid && !warmed[pid]) warmPiece(pid);
+  }, { passive: true });
+
+  /* ── 4 · boot & diagnostic API ────────────────────────────────────────── */
+  function start() {
+    watchCompareBadge();
+    wireRouteGlide();
+  }
+  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
+
+  function audit() {
+    return {
+      rel: REL,
+      device: isMobile() ? 'phone' : 'desktop',
+      live: LIVE,
+      bootMode: win.__shvBootMode || 'pending',
+      bootMs: Number(win.__shvBootMs || 0),
+      pdpInstant: Number(win.__shvPdpInstant || 0),
+      taps: stats.taps,
+      cancelled: stats.cancelled,
+      hearts: stats.hearts,
+      glides: stats.glides,
+      prewarmed: stats.prewarmed,
+    };
+  }
+  function report() {
+    var a = audit();
+    return 'silk ' + a.rel + ' · ' + a.device +
+      ' · boot ' + a.bootMode + ' (' + a.bootMs + ' ms)' +
+      ' · instant pdp ' + a.pdpInstant +
+      ' · taps ' + a.taps +
+      ' · glides ' + a.glides +
+      ' · prewarmed ' + a.prewarmed;
+  }
+
+  win.Shivaa = win.Shivaa || {};
+  win.Shivaa.v252 = {
+    rel: REL,
+    audit: audit,
+    report: report,
+    warm: warmPiece,
   };
 })();

@@ -35,9 +35,11 @@
     for (var i = 0; i < kids.length && i < 400; i++) {
       var el = kids[i];
       if (el.nodeType !== 1) continue;
+      /* v252 — fast path: only force getComputedStyle when a block actually overflows */
+      if (el.scrollWidth <= W + 1) continue;
       var cs = window.getComputedStyle(el);
       if (cs.position === 'fixed' || cs.position === 'sticky') continue;
-      if (el.scrollWidth > W + 1 && cs.overflowX === 'visible') {
+      if (cs.overflowX === 'visible') {
         el.style.overflowX = 'clip';
       }
     }

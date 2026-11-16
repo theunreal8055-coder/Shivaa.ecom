@@ -33,7 +33,27 @@ function jout(int $code, $payload): void {
   header('X-Frame-Options: DENY');
   header('Referrer-Policy: strict-origin-when-cross-origin');
   header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
-  echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  if (!is_string($body)) $body = '{}';
+  /* v252 — compress larger JSON answers (such as /api/boot and /api/products)
+     when the web server has not already turned zlib compression on. Cuts cold
+     catalogue transfer by ~80 % without changing a single field. */
+  if (strlen($body) >= 1024
+      && !headers_sent()
+      && ob_get_level() === 0
+      && function_exists('gzencode')
+      && !filter_var(ini_get('zlib.output_compression'), FILTER_VALIDATE_BOOLEAN)
+      && stripos((string)($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''), 'gzip') !== false) {
+    $gz = @gzencode($body, 6);
+    if (is_string($gz) && strlen($gz) < strlen($body)) {
+      header('Vary: Accept-Encoding');
+      header('Content-Encoding: gzip');
+      header('Content-Length: ' . strlen($gz));
+      echo $gz;
+      exit;
+    }
+  }
+  echo $body;
   exit;
 }
 function now_iso(): string { return date('c'); }
@@ -5262,63 +5282,123 @@ if (!empty($GLOBALS['__shv_lock']) && (int)($db['lastHousekeep'] ?? 0) < $__nowT
 }
 $changed = false;
 
+/* v252 — shared helpers so GET /api/boot returns the exact same rate, public
+   setting and active catalogue shapes as the six separate boot calls it
+   replaces, in ONE PHP worker and ONE db load. */
+function shv_rates_payload(array &$db, bool &$changed, string $dbFile): array {
+  if (rates_stale($db)) { rates_refresh($db); $changed = true; }
+  if ($changed) { db_save($dbFile, $db); $changed = false; }
+  $last = $db['rates']['last'];
+  $base = $last;
+  if (!empty($db['rates']['override'])) { $base = array_merge($base, $db['rates']['override'], ['source' => 'override (admin)', 't' => now_iso()]); }
+  $ancLevel = anchor_level($db);
+  if (empty($db['rates']['override'])) $jaipur = jaipur_from_anchor($db, $ancLevel);
+  else { $jaipur = current_rates($db); $ancLevel['mode'] = 'override'; }
+  $liveMeta = ['live' => false, 'marketHours' => mcx_hours_open()];
+  if (empty($db['rates']['override'])) {
+    $lv = live_tick_quote($db);
+    if ($lv) {
+      $liveMeta = ['live' => true, 'liveAt' => $lv['at'], 'liveAgeMs' => $lv['ageMs'],
+        'liveSource' => $lv['source'], 'marketOpen' => $lv['open'],
+        'marketHours' => mcx_hours_open(),
+        'liveChg' => ['goldPct' => $lv['goldChgPct'], 'silverPct' => $lv['silverChgPct']]];
+    }
+  } else { $liveMeta['override'] = true; }
+  return array_merge($base, [
+    'spot' => ['gold24' => $last['gold24'], 'gold22' => $last['gold22'], 'gold18' => $last['gold18'], 'silver' => $last['silver']],
+    'jaipur' => $jaipur,
+    'anchorLevel' => $ancLevel,
+    'rtgs' => rtgs_strip($db),
+    'premium' => ['gold22' => gold22_premium($db), 'gold24' => gold24_premium($db), 'gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
+    'override' => $db['rates']['override'] ?? null,
+    'history' => array_slice($db['rates']['history'] ?? [], -120),
+    'health' => rates_health($db),
+    'nextUpdateIn' => 60,
+  ], $liveMeta);
+}
+function shv_settings_for_user(array $db, ?array $uSet): array {
+  $raw = is_array($db['settings'] ?? null) ? $db['settings'] : [];
+  if ($uSet && ($uSet['role'] ?? '') === 'admin') return $raw;
+  $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'appkey', 'mpin',
+    'relaykey', 'smskey', 'otpkey', 'authkey', 'clientsecret', 'accesstoken', 'gstapi', 'gstkey',
+    'token', 'credential', 'webhooksecret', 'saltkey', 'salt', 'webhookpass', 'clientsecret'];
+  $isSecretKey = static function ($k) use ($blockedSubs): bool {
+    $k = strtolower((string)$k);
+    foreach ($blockedSubs as $b) if (strpos($k, $b) !== false) return true;
+    return false;
+  };
+  $sanitize = function ($v, $kk = null) use (&$sanitize, $isSecretKey) {
+    if (is_array($v)) {
+      $out = [];
+      foreach ($v as $k2 => $vv) {
+        if ($isSecretKey($k2)) continue;
+        $out[$k2] = $sanitize($vv, $k2);
+      }
+      return $out;
+    }
+    if (is_string($v) && $kk !== null && stripos((string)$kk, 'url') !== false && preg_match('/[?&](key|token|secret)=/i', $v)) {
+      $v = (string)preg_replace('/([?&])(key|token|secret)=[^&#]*/i', '$1$2=', $v);
+    }
+    return $v;
+  };
+  $pubSettings = $sanitize($raw);
+  if (!empty($pubSettings['angelRelayStreamUrl'])) {
+    $pubSettings['angelRelayStreamUrl'] = (string)preg_replace(
+      '/([?&])key=[^&#]*/i', '$1key=', (string)$pubSettings['angelRelayStreamUrl']);
+  }
+  return $pubSettings;
+}
+
 try {
+  /* ── v252 · one-round-trip storefront boot ── */
+  if ($route === 'boot' && $method === 'GET') {
+    $ratesPayload = shv_rates_payload($db, $changed, $DB_FILE);
+    $uBoot = req_user($db);
+    $evBoot = $uBoot ? event_coupons_ensure($db, $uBoot) : [];
+    $mePayload = ['user' => $uBoot ? pub_user($uBoot) : null, 'events' => $evBoot];
+    $setPayload = shv_settings_for_user($db, $uBoot);
+    $mcPayload = ['table' => $db['makingCharges'] ?? [], 'gst' => 3];
+    $pList = array_values(array_filter($db['products'] ?? [], fn($x) => !empty($x['active'])));
+    $camps = campaign_studs_catalog();
+    $haveIds = []; $haveSkus = [];
+    foreach ($pList as $lx) { $haveIds[$lx['id']] = true; if (!empty($lx['sku'])) $haveSkus[$lx['sku']] = true; }
+    foreach ($camps as $cid => $cp) {
+      if (empty($haveIds[$cid]) && empty($haveSkus[$cp['sku'] ?? ''])) $pList[] = $cp;
+    }
+    $R = current_rates($db);
+    $pOut = [];
+    foreach ($pList as $x) {
+      $y = hallmark_product($x);
+      $y['lessWeightG'] = $y['lessWeightG'] ?? 0;
+      $y['wastagePct'] = $y['wastagePct'] ?? 8;
+      $y['price'] = compute_price($x, $R);
+      $pOut[] = $y;
+    }
+    if (!partner_is_approved($db, $uBoot)) {
+      $catPayload = ['catalogs' => [], 'gated' => true];
+    } else {
+      $cList = $db['catalogs'] ?? [];
+      usort($cList, fn($a, $b) => ($b['featured'] ? 1 : 0) - ($a['featured'] ? 1 : 0) ?: strcmp($b['addedAt'], $a['addedAt']));
+      $catPayload = ['catalogs' => $cList];
+    }
+    $pgList = array_values(array_filter($db['pages'] ?? [], fn($x) => !empty($x['published'])));
+    $pgPayload = ['pages' => array_map(fn($x) => ['title' => $x['title'], 'slug' => $x['slug'], 'updatedAt' => $x['updatedAt'] ?? ''], $pgList)];
+    jout(200, [
+      'ok' => true,
+      'rel' => 252,
+      'me' => $mePayload,
+      'settings' => $setPayload,
+      'mc' => $mcPayload,
+      'prods' => ['products' => $pOut, 'rates' => $R],
+      'cats' => $catPayload,
+      'pages' => $pgPayload,
+      'rates' => $ratesPayload,
+    ]);
+  }
+
   /* ── rates ── */
   if ($route === 'rates' && $method === 'GET') {
-    if (rates_stale($db)) { rates_refresh($db); $changed = true; }
-    // v179 — jout() exits below, so the end-of-request save never runs:
-    // persist the fresh stamp (and the calibration / last-good state the
-    // refresh just wrote) here, or it is silently lost on every poll.
-    if ($changed) db_save($DB_FILE, $db);
-    $last = $db['rates']['last'];
-    $base = $last;
-    if (!empty($db['rates']['override'])) { $base = array_merge($base, $db['rates']['override'], ['source' => 'override (admin)', 't' => now_iso()]); }
-    /* v90 — storefront prices track the live MCX future: when a fresh tick
-       snapshot exists (relay push or the 1 s shared tick), overlay the Jaipur
-       rates the shop prices from. The persisted 10 min stamp + history are
-       untouched, so day bands/charts keep their cadence. An admin override
-       always wins and disables the overlay. */
-    /* v119 — the rate card and every shop price are DERIVED from one anchor
-       block: jaipur.gold22 = round(anchorLevel.goldPerG × 0.9167) + 398 and
-       the same anchor drives gold24/gold18/silver. An admin override still
-       wins and is labelled as such. */
-    $ancLevel = anchor_level($db);
-    if (empty($db['rates']['override'])) $jaipur = jaipur_from_anchor($db, $ancLevel);
-    else { $jaipur = current_rates($db); $ancLevel['mode'] = 'override'; }
-    $liveMeta = ['live' => false, 'marketHours' => mcx_hours_open()];
-    if (empty($db['rates']['override'])) {
-      $lv = live_tick_quote($db);
-      if ($lv) {
-        $liveMeta = ['live' => true, 'liveAt' => $lv['at'], 'liveAgeMs' => $lv['ageMs'],
-          'liveSource' => $lv['source'], 'marketOpen' => $lv['open'],
-          'marketHours' => mcx_hours_open(),
-          'liveChg' => ['goldPct' => $lv['goldChgPct'], 'silverPct' => $lv['silverChgPct']]];
-      }
-    } else { $liveMeta['override'] = true; }
-    jout(200, array_merge($base, [
-      'spot' => ['gold24' => $last['gold24'], 'gold22' => $last['gold22'], 'gold18' => $last['gold18'], 'silver' => $last['silver']],
-      'jaipur' => $jaipur,
-      /* v119 — the anchor every figure above was derived from, published so
-         the rate card (and anyone auditing it) can re-derive the numbers. */
-      'anchorLevel' => $ancLevel,
-      /* v113 — the B2B RTGS quotes ride along with the retail feed so the
-         customer strip can show the bullion desk's own numbers (same anchor,
-         same factors, same owner calibration — computed by rtgs_strip()). */
-      'rtgs' => rtgs_strip($db),
-      /* v119 — premium.gold22 is the 22K retail premium (₹398/g, Task-2 owner
-         decision). premium.gold stays the legacy Jaipur line so nothing
-         older breaks. v156 — premium.gold24 publishes the NEW 24K retail
-         premium (₹398/g, the same figure as 22K — owner's same-total choice)
-         so the rate card can show both desk premiums honestly. */
-      'premium' => ['gold22' => gold22_premium($db), 'gold24' => gold24_premium($db), 'gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
-      'override' => $db['rates']['override'] ?? null,
-      'history' => array_slice($db['rates']['history'] ?? [], -120),
-      /* v179 — the honest pipeline state: mcx live? relay fresh? premium
-         factor + how it was learned? spot sources + age? — storefront tag
-         and the admin health strip both render from this one object. */
-      'health' => rates_health($db),
-      'nextUpdateIn' => 60,
-    ], $liveMeta));
+    jout(200, shv_rates_payload($db, $changed, $DB_FILE));
   }
   if ($route === 'rates/refresh' && $method === 'POST') {
     need_admin($db);
@@ -7454,7 +7534,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 251,
+      'rel' => 252,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -10414,42 +10494,7 @@ try {
 
   /* ── settings / stats / users ── */
   if ($route === 'settings' && $method === 'GET') {
-    $uSet = req_user($db);
-    if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, $db['settings']);
-    // v58/v81: public projection — never expose gateway secrets / API keys.
-    // Recursive: also strips secrets nested inside objects (gstApi.key) and
-    // keys whose whole subtree is a credential, so a future nested setting
-    // cannot leak by accident.
-    $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'appkey', 'mpin',
-      'relaykey', 'smskey', 'otpkey', 'authkey', 'clientsecret', 'accesstoken', 'gstapi', 'gstkey',
-      'token', 'credential', 'webhooksecret', 'saltkey', 'salt', 'webhookpass', 'clientsecret'];
-    $isSecretKey = static function ($k) use ($blockedSubs): bool {
-      $k = strtolower((string)$k);
-      foreach ($blockedSubs as $b) if (strpos($k, $b) !== false) return true;
-      return false;
-    };
-    $sanitize = function ($v, $kk = null) use (&$sanitize, $isSecretKey) {
-      if (is_array($v)) {
-        $out = [];
-        foreach ($v as $k2 => $vv) {
-          if ($isSecretKey($k2)) continue;   // drop whole subtree
-          $out[$k2] = $sanitize($vv, $k2);
-        }
-        return $out;
-      }
-      // Any URL-shaped setting loses embedded ?key=/&token= credentials.
-      if (is_string($v) && $kk !== null && stripos((string)$kk, 'url') !== false && preg_match('/[?&](key|token|secret)=/i', $v)) {
-        $v = (string)preg_replace('/([?&])(key|token|secret)=[^&#]*/i', '$1$2=', $v);
-      }
-      return $v;
-    };
-    $pubSettings = $sanitize($db['settings']);
-    // the public SSE URL must not carry the ?key= credential for anonymous eyes
-    if (!empty($pubSettings['angelRelayStreamUrl'])) {
-      $pubSettings['angelRelayStreamUrl'] = (string)preg_replace(
-        '/([?&])key=[^&#]*/i', '$1key=', (string)$pubSettings['angelRelayStreamUrl']);
-    }
-    jout(200, $pubSettings);
+    jout(200, shv_settings_for_user($db, req_user($db)));
   }
   /* v103 — owner-supplied GST registration certificate shown on the Trust
      page. Admin-only multipart upload with magic-byte validation; the public

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 251;
+const APP_REL = 252;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -922,6 +922,7 @@ function resetWishSession() {
   optimisticWishOps.clear();
   state.serverWish = [];
   state.serverWishLoaded = false;
+  state.serverWishAt = 0;
 }
 function visibleWishIds() {
   const ids = new Set(state.user ? state.serverWish : state.localWish);
@@ -1113,7 +1114,7 @@ function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
   if (!opts.silent && opts.notify !== false) toast(p ? `Added ${qty > 1 ? qty + ' × ' : ''}${p.name} to your bag ✦` : 'Added to your bag ✦');
   const src = p && (p.images && p.images[0]);
   let fromEl = opts.fromEl || document.querySelector(`.p-card[data-pid="${id}"] .pc-imgwrap img`);
-  if (src) flyToBag(src, fromEl).then(() => { if (!opts.silent) openCart(true); });
+  if (src) flyToBag(thumbUrl(src, 320) || src, fromEl).then(() => { if (!opts.silent) openCart(true); });
   else if (!opts.silent) openCart(true);
 }
 function toggleWish(id) {
@@ -1819,7 +1820,7 @@ function finaleHomeBand() {
     <div class="container fb-wrap">
       <div class="fb-art">
         <div class="shv-poster-img-frame" style="max-width:280px">
-          <img decoding="async" src="/images/banners/gold-biscuit-campaign.jpg" alt="10g Gold Biscuit" loading="lazy">
+          <img ${thumbAttrs('/images/banners/gold-biscuit-campaign.jpg', '280px')} alt="10g Gold Biscuit">
         </div>
         <i class="fin-spark" style="top:10%;left:12%;animation-delay:-.4s">✦</i>
         <i class="fin-spark" style="bottom:14%;right:10%;animation-delay:-1.6s;font-size:12px">✦</i>
@@ -2040,7 +2041,7 @@ function finaleLanding() {
           <!-- Gents / Male Card -->
           <div class="shv-gender-card" onclick="Shivaa.setSchemeStep('products', 'gents')">
             <div class="shv-gender-img-wrap">
-              <img decoding="async" src="/images/banners/gender-gents-gold.jpg" alt="Gents Gold Studs" loading="lazy">
+              <img ${thumbAttrs('/images/banners/gender-gents-gold.jpg', '(max-width:720px) 92vw, 480px')} alt="Gents Gold Studs">
               <span class="shv-gender-ribbon">✦ GENTS / MALE COLLECTION</span>
             </div>
             <div class="shv-gender-content">
@@ -2060,7 +2061,7 @@ function finaleLanding() {
           <!-- Ladies / Female Card -->
           <div class="shv-gender-card" onclick="Shivaa.setSchemeStep('products', 'ladies')">
             <div class="shv-gender-img-wrap">
-              <img decoding="async" src="/images/banners/gender-ladies-gold.jpg" alt="Ladies Gold Studs" loading="lazy">
+              <img ${thumbAttrs('/images/banners/gender-ladies-gold.jpg', '(max-width:720px) 92vw, 480px')} alt="Ladies Gold Studs">
               <span class="shv-gender-ribbon">✦ LADIES / FEMALE COLLECTION</span>
             </div>
             <div class="shv-gender-content">
@@ -3022,13 +3023,29 @@ function startRing3D(canvas) {
 }
 
 /* ─────────── live rates ─────────── */
-let _lastRatesAt = 0;
+let _lastRatesAt = 0, _lastRateSig = '';
+function applyRatesPayload(r) {
+  if (!r || typeof r !== 'object') return false;
+  const merged = { ...r, ...(r.jaipur || {}) };
+  state.rates = merged;
+  _lastRatesAt = Date.now();
+  /* v252 — skip rebuilding the ticker innerHTML and walking every .js-price
+     when a repeat poll carries the exact same quote and no skeleton slot is
+     waiting. First arrival, any real tick, or any pending .pr-sk runs in full. */
+  const sig = [merged.gold24, merged.gold22, merged.gold18, merged.silver,
+    merged.live ? 1 : 0, merged.source || '', merged.override ? 1 : 0].join('|');
+  const hasPending = !!document.querySelector('.pr-sk');
+  if (sig === _lastRateSig && !hasPending) return false;
+  _lastRateSig = sig;
+  renderTicker();
+  document.dispatchEvent(new CustomEvent('rates'));
+  try { window.dispatchEvent(new Event('rates')); } catch (e) {}
+  return true;
+}
 async function loadRates() {
   try {
     const r = await api('/api/rates');
-    state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Jaipur market rates
-    _lastRatesAt = Date.now();
-    renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
+    applyRatesPayload(r);
   } catch (e) {}
 }
 /* v90 — while the official MCX feed is live the shop polls every 1 s (was 15 s) so
@@ -5058,7 +5075,7 @@ pages.home = async (view) => {
 
   <section class="container" style="padding-bottom:70px">
     <div class="banner rv bc-home-final" style="min-height:280px">
-      <img decoding="async" src="/images/banners/b2b-bullion.jpg" alt="Shivaa Black permanent member locker" loading="lazy">
+      <img ${thumbAttrs('/images/banners/b2b-bullion.jpg', '(max-width:720px) 92vw, 900px')} alt="Shivaa Black permanent member locker">
       <div class="b-fade"></div>
       <div class="b-body">
         <span class="label">Shivaa Black · yours whenever you return</span>
@@ -5723,11 +5740,37 @@ pages.shop = async (view, q) => {
   wireShopPullToRefresh(view, apply);
 };
 
+function _renderPdReviews(reviews) {
+  if (!reviews || !reviews.length) return '<p style="color:var(--ink-3)">Be the first to review this piece.</p>';
+  return reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img ${thumbAttrs(src, '120px')} alt="review photo"></a>`).join('')}</div>` : ''}
+            ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
+          </div>`).join('');
+}
+
 /* ─────────── PRODUCT ─────────── */
 pages.product = async (view, q, id) => {
   const isCurrent = viewLifetime(view);
-  /* v91 — luxury skeleton while the piece loads (replaces the blank flash) */
-  view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
+  /* v252 — INSTANT PIECE OPEN. Every piece a shopper taps from the home page,
+     category grid, search or wishlist is ALREADY in state.productsCache with
+     its full gallery, weights, HUID guide, sizes and live rate. Painting seven
+     skeleton bars, awaiting /api/products/:id and then overwriting #view only
+     delayed the page to fetch the folded Reviews accordion at the bottom. When
+     the piece and rate are in memory, paint the finished page synchronously on
+     frame 1 (full-resolution gallery untouched) and hydrate reviews + fresh
+     stock/rate quietly in place. Cold shared links still use the skeleton. */
+  const cachedP = (state.productsCache || []).find(x => x && x.id === id && x.active !== false);
+  const canInstant = !!(cachedP && moneyOK(cachedP));
+  let data;
+  if (canInstant) {
+    const similar = (state.productsCache || [])
+      .filter(x => x && x.category === cachedP.category && x.id !== cachedP.id && x.active !== false)
+      .slice(0, 4);
+    data = { product: cachedP, rates: state.rates, similar, reviews: [], _pendingReviews: true };
+    window.__shvPdpInstant = (window.__shvPdpInstant || 0) + 1;
+  } else {
+    /* v91 — luxury skeleton while the piece loads (replaces the blank flash) */
+    view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
     <div class="pd-gallery"><div class="skeleton" style="aspect-ratio:1/1;border-radius:20px"></div></div>
     <div class="pd-info">
       <div class="skeleton" style="height:13px;width:130px;margin-bottom:18px;border-radius:6px"></div>
@@ -5738,9 +5781,9 @@ pages.product = async (view, q, id) => {
       <div class="skeleton" style="height:54px;width:100%;margin-bottom:34px;border-radius:14px"></div>
       <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
     </div></div></div>`;
-  let data;
-  try { data = await getProductDetail(id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
-  if (!isCurrent()) return;
+    try { data = await getProductDetail(id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+    if (!isCurrent()) return;
+  }
   /* v173 — a shared #/product/ link is often the FIRST page a new visitor
      ever loads, and it can render before /api/rates answers. The piece's own
      answer already carries the live rates, so price with those and never
@@ -5748,7 +5791,9 @@ pages.product = async (view, q, id) => {
      single `state.rates.t` read crashed the whole page). */
   const p = data.product, R = data.rates || state.rates || {}, pr = price(p, R);
   injectProductLD(p, pr);   // v57: schema.org Product JSON-LD + per-piece OG share card
-  const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
+  const wished = canInstant
+    ? visibleWishIds().includes(p.id)
+    : (state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id));
   if (!isCurrent()) return;
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
@@ -5858,11 +5903,8 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Purity &amp; hallmark evidence</summary><div class="acc-body">Listed specification: ${esc(p.purity)} ${esc(p.metal)}, ${esc(p.weightG)} g. These catalogue values are not a BIS lookup or an assay result. Use the piece HUID information above and compare the actual stamp with the official BIS Care result. No BIS verification or stone certificate is issued by this website feature.</div></details>
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
-        <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
-          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
-            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img decoding="async" src="${safeUrl(src)}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
-            ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
-          </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
+        <details class="acc"><summary id="pdRevSummary">Reviews (${data._pendingReviews ? (p.reviews || 0) : data.reviews.length})</summary><div class="acc-body">
+          <div id="pdRevItems">${_renderPdReviews(data.reviews)}</div>
           <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,${jsArg(p.id)})">
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
             <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece — fit, finish, how it feels…" required></textarea></div>
@@ -5980,13 +6022,13 @@ pages.product = async (view, q, id) => {
   window.Shivaa.recentAdd(p, pr);   // v103 — snapshot price + rate for the home trend hint
   let bb = $('#pdpBuybar');
   if (!bb) { bb = document.createElement('div'); bb.id = 'pdpBuybar'; document.body.appendChild(bb); }
-  bb.innerHTML = `<span class="bb-price">${'₹' + Math.round((p.price && p.price.total) || 0).toLocaleString('en-IN')}</span>
+  const _P = Math.round(pr.total || (p.price && p.price.total) || 0);
+  bb.innerHTML = `<span class="bb-price js-price" data-pid="${p.id}" data-qty="1">${'₹' + _P.toLocaleString('en-IN')}</span>
     <button class="btn btn-outline btn-sm" id="bbAdd">🛍 Add</button>
     <button class="btn btn-primary btn-sm" id="bbBuy">Buy Now</button>`;
   $('#bbAdd', bb).onclick = (e) => window.Shivaa.pdAdd(p.id, e);
   $('#bbBuy', bb).onclick = () => window.Shivaa.pdBuy(p.id);
   /* v55: EMI calculator under the price breakdown trigger */
-  const _P = (p.price && p.price.total) || 0;
   if (_P > 0 && !$('#emiBox', view)) {
     const emi = document.createElement('details'); emi.id = 'emiBox'; emi.className = 'emi-box';
     emi.innerHTML = '<summary>💳 EMI options</summary><div class="emi-in">' +
@@ -5999,7 +6041,36 @@ pages.product = async (view, q, id) => {
     im.style.cursor = 'zoom-in';
     im.addEventListener('click', () => { im.classList.toggle('zoomed'); im.style.cursor = im.classList.contains('zoomed') ? 'zoom-out' : 'zoom-in'; });
   });
+  /* v252 — hydrate folded reviews + logged-in heart in place after instant frame-1 paint */
+  if (canInstant) {
+    getProductDetail(id).then(fresh => {
+      if (!isCurrent() || !fresh || !fresh.product) return;
+      const sum = $('#pdRevSummary', view), box = $('#pdRevItems', view);
+      const rvs = Array.isArray(fresh.reviews) ? fresh.reviews : [];
+      if (sum) sum.textContent = `Reviews (${rvs.length})`;
+      if (box) box.innerHTML = _renderPdReviews(rvs);
+      if (window._pd && fresh.product) window._pd.p = fresh.product;
+      refreshPdLive();
+    }).catch(() => {});
+    if (state.user && !state.serverWishLoaded) {
+      wishIds().then(ids => { if (isCurrent()) paintWishButtons(p.id, ids.includes(p.id)); }).catch(() => {});
+    }
+  }
+  /* quietly decode photo #2 so the first gallery swipe never flashes blank */
+  if (p.images && p.images[1]) {
+    setTimeout(() => {
+      if (!isCurrent()) return;
+      try { const im2 = new Image(); im2.decoding = 'async'; im2.src = safeUrl(p.images[1]); if (im2.decode) im2.decode().catch(() => {}); } catch (e) {}
+    }, 180);
+  }
   window._lastOrder = null;
+};
+window.Shivaa.warmProduct = id => {
+  try {
+    const k = String(id || '');
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(k)) return;
+    getProductDetail(k).catch(() => {});
+  } catch (e) {}
 };
 window.Shivaa.pdQty = d => {
   window._pd.qty = Math.max(1, Math.min(9, window._pd.qty + d)); $('#pdQtyN').textContent = window._pd.qty;
@@ -6580,6 +6651,7 @@ window.Shivaa.postReview = async (e, pid) => {
     } else {
       await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
     }
+    productDetailPrefetch.delete(String(pid || ''));
     toast('Thank you! Review posted ✦'); pages.product($('#view'), new URLSearchParams(), pid);
   } catch (err) { toast(err.message, 'err'); }
 };
@@ -6633,7 +6705,7 @@ pages.compare = async (view, q) => {
     <div class="pcmp-grid" role="list">
       ${items.map(p => { const pr = price(p); return `<article class="pcmp-card" role="listitem">
         <button type="button" class="pcmp-remove" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
-        <a href="#/product/${p.id}" class="pcmp-img"><img decoding="async" src="${safeUrl(p.images && p.images[0])}" alt="${esc(p.name)}"></a>
+        <a href="#/product/${p.id}" class="pcmp-img"><img ${thumbAttrs(p.images && p.images[0], '(max-width:600px) 46vw, 240px')} alt="${esc(p.name)}"></a>
         <div class="pcmp-card-body">
           <span class="label">${esc(CATS[p.category]?.name || p.category)}</span>
           <h3><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
@@ -6719,7 +6791,7 @@ function laterSectionHTML() {
     <div class="sec-title" style="margin:22px 0 10px">Saved for later · ${l.length}</div>
     <div class="cart-items">${l.map(({ p, size, qty }) => `
       <div class="cart-item">
-        <a href="#/product/${p.id}"><img decoding="async" src="${safeUrl(p.images && p.images[0])}" alt=""></a>
+        <a href="#/product/${p.id}"><img ${thumbAttrs(p.images && p.images[0], '96px')} alt=""></a>
         <div>
           <a href="#/product/${p.id}" class="ci-name">${esc(p.name)}</a>
           <div class="ci-meta">${p.metal === 'Silver' ? 'Silver 925' : esc(p.purity || '') + ' gold'} · ${p.weightG} g${size ? ' · size ' + esc(size) : ''} · qty ${qty}</div>
@@ -6756,7 +6828,7 @@ pages.cart = async (view) => {
       <div class="cart-items">
         ${lines.map(({ it, pr }) => `
         <div class="cart-item">
-          <a href="#/product/${it.p.id}"><img decoding="async" src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
+          <a href="#/product/${it.p.id}"><img ${thumbAttrs(it.p.images && it.p.images[0], '96px')} alt=""></a>
           <div>
             <a href="#/product/${it.p.id}" class="ci-name">${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : esc(it.p.purity || '') + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
@@ -6931,7 +7003,7 @@ function miniCartHTML() {
       ${lines.map((it, i) => {
         const pr = price(it.p);
         return `<div class="mc-line" style="--i:${i}">
-          <a href="#/product/${it.p.id}" data-mc-close><img decoding="async" src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
+          <a href="#/product/${it.p.id}" data-mc-close><img ${thumbAttrs(it.p.images && it.p.images[0], '84px')} alt=""></a>
           <div class="mc-line-tx">
             <a href="#/product/${it.p.id}" class="ci-name" data-mc-close>${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : esc(it.p.purity || '') + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved' : ''}</div>
@@ -8580,7 +8652,7 @@ pages.account = async (view, q) => {
           return `<span class="ms-step ${hit ? 'done' : ''}" title="${key}">${ic}</span>`;
         }).join('')}</div>`}
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        ${o.items.map(i => `<img decoding="async" src="${safeUrl(i.img)}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
+        ${o.items.map(i => `<img ${thumbAttrs(i.img, '48px')} style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
           <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail(${jsArg(o.id)})">Details</a>
           <a class="btn btn-outline btn-sm" rel="noopener" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
           <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
@@ -12567,7 +12639,7 @@ function renderSugg(qs) {
   el.innerHTML =
     `<div class="sugg-lbl"><span>Pieces · ${all.length > 8 ? '8+' : all.length}</span></div>`
     + list.map(p => `<div class="sugg" data-pid="${p.id}">
-    <img decoding="async" src="${safeUrl(p.images && p.images[0])}" alt="" loading="lazy"><div><b>${esc(p.name)}</b><small>${esc(productSearchSub(p))}</small></div><span class="sugg-go">›</span></div>`).join('')
+    <img ${thumbAttrs(p.images && p.images[0], '64px')} alt=""><div><b>${esc(p.name)}</b><small>${esc(productSearchSub(p))}</small></div><span class="sugg-go">›</span></div>`).join('')
     + `<div class="sugg sugg-all" data-q="${esc(qs)}"><span class="sugg-ic">🔍</span><span>See all ${all.length} pieces for “${esc(qs)}”</span></div>`;
   el.classList.add('open');
 }
@@ -12575,15 +12647,33 @@ function renderSugg(qs) {
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {
   if (typeof renderRateStrip === 'function') renderRateStrip();
+  /* v252 — index products once (O(1) per slot instead of O(N×M)) and avoid
+     forcing synchronous reflow mid-scroll when a live price settles. */
+  const _byId = new Map((state.productsCache || []).map(x => [x.id, x]));
+  const _scrolling = document.documentElement.classList.contains('shv-scrolling');
   $$('.js-price').forEach(el => {
-    const p = state.productsCache.find(x => x.id === el.dataset.pid);
+    const p = _byId.get(el.dataset.pid);
     if (!p) return;
     const val = Math.round(price(p).total * (+el.dataset.qty || 1));
+    if (!isFinite(val)) return;
     const html = fmt(val) + (el.dataset.suffix ? esc(el.dataset.suffix) : '');
-    if (el.dataset.last === undefined) { el.dataset.last = val; el.innerHTML = html; return; }
+    if (el.dataset.last === undefined) {
+      el.dataset.last = val;
+      const hadSk = !!el.querySelector('.pr-sk');
+      el.innerHTML = html;
+      if (hadSk && !_scrolling) {
+        el.classList.add('shv-price-live');
+        setTimeout(() => el.classList.remove('shv-price-live'), 380);
+      }
+      return;
+    }
     if (+el.dataset.last !== val) {
       el.dataset.last = val; el.innerHTML = html;
-      el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price');
+      if (!_scrolling) {
+        el.classList.remove('flash-price', 'shv-price-live');
+        requestAnimationFrame(() => el.classList.add('flash-price', 'shv-price-live'));
+        setTimeout(() => el.classList.remove('shv-price-live'), 380);
+      }
     }
   });
   refreshPdLive();
@@ -12927,21 +13017,42 @@ function softCatalogue() {
    products. Same state writes as the tail of boot(), no route(), no innerHTML,
    no image request. Prices patch through the `rates` event (they are skeletons
    until then); the header through updateBadges(). */
+function _paintFooterPages(cps) {
+  try {
+    if (cps && cps.length) {
+      const col = document.getElementById('footCustomPages');
+      if (col && !document.getElementById('customPageLinks')) {
+        const div = document.createElement('div');
+        div.id = 'customPageLinks';
+        div.className = 'fv-custom';
+        cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
+        col.appendChild(div);
+      }
+    }
+  } catch (e) {}
+}
+
 function adoptLateBatch(packed) {
-  const [me, settings, mc, prods, cats] = packed || [];
+  const [me, settings, mc, prods, cats, bootRates, bootPages] = packed || [];
   if (!packed || !prods) return false;
   const fresh = prods.products || [];
   if (fresh.length) {
     state.productsCache = fresh;
     state.catalogOk = true;
     catalogCacheWrite(fresh);                 /* the next visit starts fresh */
-    state.compare = normalizeCompare(state.compare).filter(id => fresh.some(p => p.id === id));
+    ensureCampaignStuds();
+    state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
   }
   if (settings && Object.keys(settings).length) state.settings = { ...SETTINGS_DEFAULTS, ...settings };
   if (mc && mc.table) state.mcTable = mc.table;
   if (cats && cats.catalogs) { window.Shivaa.catCache = cats.catalogs; catCache = window.Shivaa.catCache; }
   if (me && me.user !== undefined) state.user = me.user;
+  if (bootPages && bootPages.pages) _paintFooterPages(bootPages.pages);
+  if (bootRates && typeof bootRates === 'object') applyRatesPayload(bootRates);
   try { updateBadges(); } catch (e) {}
+  /* v252 — app.js listens for `rates` on document while v251/v252 listen on
+     both; fire both so no late-arriving price can ever stay a skeleton. */
+  try { document.dispatchEvent(new CustomEvent('rates')); } catch (e) {}
   try { dispatchEvent(new Event('rates')); } catch (e) {}     /* every .js-price patched in place */
   return true;
 }
@@ -12973,9 +13084,19 @@ function calmBoot(tries) {
 /* ─────────── boot ─────────── */
 async function wishIds() {
   if (!state.user) return [];
+  /* v252 — reuse a fresh server wishlist across shop filter/sort changes and
+     PDP opens instead of blocking every tap on /api/wishlist; optimistic ops
+     already overlay visibleWishIds() immediately on toggle. */
+  if (state.serverWishLoaded && state.serverWishAt && Date.now() - state.serverWishAt < 30000) {
+    return visibleWishIds();
+  }
   try {
     const r = await api('/api/wishlist');
-    if (Array.isArray(r.wishlist)) { state.serverWish = cleanIds(r.wishlist); state.serverWishLoaded = true; }
+    if (Array.isArray(r.wishlist)) {
+      state.serverWish = cleanIds(r.wishlist);
+      state.serverWishLoaded = true;
+      state.serverWishAt = Date.now();
+    }
     return visibleWishIds();
   } catch (e) { return visibleWishIds(); }   // v103 — never let an odd response break the PDP render
 }
@@ -13017,14 +13138,28 @@ async function boot(isRedraw) {
   if (_cachedCat.length && !_realCount()) {
     state.productsCache = _cachedCat.concat((state.productsCache || []).filter(p => p.isCampaignStud));
   }
-  const _firstBatch = Promise.all([
+  /* v252 — ONE-ROUND-TRIP BOOT. Six separate requests at startup meant six PHP
+     workers, six db loads and six TLS/HTTP round-trips racing the same shared
+     host. GET /api/boot returns all six plus footer pages in one gzipped
+     payload; if a server or proxy does not answer /api/boot, the original
+     parallel batch runs transparently without dropping a single piece. */
+  const _bootT0 = Date.now();
+  const _legacyBatch = () => Promise.all([
     token() ? api('/api/auth/me').catch(() => ({ user: null })) : Promise.resolve({ user: null }),
     api('/api/settings').catch(() => ({})),
     api('/api/making-charges').catch(() => ({ table: [] })),
     api('/api/products', { timeout: 20000 }).catch(() => ({ products: [] })),
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
     loadRates(),   // v117 — used to be a second serial await below
-  ]);
+  ]).then(arr => { window.__shvBootMode = 'fallback'; window.__shvBootMs = Date.now() - _bootT0; return arr; });
+  const _firstBatch = api('/api/boot', { timeout: 20000 }).then(b => {
+    if (!b || typeof b !== 'object' || !b.prods) throw new Error('boot shape');
+    window.__shvBootMode = 'api/boot';
+    window.__shvBootMs = Date.now() - _bootT0;
+    if (b.rates) applyRatesPayload(b.rates);
+    return [b.me || { user: null }, b.settings || {}, b.mc || { table: [] },
+      b.prods || { products: [] }, b.cats || { catalogs: [] }, b.rates || null, b.pages || null];
+  }).catch(_legacyBatch);
   /* v242 — REVERTED to the honest ceiling. v241 painted from the device
      catalogue at 800 ms; the catalogue was there, but the GOLD RATE was not
      (rates are never cached — deliberately, a jeweller must not show an old
@@ -13054,7 +13189,7 @@ async function boot(isRedraw) {
      long enough for a fast network to win the race and paint the finished page
      in one go, short enough that a phone never looks stuck. */
   const _fastPaint = _homeFirst && _realCount() > 0;
-  const _capMs = isRedraw ? 15000 : (_fastPaint ? 250 : 4000);
+  const _capMs = isRedraw ? 15000 : (_fastPaint ? 180 : 4000);
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),
@@ -13086,7 +13221,7 @@ async function boot(isRedraw) {
       calmBoot(0);
     }).catch(() => {});   // v242 — never repaint under a finger
   }
-  const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
+  const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }, _bootRates = null, _bootPages = null] = _packed || [];
   const _oldUserId = String(state.user && state.user.id || '');
   state.user = me.user;
   if (_oldUserId !== String(state.user && state.user.id || '')) resetWishSession();
@@ -13149,23 +13284,13 @@ async function boot(isRedraw) {
   document.querySelectorAll('a[href="#/catalogues"]').forEach(a => { a.classList.toggle('b2b-only-hide', !isPartner()); a.style.display = ''; });
   document.querySelectorAll('.foot-chips a[href="#/catalogues"]').forEach(a => a.classList.toggle('b2b-only-hide', !isPartner()));
   // footer social WhatsApp link (subtle)
-  // custom pages in footer — v117: BACKGROUND fetch (was a third serial
-  // network round blocking the preloader); the links materialise after
-  // first paint whenever the call lands.
-  api('/api/pages').then(({ pages: cps } = {}) => {
-    try {
-      if (cps && cps.length) {
-        const col = document.getElementById('footCustomPages');
-        if (col && !document.getElementById('customPageLinks')) {
-          const div = document.createElement('div');
-          div.id = 'customPageLinks';
-          div.className = 'fv-custom';
-          cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
-          col.appendChild(div);
-        }
-      }
-    } catch (e) {}
-  }).catch(() => {});
+  // custom pages in footer — v252: rides GET /api/boot directly; only queries
+  // /api/pages on the legacy fallback path.
+  if (_bootPages && Array.isArray(_bootPages.pages)) {
+    _paintFooterPages(_bootPages.pages);
+  } else if (window.__shvBootMode === 'fallback') {
+    api('/api/pages').then(({ pages: cps } = {}) => _paintFooterPages(cps)).catch(() => {});
+  }
   // v101 — footer WhatsApp slot points at the official wa.me/message channel
   // populate nav + footer category menus
   $('#catMenu').innerHTML = `
@@ -13178,7 +13303,7 @@ async function boot(isRedraw) {
     </div>
     <div class="mega-rail">
       <a class="mega-feat" href="#/shop?tag=heritage">
-        <img src="/images/banners/poster-heritage.jpg" alt="The Heritage Edit" loading="lazy" decoding="async" width="1584" height="672">
+        <img ${thumbAttrs('/images/banners/poster-heritage.jpg', '320px')} alt="The Heritage Edit" width="1584" height="672">
         <div><span class="mega-k">The Heritage Edit</span><b>HANDCRAFTED<br>CLASSICS</b><small>Explore the edit →</small></div>
       </a>
       <a class="mega-cta" href="#/shop?max=50000">The Under ₹50,000 Edit <span>→</span></a>

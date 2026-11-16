@@ -108,7 +108,28 @@
           }
         }
       });
-      mo.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['class'] });
+      /* v252 — watch only the five overlay roots directly instead of firing on
+         every class change in the entire document subtree during scroll/press. */
+      var watched = typeof WeakSet === 'function' ? new WeakSet() : null;
+      function bindOverlays() {
+        for (var i = 0; i < OVERLAYS.length; i++) {
+          var el = document.querySelector(OVERLAYS[i].sel);
+          if (!el) continue;
+          if (watched) { if (watched.has(el)) continue; watched.add(el); }
+          else if (el._v120Obs) continue;
+          else el._v120Obs = 1;
+          mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+        }
+      }
+      bindOverlays();
+      if (document.body) {
+        new MutationObserver(bindOverlays).observe(document.body, { childList: true, subtree: false });
+      } else {
+        document.addEventListener('DOMContentLoaded', function () {
+          bindOverlays();
+          if (document.body) new MutationObserver(bindOverlays).observe(document.body, { childList: true, subtree: false });
+        }, { once: true });
+      }
     }
   } catch (e) {}
 })();

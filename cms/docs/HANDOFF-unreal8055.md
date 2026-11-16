@@ -2,6 +2,41 @@
 
 ---
 
+**v252 — SILK** (2026-11-16). Forward release on top of verified v251 “Alive” (v250 “Still” superseded).
+Owner goal: make the app noticeably **more live**, bring **smoothness to the next level**, and **load
+faster without decreasing quality** (packaged for review; not deployed until explicit owner approval).
+
+1 · **Faster loading, zero quality loss.** `cms/api.php` adds one-round-trip `GET /api/boot` (returning
+`me`, sanitised `settings`, `mc`, active `prods`, `cats`, `pages` and live `rates` in one PHP worker and
+one `db_load()` instead of 6–7 competing startup requests) plus safe `gzencode` response compression for
+JSON payloads ≥ 1 KB when server zlib compression is off; `app.js` uses `/api/boot` with automatic
+fallback to the legacy parallel batch, tightens the warm home paint cap from 250 ms to 180 ms, and opens
+cached product pages **synchronously on frame 1** (zero skeleton flash, full-resolution gallery photos
+untouched, folded reviews hydrated in place, photo #2 pre-decoded). Mobile drawer tiles move from 803 KB
+of raw JPEGs to 53 KB of Retina 320w/560w WebP thumbs (−93 %); cart, mini-cart, saved-for-later, compare,
+search suggestions, order rows, mega-menu and Shivaa Black banner all move to `thumbAttrs()`. `cms/sw.js`
+serves fresh `MEDIA` cache hits directly (zero background refetch/blob/trimMedia storm) and release-stamped
+`?v=252` assets cache-first while HTML shells and manifests stay strictly network-first.
+2 · **Next-level smoothness.** Eliminated the 800 ms post-navigation 1,284-element `getComputedStyle`
+quiet walk (`v250.js`) by moving the remaining phone rules (`bc-hero-aurora`, `black-hero`, `dust`,
+`pl-draw`, `#view * { will-change: auto }`, and `motion.css`'s `#view.pg` `opacity:0` re-fades) into
+frame-0 CSS (`css/v252.css`); scoped `v120.js`'s overlay watcher to the 5 overlay roots instead of
+`documentElement` subtree class changes; converted `v245.js` and `v247.js` scroll hooks to true
+post-scroll debounces; retired permanent/redundant timers and forced reflows in `v107.js`, `aurum.js`,
+`motion.js`, `v194.js` and `v242.js`; yielded idle frames between `aurum.js`, `motion.js` and `boost.js`
+(`v117.js`); switched `v251Arrive` from `both` to `backwards` and removed mobile `box-shadow` transition
+repaint (`css/v251.css`) so first-row cards spring immediately on tap.
+3 · **Frame-1 live feel (`css/v252.css` + `js/v252.js`).** Passive `pointerdown` stamps `.shv-tap`
+synchronously on frame 1 (defeating mobile browsers' 80–150 ms `:active` delay) and cancels in 0 ms on
+scroll/drag > 8 px; wishlist hearts spring (`.shv-heart-pop`), `#cmpCount` joins bag/wishlist badge pops,
+live price arrivals settle cleanly (`.shv-price-live`), `#shvRouteGlide` sweeps a 2 px compositor gold
+hairline on navigation, and intent pre-warm warms pieces on hover/touch (Save-Data aware). Desktop keeps
+all blur, hover and studio motion. Diagnostic: `Shivaa.v252.report()` / `Shivaa.v252.audit()`. **774
+files**, verified across all 13 suites `t-v240` → `t-v252` (**541/541 green**), `phpbal.py` balanced,
+proof-minified CSS (8,781 rules) + JS sha256s verified, `check-handoff.py` 0 red.
+
+---
+
 **v242 — RESPONSIVE** (2026-11-12). After v241 the owner: *“website is smooth but clicks are not working
 now and buttons are unresponsive.”* Taps were **eaten, not lost** — a DOM test still fired every control,
 so the cause had to be something v241 changed at runtime:

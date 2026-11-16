@@ -50,9 +50,12 @@
   }
 
   function loadEnhancements() {
-    // order = the old static-defer order in index.html
+    /* v252 — yield an idle frame between each ambience file so parsing
+       aurum + motion + boost never merges into one long task under a tap. */
     inject('/js/aurum.js?v=' + REL)
+      .then(function () { return new Promise(function (r) { IDLE(r); }); })
       .then(function () { return inject('/js/motion.js?v=' + REL); })
+      .then(function () { return new Promise(function (r) { IDLE(r); }); })
       .then(function () { return inject('/js/boost.js?v=' + REL); })
       .catch(function () { /* ambience is optional — never noisy */ });
   }

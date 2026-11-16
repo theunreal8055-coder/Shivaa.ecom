@@ -203,14 +203,16 @@
       var found = [];
       for (var i = 0; i < all.length; i++) {
         var el = all[i];
-        if (el.matches(NEVER) || el.closest(REAL_SHEETS)) continue;
+        if (/^(?:SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|IFRAME)$/.test(el.tagName)) continue;
+        if (el.hidden || el.matches(NEVER) || el.closest(REAL_SHEETS)) continue;
+        /* v252 — check viewport coverage first so non-covering nodes never force getComputedStyle */
+        var r = el.getBoundingClientRect();
+        if (r.width < innerWidth * 0.85 || r.height < innerHeight * 0.85) continue;
+        if (el.querySelector('a[href],button,input,select,textarea,[onclick]')) continue;
         var cs = getComputedStyle(el);
         if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
         if (cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none') continue;
-        var r = el.getBoundingClientRect();
-        if (r.width >= innerWidth * 0.85 && r.height >= innerHeight * 0.85 && !el.querySelector('a[href],button,input,select,textarea,[onclick]')) {
-          found.push(el);
-        }
+        found.push(el);
       }
       found.forEach(function (el) {
         if (looksStray(el)) { el.setAttribute('data-v242-stray', '1'); try { el.style.setProperty('pointer-events', 'none', 'important'); } catch (e) {} }

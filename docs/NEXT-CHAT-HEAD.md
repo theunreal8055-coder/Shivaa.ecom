@@ -1,33 +1,38 @@
 # NEXT CHAT HEAD — read this first
 
-> **CURRENT STATE — v251 “Alive” PACKAGED, AWAITING THE OWNER'S YES (16 Nov 2026).**
-> The only zip to install: **`shivaa-update-v251.zip`** — **772 files · 45,504,067 B ·
-> `c03ff713453d3d2c7c3ed2c93168419f8d6b5eb06b3927471eb22a81c4fa60fa`**.
-> It contains v237–v250, so **one upload brings the shop fully up to date.**
-> **Next release number: v252.** Branch: `arena/95be65a4-shivaa-ecom`.
-> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/95be65a4-shivaa-ecom/shivaa-update-v251.zip`
+> **CURRENT STATE — v252 “Silk” PACKAGED, AWAITING THE OWNER'S YES (16 Nov 2026).**
+> The only zip to install: **`shivaa-update-v252.zip`** — **774 files · 45,524,517 B ·
+> `6a6b57c2d0d9b585f45a399d7dc0fb7172c6d22758ba3ac03e59a317083306db`**.
+> It contains v237–v251, so **one upload brings the shop fully up to date.**
+> **Next release number: v253.** Session branch: `arena/a20b3005-shivaa-ecom` (fast-forwarded from `arena/95be65a4-shivaa-ecom`).
+> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/a20b3005-shivaa-ecom/shivaa-update-v252.zip`
 
-> **v251 in one paragraph.** The owner: *“The app should feel more live and smooth and the smoothness must be on
-> the next level, it should load faster and without decreasing the quality.”* v250 had taken the phone's
-> continuous animation away and, with it, every sign that the shop is alive. v251 gives the sign back out of a
-> budget a phone can spare — transform and opacity, answered by an event, never running on its own — and makes
-> the page smaller on the way in **without touching what it looks like**: `index.html` now loads
-> `css/shivaa.min.css` (965,451 → 876,841 B), written by a new `tools/build-css-min.mjs` that **refuses to write
-> a sheet that is not structurally identical** to the readable bundle (8,758 effective rules compared with their
-> media context, 9 `@font-face`, 264 `@keyframes`, `restructure:false` so no rule is ever merged or moved).
-> Press on every tappable surface (90 ms, `scale(.977)`, `filter` removed), a pending price that breathes, a
-> 6 px live dot on the utility strip, the first row settling 24 ms apart, the bag badge popping, a gold hairline
-> sweeping when a fresh rate lands, and a 2 px read bar filling to the shopper's place in the page — transform
-> only, one rAF per scroll frame, page height measured **off** the scroll path. `decoding="async"` on all 43
-> image templates. On a settled page exactly **one** of the live signals is running. New instrument:
-> `Shivaa.v251.report()` → `alive 251 · phone · live pulses 1 · pending prices 0 · sync-decode fixups 0 · page 0%`.
+> **v252 in one paragraph.** Forward release on verified v251 “Alive” (v250 “Still” superseded) for faster loading,
+> next-level smoothness and frame-1 live touch response with **zero quality loss**. **FASTER:** `api.php` adds
+> one-round-trip `GET /api/boot` (replacing 6–7 separate startup requests in one PHP worker + safe `gzencode`
+> compression for JSON ≥ 1 KB, with transparent client fallback), warm home cap tightens 250 → 180 ms, cached
+> product pages open **synchronously on frame 1 (~65 ms)** with 100 % full-resolution gallery photographs kept
+> intact (folded reviews hydrate in place; photo #2 pre-decodes), drawer photos drop **803 → 53 KB (−93 %)** via
+> Retina 320w/560w WebP thumbs alongside `thumbAttrs()` on cart, mini-cart, compare, search, orders, mega-menu
+> and the Shivaa Black banner, and `sw.js` serves fresh cached photos with 0 background refetch churn plus
+> cache-first `?v=252` immutable assets while keeping HTML/manifests strictly network-first. **SMOOTHER:**
+> eliminated the 800 ms post-navigation 1,284-node `getComputedStyle` walk (`v250.js`) by moving remaining phone
+> rules (`bc-hero-aurora`, `black-hero`, `dust`, `pl-draw`, `#view * { will-change: auto }`, and `motion.css`'s
+> `#view.pg` `opacity:0` route re-fades) into frame-0 CSS (`css/v252.css`); scoped `v120.js` overlay observer to
+> the 5 overlay roots; converted `v245.js`/`v247.js` scroll hooks to true post-scroll debounces; retired idle
+> polls and forced reflows in `v107.js`, `aurum.js`, `motion.js`, `v194.js`, `v242.js`; idle-yielded `v117.js`;
+> switched `v251Arrive` to `backwards` and dropped mobile `box-shadow` press transition so first-row cards spring
+> immediately. **LIVE:** passive frame-1 `.shv-tap` press (0 ms scroll cancel), wishlist heart spring
+> (`.shv-heart-pop`), `#cmpCount` badge pop, live price settle (`.shv-price-live`), 2 px `#shvRouteGlide` bar,
+> and Save-Data-aware intent pre-warm; desktop keeps all blur and studio motion. Proof-minified CSS (8,781 rules)
+> + JS sha256s verified. New instrument: `Shivaa.v252.report()`.
 
-> **BRANCH WARNING.** Work on `arena/95be65a4-shivaa-ecom` only. The `release_branch` field inside
-> `docs/release-ledger.json` still says `arena/e8a470c6-shivaa-ecom` for the twin tree — do **not** switch
-> to it, do not create a branch, do not force-push. Forward-only.
+> **BRANCH WARNING.** Stay on the active Arena session branch (`arena/a20b3005-shivaa-ecom`). The `release_branch`
+> field inside `docs/release-ledger.json` remains `arena/e8a470c6-shivaa-ecom` for the ledger gate — do **not**
+> switch branches, do not create a branch, do not force-push, and **never deploy** without explicit owner approval.
 
 > **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD, then `python3 qa/check-handoff.py` and
-> `node qa/browser/t-v251-alive.mjs` (46) and `node qa/browser/t-v250-still.mjs` (34).
+> `node qa/browser/t-v252-silk.mjs` (48), `node qa/browser/t-v251-alive.mjs` (46), and `node qa/browser/t-v250-still.mjs` (34).
 
 ---
 

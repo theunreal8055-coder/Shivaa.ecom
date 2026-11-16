@@ -94,8 +94,15 @@
   }
   var wakeT = 0;
   function queueWake(ms) {
-    if (wakeT) return;
-    wakeT = setTimeout(function () { wakeT = 0; try { wakeVisible(); } catch (e) {} }, ms || 260);
+    /* v252 — true post-scroll debounce: reset the timer on every scroll tick
+       and defer while html.shv-scrolling is active so wakeVisible() never reads
+       getBoundingClientRect() in the middle of a fling. */
+    if (wakeT) clearTimeout(wakeT);
+    wakeT = setTimeout(function () {
+      wakeT = 0;
+      if (root.classList.contains('shv-scrolling')) { queueWake(260); return; }
+      try { wakeVisible(); } catch (e) {}
+    }, ms || 260);
   }
   try {
     if (win.MutationObserver && view) new MutationObserver(function () { queueWake(320); })

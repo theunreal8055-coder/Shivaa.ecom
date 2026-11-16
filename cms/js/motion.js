@@ -64,8 +64,8 @@
       requestAnimationFrame(() => { sweepCounts(); sweepImages(); });
       return;
     }
-    view.classList.remove('pg');
-    void view.offsetWidth;                 // restart the entrance reliably
+    /* v252 — #view entrance animation was retired in v250; avoid forcing a
+       full-document offsetWidth reflow on every route transition. */
     view.classList.add('pg');
     Array.from(view.children).slice(0, 10).forEach((c, i) => c.style.setProperty('--i', i));
     tagStaggers(view);
@@ -269,11 +269,12 @@
   window.ShivaaMotion = { playPage, tagStaggers, tagRises, sweepCounts, sweepImages, trapFocus, reduced };
 
   /* ── 8. idle sweeps for late renders ──────────────────────────────── */
-  const kick = () => { sweepImages(); sweepCounts(); tagRises(view); };
-  setTimeout(kick, 400); setTimeout(kick, 1400);
-  if (!reduced && view) {
-    // re-tag staggers once images/lists arrive late (async tab data)
-    const t = setInterval(() => { tagStaggers(view); tagRises(view); }, 1200);
-    setTimeout(() => clearInterval(t), 8000);
-  }
+  /* v252 — the two #view MutationObservers above already catch every route and
+     filtered grid update; drop the 1.2 s interval that walked the DOM 6 times
+     during the shopper's first 8 seconds. */
+  const kick = () => {
+    if (root.classList.contains('shv-scrolling')) return;
+    sweepImages(); sweepCounts(); tagRises(view);
+  };
+  setTimeout(kick, 450); setTimeout(kick, 1500);
 })();

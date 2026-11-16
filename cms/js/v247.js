@@ -40,6 +40,9 @@
     var t = tracked.get(img);
     if (t) { clearTimeout(t); tracked.delete(img); }
     img.classList.add('shv-img-in');
+    /* v252 — release the fade class once its 240 ms curve completes so settled
+       photographs hold no residual animation declaration on return visits. */
+    setTimeout(function () { img.classList.remove('shv-img-in'); }, 320);
   }
 
   function watch(img) {
@@ -110,10 +113,14 @@
     doc.addEventListener('shv:rendered', function () { sweep(doc); });
     addEventListener('hashchange', function () { sweep(doc); }, { passive: true });
     if (MOTION) {
+      /* v252 — debounce so sweep() runs once after a fling settles, never mid-scroll */
       var t = 0;
       addEventListener('scroll', function () {
-        if (t) return;
-        t = setTimeout(function () { t = 0; if (!doc.hidden) sweep(doc); }, 400);
+        if (t) clearTimeout(t);
+        t = setTimeout(function () {
+          t = 0;
+          if (!doc.hidden && !doc.documentElement.classList.contains('shv-scrolling')) sweep(doc);
+        }, 300);
       }, { passive: true });
     }
 

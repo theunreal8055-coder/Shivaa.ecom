@@ -78,12 +78,12 @@ by the polish. MEDIA stays at v168.
    cache keeps more entries because thumbnails are small: same megabytes, far
    more of the shop stays warm on a cheap phone. No route, no price, no money
    path changed. */
-const SHELL = 'shivaa-shell-v251';
+const SHELL = 'shivaa-shell-v252';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 251;
+const REL = 252;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -106,14 +106,14 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = [
-  '/css/shivaa.min.css?v=251', '/',
+  '/css/shivaa.min.css?v=252', '/',
   '/index.html',
-  '/js/app.min.js?v=251', '/js/rel.min.js?v=251', 
-  '/js/motion.js?v=251',
-  '/js/aurum.js?v=251', '/js/boost.js?v=251',
+  '/js/app.min.js?v=252', '/js/rel.min.js?v=252', 
+  '/js/motion.js?v=252',
+  '/js/aurum.js?v=252', '/js/boost.js?v=252',
   
-  '/fonts/jost.woff2?v=251', '/fonts/cormorant-garamond.woff2?v=251', '/fonts/marcellus-400.woff2?v=251',
-  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=251',
+  '/fonts/jost.woff2?v=252', '/fonts/cormorant-garamond.woff2?v=252', '/fonts/marcellus-400.woff2?v=252',
+  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=252',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
@@ -260,33 +260,33 @@ self.addEventListener('fetch', (e) => {
 
   const publicImage = isImage(u) && (u.pathname.startsWith('/images/') || /^\/uploads\/designs\/[^/]+\//.test(u.pathname));
   if (publicImage) {
-    const cache = caches.open(MEDIA).catch(() => null);
-    const refreshed = fetch(r).then(async res => {
+    /* v252 — serve fresh cached photographs straight from MEDIA with zero
+       background refetch, blob copy or trimMedia() churn. Earlier visits were
+       re-downloading and re-writing all ~80 images in the background while the
+       shopper scrolled. Only misses and expired entries touch the network, and
+       if the network fails on an expired entry the saved photo still renders. */
+    e.respondWith((async () => {
+      let c = null, hit = null;
+      try {
+        c = await caches.open(MEDIA);
+        hit = c && await c.match(r);
+        if (freshMedia(hit)) return hit;
+      } catch (_) {}
+      const res = await fetch(r).catch(() => null);
       // An SPA 200 HTML fallback must NEVER poison an image URL.
       if (res && res.ok && /^image\//i.test(res.headers.get('content-type') || '')) {
         try {
-          const c = await cache;
           if (c) {
             const copy = res.clone();
             const headers = new Headers(copy.headers);
             headers.set('x-shivaa-cached-at', new Date().toUTCString());
-            await c.put(r, new Response(await copy.blob(), { status: copy.status, statusText: copy.statusText, headers }));
-            await trimMedia();
+            c.put(r, new Response(await copy.blob(), { status: copy.status, statusText: copy.statusText, headers }))
+              .then(() => trimMedia()).catch(() => {});
           }
         } catch (_) { /* quota/private mode cannot break the network image */ }
+        return res;
       }
-      return res;
-    }).catch(() => null);
-    // Register during dispatch, not after returning a cached response.
-    e.waitUntil(refreshed.then(() => {}));
-    e.respondWith((async () => {
-      try {
-        const c = await cache;
-        const hit = c && await c.match(r);
-        if (freshMedia(hit)) return hit;
-        if (hit) await c.delete(r);
-      } catch (_) {}
-      return (await refreshed) || Response.error();
+      return hit || res || Response.error();
     })());
     return;
   }
@@ -295,6 +295,26 @@ self.addEventListener('fetch', (e) => {
     (u.pathname === '/' || u.pathname === '/index.html');
   const key = documentRequest ? '/index.html' : u.pathname + u.search;
   if (!documentRequest && !shellURLs.has(key)) return;
+  /* v252 — HTML shells and manifests stay strictly network-first so a new
+     release is picked up on the very next visit; release-stamped assets
+     (?v=REL) are immutable for this release and answer from SHELL at once,
+     saving ~1.75 MB of repeat download on every warm open. */
+  const versionedAsset = !documentRequest && u.search === ('?v=' + REL);
+  if (versionedAsset) {
+    e.respondWith((async () => {
+      try {
+        const c = await caches.open(SHELL);
+        const hit = await c.match(key);
+        if (hit) return hit;
+        const res = await fetch(r);
+        if (res && res.ok) { try { await c.put(key, res.clone()); } catch (_) {} }
+        return res;
+      } catch (_) {
+        return shellFallback(key, false);
+      }
+    })());
+    return;
+  }
   const response = fetch(r).then(async res => {
     if (res && res.ok) {
       try { const c = await caches.open(SHELL); await c.put(key, res.clone()); } catch (_) {}

@@ -4,15 +4,15 @@
   "updated": "2026-11-16",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 252,
+  "next_release": 253,
   "live": {
-    "release": 251,
-    "title": "Alive",
+    "release": 252,
+    "title": "Silk",
     "since": "2026-11-16",
     "confirmed_by": null,
-    "owner_words": "The app should feel more live and smooth and the smoothness must be on the next level, it should load faster and without decreasing the quality, make the next update, improve more smoothness",
+    "owner_words": "Verify v250, move forward only, make the next update so the app feels more live and next-level smooth, loads faster, and does not decrease quality; do not deploy until approved.",
     "deployed_build": 244,
-    "note": "Answered in three parts, each measured on this tree. SMOOTHER: the press vocabulary now covers what a thumb actually touches (it covered buttons only), and the press is a compositor scale with filter removed. LIVE: pending price breathes, live dot on the utility strip, first-row settle, bag badge pop, rate hairline — all event-bound; on a settled page one of them is running. FASTER WITHOUT LOSING QUALITY: the one stylesheet ships minified (-88,610 B raw, ~-16 KB gzip) with a build step that proves the minified sheet is the same sheet rule by rule before writing it; cms/css/shivaa.css stays in the repo and in the package, so a rollback is one <link>. Also: decoding=async on every image the app renders. Desktop keeps its blur and hover vocabulary — every new rule is scoped to html.shv-mobile."
+    "note": "Forward release on verified v251 Alive. FASTER WITHOUT QUALITY LOSS: one-round-trip gzipped GET /api/boot in api.php (replaces 6-7 competing startup calls, automatic legacy fallback), warm home cap 250 -> 180 ms, synchronous frame-1 PDP open for cached pieces (full-res gallery preserved, folded reviews hydrated in place, photo #2 pre-decoded), Retina 320w/560w WebP thumbs on drawer (803 -> 53 KB, -93 %), cart, mini-cart, compare, search, orders, mega-menu and Shivaa Black banner, and zero-refetch SW fresh photo hits + cache-first ?v=252 immutable assets (HTML shells stay network-first). NEXT-LEVEL SMOOTHNESS: eliminated the 800 ms post-navigation 1,284-element getComputedStyle quiet walk by moving remaining phone rules and motion.css opacity:0 re-fades into frame-0 CSS, scoped v120 overlay MutationObserver to the 5 overlay roots, converted v245/v247 scroll hooks to true post-scroll debounces, retired idle polls/reflows in v107/aurum/motion/v194/v242, yielded idle frames between aurum/motion/boost, and changed v251Arrive to backwards + transform-only press so first-row cards spring immediately. FRAME-1 LIVE FEEL: passive .shv-tap press with 0 ms scroll cancel, wishlist heart spring, compare badge pop, live price settle, 2 px golden route glide, Save-Data-aware intent pre-warm. Desktop keeps all glass blur, hover and studio motion."
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -64,6 +64,12 @@
       "title": "Still",
       "since": "2026-11-12",
       "note": "phone compositor budget 141 -> 15 animated, 25 -> 2 infinite, blur/blend/filter-blur/promoted to 0; v248's scrolling rule retired as the flicker; viewIn blink fixed at the source; the non-passive touchmove armed only during a pull; a frozen page given back by a watchdog"
+    },
+    {
+      "release": 251,
+      "title": "Alive",
+      "since": "2026-11-16",
+      "note": "90 ms transform press across tappable surfaces, breathing pending price, 6 px live dot, first-row settle, bag badge pop, rate hairline, 2 px read bar, proof-minified shivaa.min.css (-9.2 % raw), decoding=async across all templates; Shivaa.v251.report()"
     }
   ],
   "releases": [
@@ -452,18 +458,34 @@
     },
     {
       "release": 251,
-      "commit": null,
+      "commit": "ccd80aa",
       "title": "Alive",
       "zip": "shivaa-update-v251.zip",
       "files": 772,
       "bytes": 45504067,
       "sha256": "c03ff713453d3d2c7c3ed2c93168419f8d6b5eb06b3927471eb22a81c4fa60fa",
-      "status": "live",
+      "status": "superseded",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged 16 Nov 2026, not installed",
       "layer": "v251.css",
-      "note": "v250 took the phone's continuous animation away and, with it, every SIGN that the shop is live. v251 gives the sign back out of a budget a phone can spare — transform and opacity, answered by an event, never running on its own. PRESS: every card, tile, chip, tab, drawer row and icon button on a phone answers a tap in 90 ms with scale(.977) on the universal --sx-* rhythm; filter is explicitly removed from the press path (v107 repainted on every press). LIVE: a pending price breathes (opacity only, 1.4 s), the utility strip carries a 6 px live dot, the first row of the grid settles in 24 ms steps travelling 10 px (opacity never changes, so it cannot blink), the bag badge pops for 320 ms when its number changes (MutationObserver on #cartCount/#wishCount), and a fresh rate sweeps one gold hairline (the `rates` event). On a settled page exactly ONE of those is running. POSITION: a 2 px gold read bar, created by the script, filled with transform: scaleX() from one rAF per scroll frame; the page height is measured on resize/route, never inside the scroll handler. FASTER: index.html now loads the MINIFIED build of the one stylesheet — cms/css/shivaa.min.css, 965,451 B -> 876,841 B (-9.2 %; gzip ~191 KB -> 174,636 B) — and tools/build-css-min.mjs REFUSES to write it unless it is structurally identical to the readable bundle (8,758 effective rules compared with their media context, 9 @font-face, 264 @keyframes, csso with restructure:false so no rule is ever merged or moved). Every <img> the app writes carries decoding=async (43 template sites), with a runtime backstop that reports anything a future template forgets. Gates: new qa/browser/t-v251-alive.mjs (46) — 46 + 34 + 36 + 37 suites green, check-handoff green. Instruments: Shivaa.v251.{report,pulses,pop,tick,progress,syncImages}()."
+      "note": "v250 took the phone's continuous animation away and, with it, every SIGN that the shop is live. v251 gives the sign back out of a budget a phone can spare — transform and opacity, answered by an event, never running on its own. PRESS: every card, tile, chip, tab, drawer row and icon button on a phone answers a tap in 90 ms with scale(.977) on the universal --sx-* rhythm; filter is explicitly removed from the press path (v107 repainted on every press). LIVE: a pending price breathes (opacity only, 1.4 s), the utility strip carries a 6 px live dot, the first row of the grid settles in 24 ms steps travelling 10 px (opacity never changes, so it cannot blink), the bag badge pops for 320 ms when its number changes (MutationObserver on #cartCount/#wishCount), and a fresh rate sweeps one gold hairline (the `rates` event). On a settled page exactly ONE of those is running. POSITION: a 2 px gold read bar, created by the script, filled with transform: scaleX() from one rAF per scroll frame; the page height is measured on resize/route, never inside the scroll handler. FASTER: index.html now loads the MINIFIED build of the one stylesheet — cms/css/shivaa.min.css, 965,451 B -> 876,841 B (-9.2 %; gzip ~191 KB -> 174,636 B) — and tools/build-css-min.mjs REFUSES to write it unless it is structurally identical to the readable bundle (8,758 effective rules compared with their media context, 9 @font-face, 264 @keyframes, csso with restructure:false so no rule is ever merged or moved). Every <img> the app writes carries decoding=async (43 template sites), with a runtime backstop that reports anything a future template forgets. Gates: new qa/browser/t-v251-alive.mjs (46) — 46 + 34 + 36 + 37 suites green, check-handoff green. Instruments: Shivaa.v251.{report,pulses,pop,tick,progress,syncImages}().",
+      "superseded_by": 252
+    },
+    {
+      "release": 252,
+      "commit": null,
+      "title": "Silk",
+      "zip": "shivaa-update-v252.zip",
+      "files": 774,
+      "bytes": 45524517,
+      "sha256": "6a6b57c2d0d9b585f45a399d7dc0fb7172c6d22758ba3ac03e59a317083306db",
+      "status": "live",
+      "deployed": null,
+      "awaiting": "the owner's explicit yes — packaged 16 Nov 2026, not installed",
+      "layer": "v252.css",
+      "note": "FASTER: GET /api/boot one-round-trip startup payload + safe gzip in jout() with automatic legacy fallback; warm home cap 250 -> 180 ms; synchronous frame-1 PDP open (full-res original gallery preserved, reviews hydrated in place, photo #2 pre-decoded); drawer photos 803 -> 53 KB (-93 %) via 320w/560w WebP thumbs + thumbAttrs() on cart, mini-cart, saved-for-later, compare, search, order rows, mega-menu and Shivaa Black banner; sw.js serves fresh MEDIA hits without background refetch churn and release-stamped ?v=252 assets cache-first while HTML/manifests remain network-first. SMOOTHER: replaced 1,284-node post-tap getComputedStyle walk with frame-0 CSS rules (including silencing bc-hero-aurora/black-hero/dust/pl-draw and motion.css #view.pg opacity:0 re-fades on phones), scoped v120 overlay watcher to 5 elements, true post-scroll debounce in v245/v247, retired idle polls/forced reflows in v107/aurum/motion/v194/v242, idle-yielded v117 loader, v251Arrive backwards fill + pure-transform press transition. LIVE: frame-1 passive .shv-tap press + 0 ms scroll cancel, wishlist heart spring (.shv-heart-pop), #cmpCount pop, live price settle (.shv-price-live), #shvRouteGlide 2 px gold route bar, Save-Data-aware intent pre-warm. Gates: new qa/browser/t-v252-silk.mjs (48) + t-v240..t-v251 all green (541/541, 0 red), phpbal BALANCED, CSS rule proof 8,781 rules, check-handoff 0 red. Instruments: Shivaa.v252.{report,audit,warm}()."
     }
   ],
-  "session_branch_2026_11_12": "arena/95be65a4-shivaa-ecom"
+  "session_branch_2026_11_12": "arena/95be65a4-shivaa-ecom",
+  "session_branch_2026_11_16": "arena/a20b3005-shivaa-ecom"
 }

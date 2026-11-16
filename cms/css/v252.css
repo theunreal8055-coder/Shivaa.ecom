@@ -1,0 +1,230 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHIVAA · v252 — “SILK”
+   First-frame touch response, event-driven live confirmations, silk drawer and
+   rail physics — all inside v250's zero-blur, zero-promotion compositor budget.
+
+   Every rule below writes ONLY transform or opacity (or pointer/scroll hints),
+   never holds `will-change`, never starts content at `opacity: 0`, never holds
+   `animation-fill-mode: both`, and never runs an infinite loop on a settled
+   page. Desktop keeps its full hover and glass vocabulary.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · FRAME-1 TACTILE SPRING (.shv-tap) ────────────────────────────────
+   Mobile browsers delay CSS `:active` on scrollable pages by 80–150 ms while
+   deciding whether the thumb intends to scroll, so a crisp tap finishes before
+   `:active` ever paints. `js/v252.js` stamps `.shv-tap` passively on pointerdown
+   and cancels it in 0 ms the instant the thumb moves > 8 px. Every tap answers
+   on its very first frame, then eases back on `--sx-out`. */
+html.shv-mobile .p-card.shv-tap,
+html.shv-mobile .tv-card.shv-tap,
+html.shv-mobile .ugc-card.shv-tap,
+html.shv-mobile .pc-card.shv-tap,
+html.shv-mobile .cat-card.shv-tap,
+html.shv-mobile .cat-mini-card.shv-tap,
+html.shv-mobile .pillar.shv-tap,
+html.shv-mobile .catlog.shv-tap,
+html.shv-mobile .shv-offer-card.shv-tap,
+html.shv-mobile .dw-tile.shv-tap {
+  transform: scale(.977) !important;
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)) !important;
+}
+html.shv-mobile .btn.shv-tap,
+html.shv-mobile .cb-item.shv-tap,
+html.shv-mobile .chip.shv-tap,
+html.shv-mobile .tab.shv-tap,
+html.shv-mobile .dw-row.shv-tap,
+html.shv-mobile .dw-more.shv-tap,
+html.shv-mobile .nav-jwl.shv-tap,
+html.shv-mobile .mnav a.shv-tap,
+html.shv-mobile .mnav button.shv-tap {
+  transform: scale(.968) !important;
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)) !important;
+}
+html.shv-mobile .icon-btn.shv-tap,
+html.shv-mobile .pc-quick.shv-tap,
+html.shv-mobile .pc-wish.shv-tap,
+html.shv-mobile .dw-close.shv-tap,
+html.shv-mobile .qty button.shv-tap {
+  transform: scale(.925) !important;
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)) !important;
+}
+/* springy calm settle when the finger lifts; zero box-shadow/filter repaint */
+html.shv-mobile .dw-tile,
+html.shv-mobile .dw-more,
+html.shv-mobile .nav-jwl,
+html.shv-mobile .mnav a,
+html.shv-mobile .mnav button,
+html.shv-mobile .pc-wish {
+  transition: transform var(--sx-dur-2, 160ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+/* cancelled by scroll: release in 0 ms so a fling never drags a pressed card */
+html.shv-mobile .shv-tap-cancel {
+  transform: none !important;
+  transition: none !important;
+}
+
+/* ── 2 · EVENT-DRIVEN LIVE CONFIRMATIONS ──────────────────────────────────
+   Three moments where a real jewellery counter responds: saving a piece to the
+   wishlist, watching today's live gold rate settle into a price tag, and moving
+   between rooms. Every one plays once in transform/opacity and removes itself. */
+
+/* 2a · wishlist heart spring */
+@keyframes v252Heart {
+  0%   { transform: scale(1) }
+  38%  { transform: scale(1.30) }
+  72%  { transform: scale(.93) }
+  100% { transform: scale(1) }
+}
+.shv-heart-pop {
+  animation: v252Heart var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+
+/* 2b · live gold/silver price settle (never invisible — starts at .78) */
+@keyframes v252PriceLive {
+  0%   { opacity: .78; transform: translateY(-2px) }
+  100% { opacity: 1; transform: none }
+}
+.js-price.shv-price-live {
+  animation: v252PriceLive var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+
+/* 2c · first-frame golden route glide (answers before deferred aurum.js loads) */
+#shvRouteGlide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1201;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--maroon, #7a1428), var(--gold, #c9a24b) 55%, #f3df9b);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  opacity: 0;
+  transition: transform var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1)),
+              opacity var(--sx-dur-2, 160ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
+}
+#shvRouteGlide.is-on {
+  opacity: 1;
+  transform: scaleX(.72);
+}
+#shvRouteGlide.is-done {
+  opacity: 0;
+  transform: scaleX(1);
+}
+
+/* ── 3 · ONE SCROLL BAR ON A PHONE, ZERO PAINT & ZERO HELD PROMISES ───────
+   `#scrollProg` carried a 12 px box-shadow and linear transition directly
+   beneath v251's `#shvReadBar`, painting two stacked bars on every scroll frame.
+   On a phone `#shvReadBar` alone keeps place in pure transform. Every `will-change`
+   inside `#view` and stray infinite sparklers are quieted in CSS at frame 0 so
+   `v250.js` never has to walk 1,300 elements with `getComputedStyle` after a tap. */
+html.shv-mobile #scrollProg {
+  display: none !important;
+}
+html.shv-mobile #view * {
+  will-change: auto !important;
+}
+html.shv-mobile .bc-hero-aurora i,
+html.shv-mobile .black-hero em,
+html.shv-mobile .black-hero b,
+html.shv-mobile .dust i,
+html.shv-mobile .fin-spark,
+html.shv-mobile .hsp-spark,
+html.shv-mobile .njl-gem,
+html.shv-mobile .cb-ring,
+html.shv-mobile .live-dot,
+html.shv-mobile .pulse-dot,
+html.shv-mobile .rs-dot,
+html.shv-mobile .rev-track *:not(.rev-track),
+html.shv-mobile .rs-ticker-track *:not(.rs-ticker-track) {
+  animation: none !important;
+  filter: none !important;
+}
+html.shv-mobile .pl-draw {
+  animation: none !important;
+  stroke-dashoffset: 0 !important;
+}
+/* motion.css faded 34 cards/chips/heroes from opacity:0 with fill-mode:both on
+   every post-boot route (`#view.pg`), overriding v251's clean first-row settle
+   and causing a blink on every Back/filter. Retire opacity:0 fades on phones
+   and keep v251's opaque first-row settle. */
+html.shv-mobile #view.pg .m-stagger > *,
+html.shv-mobile #view .m-stagger > .m-in,
+html.shv-mobile #view.pg .catbar2 > *,
+html.shv-mobile #view.pg .page-hero .container,
+html.shv-mobile #view.pg .hero .hero-in,
+html.shv-mobile #view.pg .trust-grid > *,
+html.shv-mobile #view.pg .hm-grid > *,
+html.shv-mobile #view.pg .fin-grid > *,
+html.shv-mobile #view.pg .stages > *,
+html.shv-mobile #view.pg .bg-steps > *,
+html.shv-mobile #view.pg .finq-steps > *,
+html.shv-mobile #view.pg .empty {
+  animation: none !important;
+  opacity: 1 !important;
+}
+html.shv-mobile #view.pg .p-grid > .p-card:nth-child(-n+8),
+html.shv-mobile #view.pg .tv-track > .tv-card:nth-child(-n+6),
+html.shv-mobile #view.pg .cat-grid > .cat-card:nth-child(-n+8) {
+  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) backwards !important;
+}
+
+/* ── 4 · SILK RAILS, DRAWERS & ZERO TAP DELAY ─────────────────────────────
+   Sideways carousels and filter chips stay contained on their own axis so a
+   horizontal flick never triggers an accidental browser back-swipe and never
+   locks the vertical scroll. Drawers and sheets glide on `--sx-out`. */
+.catbar2,
+.tv-track,
+.hscroll,
+.chips,
+.gal-thumbs,
+.pcmp-grid,
+.rev-marquee {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.p-card,
+.tv-card,
+.cat-card,
+.cb-item,
+.dw-row,
+.dw-tile,
+.dw-more,
+.nav-jwl,
+.chip,
+.tab,
+.btn,
+.icon-btn,
+.pc-wish,
+.pc-quick,
+.mnav a,
+.mnav button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+html.shv-mobile .cart-drawer,
+html.shv-mobile .search-drawer,
+html.shv-mobile #mainNav {
+  transition: transform var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+
+/* ── 5 · REDUCED MOTION & PLAIN MODE ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .shv-heart-pop,
+  .js-price.shv-price-live {
+    animation: none !important;
+  }
+  #shvRouteGlide {
+    display: none !important;
+  }
+  html.shv-mobile .p-card.shv-tap,
+  html.shv-mobile .btn.shv-tap,
+  html.shv-mobile .icon-btn.shv-tap {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+html.shv-plain #shvRouteGlide {
+  display: none !important;
+}

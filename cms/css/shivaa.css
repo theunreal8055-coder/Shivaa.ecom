@@ -21256,8 +21256,7 @@ html.shv-mobile .tab,
 html.shv-mobile .dw-row,
 html.shv-mobile .icon-btn,
 html.shv-mobile .pc-quick {
-  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)),
-              box-shadow var(--sx-dur-2, 160ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
 }
  
 html.shv-mobile .v107-press:active { filter: none !important; }
@@ -21309,7 +21308,8 @@ html.shv-mobile .v107-press:active { filter: none !important; }
 html.shv-mobile .p-grid > .p-card:nth-child(-n+8),
 html.shv-mobile .tv-track > .tv-card:nth-child(-n+6),
 html.shv-mobile .cat-grid > .cat-card:nth-child(-n+8) {
-  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) both;
+   
+  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) backwards;
 }
 html.shv-mobile .p-grid > .p-card:nth-child(2),
 html.shv-mobile .cat-grid > .cat-card:nth-child(2) { animation-delay: 24ms }
@@ -21388,3 +21388,206 @@ html.shv-plain #shvReadBar { display: none; }
 html.shv-plain .ub-live::before,
 html.shv-plain .pr-sk,
 html.shv-plain .p-grid > .p-card { animation: none !important; }
+/* v252.css */
+ 
+
+ 
+html.shv-mobile .p-card.shv-tap,
+html.shv-mobile .tv-card.shv-tap,
+html.shv-mobile .ugc-card.shv-tap,
+html.shv-mobile .pc-card.shv-tap,
+html.shv-mobile .cat-card.shv-tap,
+html.shv-mobile .cat-mini-card.shv-tap,
+html.shv-mobile .pillar.shv-tap,
+html.shv-mobile .catlog.shv-tap,
+html.shv-mobile .shv-offer-card.shv-tap,
+html.shv-mobile .dw-tile.shv-tap {
+  transform: scale(.977) !important;
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)) !important;
+}
+html.shv-mobile .btn.shv-tap,
+html.shv-mobile .cb-item.shv-tap,
+html.shv-mobile .chip.shv-tap,
+html.shv-mobile .tab.shv-tap,
+html.shv-mobile .dw-row.shv-tap,
+html.shv-mobile .dw-more.shv-tap,
+html.shv-mobile .nav-jwl.shv-tap,
+html.shv-mobile .mnav a.shv-tap,
+html.shv-mobile .mnav button.shv-tap {
+  transform: scale(.968) !important;
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)) !important;
+}
+html.shv-mobile .icon-btn.shv-tap,
+html.shv-mobile .pc-quick.shv-tap,
+html.shv-mobile .pc-wish.shv-tap,
+html.shv-mobile .dw-close.shv-tap,
+html.shv-mobile .qty button.shv-tap {
+  transform: scale(.925) !important;
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)) !important;
+}
+ 
+html.shv-mobile .dw-tile,
+html.shv-mobile .dw-more,
+html.shv-mobile .nav-jwl,
+html.shv-mobile .mnav a,
+html.shv-mobile .mnav button,
+html.shv-mobile .pc-wish {
+  transition: transform var(--sx-dur-2, 160ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+ 
+html.shv-mobile .shv-tap-cancel {
+  transform: none !important;
+  transition: none !important;
+}
+
+ 
+
+ 
+@keyframes v252Heart {
+  0%   { transform: scale(1) }
+  38%  { transform: scale(1.30) }
+  72%  { transform: scale(.93) }
+  100% { transform: scale(1) }
+}
+.shv-heart-pop {
+  animation: v252Heart var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+
+ 
+@keyframes v252PriceLive {
+  0%   { opacity: .78; transform: translateY(-2px) }
+  100% { opacity: 1; transform: none }
+}
+.js-price.shv-price-live {
+  animation: v252PriceLive var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+
+ 
+#shvRouteGlide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1201;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--maroon, #7a1428), var(--gold, #c9a24b) 55%, #f3df9b);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  opacity: 0;
+  transition: transform var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1)),
+              opacity var(--sx-dur-2, 160ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
+}
+#shvRouteGlide.is-on {
+  opacity: 1;
+  transform: scaleX(.72);
+}
+#shvRouteGlide.is-done {
+  opacity: 0;
+  transform: scaleX(1);
+}
+
+ 
+html.shv-mobile #scrollProg {
+  display: none !important;
+}
+html.shv-mobile #view * {
+  will-change: auto !important;
+}
+html.shv-mobile .bc-hero-aurora i,
+html.shv-mobile .black-hero em,
+html.shv-mobile .black-hero b,
+html.shv-mobile .dust i,
+html.shv-mobile .fin-spark,
+html.shv-mobile .hsp-spark,
+html.shv-mobile .njl-gem,
+html.shv-mobile .cb-ring,
+html.shv-mobile .live-dot,
+html.shv-mobile .pulse-dot,
+html.shv-mobile .rs-dot,
+html.shv-mobile .rev-track *:not(.rev-track),
+html.shv-mobile .rs-ticker-track *:not(.rs-ticker-track) {
+  animation: none !important;
+  filter: none !important;
+}
+html.shv-mobile .pl-draw {
+  animation: none !important;
+  stroke-dashoffset: 0 !important;
+}
+ 
+html.shv-mobile #view.pg .m-stagger > *,
+html.shv-mobile #view .m-stagger > .m-in,
+html.shv-mobile #view.pg .catbar2 > *,
+html.shv-mobile #view.pg .page-hero .container,
+html.shv-mobile #view.pg .hero .hero-in,
+html.shv-mobile #view.pg .trust-grid > *,
+html.shv-mobile #view.pg .hm-grid > *,
+html.shv-mobile #view.pg .fin-grid > *,
+html.shv-mobile #view.pg .stages > *,
+html.shv-mobile #view.pg .bg-steps > *,
+html.shv-mobile #view.pg .finq-steps > *,
+html.shv-mobile #view.pg .empty {
+  animation: none !important;
+  opacity: 1 !important;
+}
+html.shv-mobile #view.pg .p-grid > .p-card:nth-child(-n+8),
+html.shv-mobile #view.pg .tv-track > .tv-card:nth-child(-n+6),
+html.shv-mobile #view.pg .cat-grid > .cat-card:nth-child(-n+8) {
+  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) backwards !important;
+}
+
+ 
+.catbar2,
+.tv-track,
+.hscroll,
+.chips,
+.gal-thumbs,
+.pcmp-grid,
+.rev-marquee {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.p-card,
+.tv-card,
+.cat-card,
+.cb-item,
+.dw-row,
+.dw-tile,
+.dw-more,
+.nav-jwl,
+.chip,
+.tab,
+.btn,
+.icon-btn,
+.pc-wish,
+.pc-quick,
+.mnav a,
+.mnav button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+html.shv-mobile .cart-drawer,
+html.shv-mobile .search-drawer,
+html.shv-mobile #mainNav {
+  transition: transform var(--sx-dur-3, 280ms) var(--sx-out, cubic-bezier(.22, 1, .36, 1));
+}
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  .shv-heart-pop,
+  .js-price.shv-price-live {
+    animation: none !important;
+  }
+  #shvRouteGlide {
+    display: none !important;
+  }
+  html.shv-mobile .p-card.shv-tap,
+  html.shv-mobile .btn.shv-tap,
+  html.shv-mobile .icon-btn.shv-tap {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+html.shv-plain #shvRouteGlide {
+  display: none !important;
+}

@@ -2,6 +2,23 @@
 
 ---
 
+**v252 — SILK** (2026-11-16). Built forward on verified v251 “Alive” (after v250 “Still”) for faster
+loading, next-level smoothness and richer live touch response with **zero quality loss** (awaiting owner
+approval before deployment). Cold startup consolidates 6–7 separate API calls into one gzipped
+`GET /api/boot` (with automatic fallback); repeat visits serve release-stamped `?v=252` assets and fresh
+product photos directly from the service worker while keeping HTML shells strictly network-first; drawer,
+bag, mini-cart, compare, search and banner slots use crisp Retina 320w/560w WebP thumbnails (drawer down
+from 803 KB to 53 KB) while product detail galleries keep 100 % full-resolution original photographs and
+open synchronously on frame 1 with no skeleton flash. On phones, every tap answers on frame 1 (`.shv-tap`,
+cancelled instantly on scroll), wishlist hearts spring, bag/wishlist/compare badges pop, live gold/silver
+price changes settle smoothly, and a 2 px gold hairline glides across route changes — all in pure
+compositor `transform`/`opacity` with 0 blur passes, 0 layer promotions and desktop visuals untouched.
+Mid-scroll layout sweeps, subtree class observers, post-tap 1,284-element style walks and post-boot
+`opacity:0` route re-fades are eliminated. **774 files** in `shivaa-update-v252.zip` (cumulative
+v237–v252); verified 541/541 across `t-v240` → `t-v252` and 0 red on `qa/check-handoff.py`.
+
+---
+
 **v242 — RESPONSIVE** (2026-11-12). After v241 the owner said the site was smooth but *“clicks are not
 working and buttons are unresponsive”*. Nothing was lost: taps were being eaten. The service worker had
 been scanning its entire image cache after every picture (v241 raised the cache cap to 160 because

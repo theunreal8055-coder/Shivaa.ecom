@@ -139,21 +139,29 @@
      while something is still loading — a pending price, the skeleton, the live
      dot. Everything else that runs forever is decoration and stops. */
   var KEEP = /(^|\s)(rs-ticker-track|rev-track|pr-sk|sk-hero|sk-card|ub-live)(\s|$)/;
+  /* v252 — css/v250.css + css/v252.css already hold the phone compositor budget
+     from frame 0; check only known animated/inline candidates here instead of
+     forcing getComputedStyle() across all ~1,300 #view nodes 800 ms after every
+     navigation (which stalled taps right as the shopper touched the new page). */
+  var QUIET_SEL = '[style*="animation"],[style*="will-change"]';
   function quietThePage() {
     if (!isMobile() || NOFX) return 0;
+    if (root.classList.contains('shv-scrolling')) { scheduleQuiet(); return 0; }
     var scope = doc.getElementById('view');
     if (!scope) return 0;
-    var nodes = scope.querySelectorAll('*');
+    var nodes = scope.querySelectorAll(QUIET_SEL);
     var changed = 0;
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i], st;
+      if (KEEP.test(String(n.className || ''))) continue;
       try { st = getComputedStyle(n); } catch (e) { continue; }
       if (!st) continue;
       if (st.willChange && st.willChange !== 'auto') { n.style.willChange = 'auto'; changed++; }
       var it = st.animationIterationCount || '';
-      if (it.indexOf('infinite') >= 0 && n.animationName !== 'none') {
+      var an = st.animationName || 'none';
+      if (it.indexOf('infinite') >= 0 && an !== 'none') {
         if (!KEEP.test(String(n.className || ''))) { n.style.animationName = 'none'; changed++; }
-      } else if (n.animationName !== 'none') {
+      } else if (an !== 'none') {
         /* a child of something that moves forever: its own animation is invisible
            work. Seventy star pops inside the review marquee was the worst case. */
         var host = n.parentElement;

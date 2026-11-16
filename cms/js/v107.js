@@ -117,8 +117,12 @@
     host.id = 'v107FootTicker';
     foot.appendChild(host);
     renderTicker();
-    setInterval(() => safe('ticker', renderTicker), 2500);
-    window.addEventListener('hashchange', () => safe('ticker', renderTicker));
+    /* v252 — react immediately when live rates arrive instead of waking every
+       2.5 s; a quiet 30 s safety tick covers long idle stretches. */
+    document.addEventListener('rates', () => safe('ticker', renderTicker), { passive: true });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) safe('ticker', renderTicker); }, { passive: true });
+    setInterval(() => { if (!document.hidden) safe('ticker', renderTicker); }, 30000);
+    window.addEventListener('hashchange', () => safe('ticker', renderTicker), { passive: true });
   }
 
   /* ═══ 2 · TAP-REACTIVE GLOW + PRESS FEEDBACK + HIDDEN-TAB PAUSE ═════════ */
@@ -146,15 +150,21 @@
       const a = e.target.closest && e.target.closest('.v107-tabglow');
       if (a) setTimeout(() => applyTabGlow((a.getAttribute('href') || '').replace('#/', '').split('?')[0]), 0);
     }, true);
-    window.addEventListener('hashchange', () => applyTabGlow());
+    window.addEventListener('hashchange', () => applyTabGlow(), { passive: true });
     applyTabGlow();
-    setInterval(() => safe('glow', () => applyTabGlow()), 8000);
   }
   function pressFeedback() {
     const sel = '.foot-chips a, .fv-chips a, .ds-card, .btn, .pay-opt, .v107-sg-pick, .qv-nav button';
-    const arm = () => $$(sel).forEach(el => { if (!el.classList.contains('v107-press')) el.classList.add('v107-press'); });
+    let armT = 0;
+    const arm = () => {
+      armT = 0;
+      if (document.documentElement.classList.contains('shv-scrolling')) { armT = setTimeout(arm, 260); return; }
+      $$(sel).forEach(el => { if (!el.classList.contains('v107-press')) el.classList.add('v107-press'); });
+    };
+    const queue = () => { if (!armT) armT = setTimeout(arm, 90); };
     arm();
-    new MutationObserver(() => setTimeout(arm, 60)).observe(document.body, { childList: true, subtree: true });
+    const viewEl = document.getElementById('view') || document.body;
+    new MutationObserver(queue).observe(viewEl, { childList: true, subtree: true });
   }
   function hiddenPause() {
     const set = () => document.body.classList.toggle('is-hidden', document.hidden);
@@ -292,8 +302,14 @@
     if (go) go.onclick = () => { (S.closeModal || function () {})(); location.hash = '#/product/' + p.id; };
   }
   function designDetail() {
+    let ddsT = 0;
+    const run = () => {
+      ddsT = 0;
+      if (document.documentElement.classList.contains('shv-scrolling')) return;
+      armDdsButtons();
+    };
     armDdsButtons();
-    new MutationObserver(() => setTimeout(armDdsButtons, 80)).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(() => { if (!ddsT) ddsT = setTimeout(run, 110); }).observe(document.body, { childList: true, subtree: true });
   }
 
   /* ═══ 5 · #/size-guide — TRUE-SCALE RING SIZER ══════════════════════════ */
@@ -539,7 +555,11 @@
         host.appendChild(line);
       });
     };
-    new MutationObserver(() => setTimeout(paint, 40)).observe(document.body, { childList: true, subtree: true });
+    let chanT = 0;
+    new MutationObserver(() => {
+      if (chanT) return;
+      chanT = setTimeout(() => { chanT = 0; if (!document.documentElement.classList.contains('shv-scrolling')) paint(); }, 80);
+    }).observe(document.body, { childList: true, subtree: true });
     load();
   }
 

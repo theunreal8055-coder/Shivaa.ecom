@@ -119,6 +119,12 @@ ADDED = {
     # deal as the minified scripts: cms/css/shivaa.css ships beside it, so a
     # rollback is one <link> tag.
     251: ['js/v251.js', 'css/shivaa.min.css'],
+    # v252 "silk" — one js layer + one css layer (auto-detected): one-round-trip
+    # gzipped /api/boot, instant frame-1 PDP open, WebP drawer/bag/search/banner
+    # thumbs, zero-refetch SW cache hits, frame-1 tactile spring, debounced
+    # post-scroll observers and scoped overlay watcher. Minified bundles ride
+    # forward from v249/v251 with fresh sha256 proofs.
+    252: ['js/v252.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)
