@@ -113,9 +113,10 @@
 /* the entrance can stay: one rise, one time, then stillness */
 .black-hero .hero-in > * { animation: v211Rise .7s cubic-bezier(.2, .8, .2, 1) both; }
 .black-hero .hero-in > *:nth-child(2) { animation-delay: .1s; }
+/* v250 — travel, not disappearance (see css/v250.css §1). */
 @keyframes v211Rise {
-  from { opacity: 0; transform: translateY(18px); }
-  to   { opacity: 1; transform: none; }
+  from { transform: translateY(18px); }
+  to   { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .black-hero .hero-in > * { animation: none; }

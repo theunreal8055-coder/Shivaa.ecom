@@ -1857,10 +1857,11 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .rev-stars i:nth-child(1){animation-delay:.05s}.rev-stars i:nth-child(2){animation-delay:.15s}
 .rev-stars i:nth-child(3){animation-delay:.25s}.rev-stars i:nth-child(4){animation-delay:.35s}
 .rev-stars i:nth-child(5){animation-delay:.45s}
-@keyframes starPop{0%{transform:scale(0) rotate(-90deg);opacity:0}70%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1)}}
+@keyframes starPop{0%{transform:scale(.72) rotate(-30deg)}70%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1)}}
  
-.rv-item{opacity:0;animation:rvIn .6s var(--ease) forwards}
-@keyframes rvIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+ 
+.rv-item{opacity:1;animation:rvIn .6s var(--ease)}
+@keyframes rvIn{from{transform:translateY(16px)}to{transform:none}}
  
 .rate-pick span{display:inline-block;transition:transform .2s var(--ease),color .2s,text-shadow .2s;cursor:pointer}
 .rate-pick span:hover{transform:scale(1.35) translateY(-3px);text-shadow:0 4px 14px rgba(212,175,90,.7)}
@@ -1952,8 +1953,9 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .catlog::before,.testi::before,.acct-tile::before{content:'';position:absolute;inset:0;background:radial-gradient(320px 180px at var(--gx,50%) var(--gy,50%),rgba(255,240,200,.28),transparent 60%);opacity:0;transition:opacity .3s;pointer-events:none;z-index:1}
 .catlog:hover::before,.testi:hover::before,.acct-tile:hover::before{opacity:1}
  
-#view{animation:viewIn .45s var(--ease)}
-@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+ 
+#view{animation:none}
+@keyframes viewIn{from{transform:translateY(14px)}to{transform:none}}
  
 .cat-mini-card{transform-style:preserve-3d;transition:transform .45s var(--ease),box-shadow .3s}
 .cat-mini-card:hover{transform:translateY(-6px) rotateX(7deg) rotateY(-4deg);box-shadow:0 22px 40px -14px rgba(94,21,32,.35)}
@@ -4817,8 +4819,9 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
   transition: opacity .25s var(--ease), transform .25s var(--ease); box-shadow: var(--sh-2);
 }
 #backTop.show { opacity: 1; transform: none; }
-#view > * { animation: viewIn .45s var(--ease) both; }
-@keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+ 
+#view > * { animation: viewIn .45s var(--ease); }
+@keyframes viewIn { from { transform: translateY(8px); } to { transform: none; } }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
 
  
@@ -16280,9 +16283,10 @@ html { scrollbar-gutter: stable; }
 .shv-offer-grid .shv-offer-card:nth-child(2) { animation-delay: .1s; }
 .shv-offer-grid .shv-offer-card:nth-child(3) { animation-delay: .2s; }
 .shv-offer-grid .shv-offer-card:nth-child(4) { animation-delay: .3s; }
+ 
 @keyframes v210Rise {
-  from { opacity: 0; transform: translateY(26px) scale(.96); }
-  to   { opacity: 1; transform: none; }
+  from { transform: translateY(26px) scale(.96); }
+  to   { transform: none; }
 }
  
 .shv-offer-card::after {
@@ -16717,9 +16721,10 @@ html { scrollbar-gutter: stable; }
  
 .black-hero .hero-in > * { animation: v211Rise .7s cubic-bezier(.2, .8, .2, 1) both; }
 .black-hero .hero-in > *:nth-child(2) { animation-delay: .1s; }
+ 
 @keyframes v211Rise {
-  from { opacity: 0; transform: translateY(18px); }
-  to   { opacity: 1; transform: none; }
+  from { transform: translateY(18px); }
+  to   { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .black-hero .hero-in > * { animation: none; }
@@ -20981,21 +20986,6 @@ html.shv-nav * {
 }
 
  
-html.shv-scrolling .rv,
-html.shv-scrolling .au-rise,
-html.shv-scrolling .au,
-html.shv-scrolling .pg,
-html.shv-scrolling .shv-img-in,
-html.shv-scrolling [data-v241-lazy] {
-  animation: none !important;
-  transition: none !important;
-}
- 
-html.shv-scrolling #view.shv-rise > * {
-  animation: none !important;
-  opacity: 1 !important;
-  transform: none !important;
-}
 
  
 .preloader { transition: opacity .28s ease, visibility .28s ease; }
@@ -21095,3 +21085,135 @@ html:not(.shv-warm) .preloader.hide { transition: opacity .22s ease, visibility 
   #view.shv-rise > * { animation: none !important; transform: none !important; }
 }
 html.shv-plain #view.shv-rise > * { animation: none !important; transform: none !important; }
+/* v250.css */
+ 
+
+ 
+#view,
+#view > * {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+ 
+html.shv-mobile .au-w,
+html.shv-mobile .stars i,
+html.shv-mobile .rv-item {
+  opacity: 1 !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+ 
+html.shv-mobile *,
+html.shv-mobile *::before,
+html.shv-mobile *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+ 
+html.shv-mobile * {
+  mix-blend-mode: normal !important;
+}
+ 
+html.shv-mobile .pl-orb,
+html.shv-mobile .au-glow,
+html.shv-mobile .bc-noise,
+html.shv-mobile .shv-glow,
+html.shv-mobile [style*="blur("] {
+  filter: none !important;
+}
+ 
+html.shv-mobile #view .hero-img,
+html.shv-mobile #view .au-w,
+html.shv-mobile #view .bc-card-wrap,
+html.shv-mobile #view .hero-stage,
+html.shv-mobile #view .pc-imgwrap img {
+  will-change: auto !important;
+}
+
+ 
+html.shv-mobile .hero.ken-on .hero-img,
+html.shv-mobile .hero-img,
+html.shv-mobile .rev-qr,
+html.shv-mobile .v217-orn,
+html.shv-mobile [class*="v217-"],
+html.shv-mobile .shv-offer-orn,
+html.shv-mobile .bc-noise,
+html.shv-mobile .bc-code,
+html.shv-mobile .bc-live-light,
+html.shv-mobile .bc-flip-glint,
+html.shv-mobile .bc-card-wrap,
+html.shv-mobile .bc-hero em,
+html.shv-mobile .bc-hero b,
+html.shv-mobile .bc-hero i,
+html.shv-mobile .bc-stage i,
+html.shv-mobile .pl-orb,
+html.shv-mobile .shimmer,
+html.shv-mobile .shimmer-text,
+html.shv-mobile em.shimmer,
+html.shv-mobile .foil-txt,
+html.shv-mobile .v107-tabglow,
+html.shv-mobile .stars i,
+html.shv-mobile .stars-pop i,
+html.shv-mobile .hero-dust i,
+html.shv-mobile [id="heroDust"] i {
+  animation: none !important;
+}
+
+ 
+html.shv-mobile .rev-track i,
+html.shv-mobile .rev-stars i,
+html.shv-mobile .rev-card i,
+html.shv-mobile [class*="-track"] i,
+html.shv-mobile [class*="-marquee"] i {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+ 
+html.shv-mobile .rs-ticker-track,
+html.shv-mobile .rev-track {
+  animation-duration: 42s !important;
+}
+
+ 
+html.shv-mobile .p-card:hover,
+html.shv-mobile .p-card:hover .pc-imgwrap,
+html.shv-mobile .p-card:hover .pc-imgwrap img,
+html.shv-mobile .pc-card:hover,
+html.shv-mobile .pc-card:hover img,
+html.shv-mobile .cat-card:hover,
+html.shv-mobile .cat-mini-card:hover,
+html.shv-mobile .pillar:hover,
+html.shv-mobile .tv-card:hover,
+html.shv-mobile .ugc-card:hover,
+html.shv-mobile .shv-offer-card:hover {
+  transform: none !important;
+}
+html.shv-mobile .pc-imgwrap img,
+html.shv-mobile .p-card img,
+html.shv-mobile .cat-card img {
+  transition: none !important;
+}
+
+ 
+html.shv-mobile,
+html.shv-mobile body {
+  overscroll-behavior-y: contain;
+}
+
+ 
+html.shv-thawed {
+  overflow: auto !important;
+}
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  #view,
+  #view > * { animation: none !important; opacity: 1 !important; }
+  html.shv-mobile .rs-ticker-track,
+  html.shv-mobile .rev-track { animation: none !important; }
+}
+html.shv-plain * { animation: none !important; }

@@ -278,11 +278,19 @@ console.log('\nE · still under a thumb');
 
 const scoped = (sel) => new RegExp(flat(sel).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(flat(css));
 
-ok('while the thumb moves, entrance animation stands down',
-  /html\.shv-scrolling \.rv,/.test(css) && /html\.shv-scrolling \.shv-img-in,/.test(css) &&
-  /animation: none !important/.test(css));
-ok('while the thumb moves, the page entrance stands down too',
-  /html\.shv-scrolling #view\.shv-rise > \*/.test(css));
+/* v250 — the rule these two checks pinned was RETIRED ON PURPOSE, and it was
+   this release's own mistake: cutting every entrance animation while
+   `html.shv-scrolling` was on meant an animation mid-flight was cut when the
+   class came on (first scroll event of a gesture) and RESTARTED when it came off
+   (200 ms after the last one) — a flicker on every scroll. The intent they were
+   written for — “nothing animates into view under a moving thumb” — is now met
+   the only honest way: nothing animates FROM invisible at all, so there is
+   nothing to cut. Restated to the principle, and to the guarantee that replaced
+   it. */
+ok('a gesture may never cut or restart an entrance animation',
+  !/html\.shv-scrolling[\s\S]{0,400}animation:\s*none\s*!important/.test(css));
+ok('nothing has to be cut, because no view content animates from invisible',
+  /#view,\s*#view > \*\s*\{[^}]*animation:\s*none !important[^}]*opacity:\s*1 !important/.test(css));
 ok('and it is scoped to the gesture — at rest the motion is untouched',
   /html\.shv-scrolling \{/.test(css) ? false : true);
 

@@ -44,22 +44,15 @@ html.shv-nav * {
   scroll-behavior: auto !important;
 }
 
-/* ── 2 · still during a fling ───────────────────────────────────────────── */
-html.shv-scrolling .rv,
-html.shv-scrolling .au-rise,
-html.shv-scrolling .au,
-html.shv-scrolling .pg,
-html.shv-scrolling .shv-img-in,
-html.shv-scrolling [data-v241-lazy] {
-  animation: none !important;
-  transition: none !important;
-}
-/* and the page-level entrance the router adds (css/v247 §9) */
-html.shv-scrolling #view.shv-rise > * {
-  animation: none !important;
-  opacity: 1 !important;
-  transform: none !important;
-}
+/* ── 2 · RETIRED IN v250 ───────────────────────────────────────────────────
+   This used to switch every entrance animation off while `html.shv-scrolling`
+   was on — and v244 switches that class on at the first scroll event of every
+   gesture and off 200 ms after the last one. The result was the opposite of the
+   intention: an animation that was mid-flight was cut when the class came on and
+   RESTARTED when it came off, on every scroll. That is a flicker, and it was
+   added by this file. The invisibility it was compensating for is gone at the
+   source (css/v249.css, css/v250.css), so the rule has no job left.
+   css/v250.css §1 is the guarantee now: no #view content animates from zero. */
 
 /* ── 3 · the preloader leaves quickly ───────────────────────────────────────
    The skeleton in index.html and its layout already exist (css/shivaa.css

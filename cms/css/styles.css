@@ -1875,10 +1875,13 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .rev-stars i:nth-child(1){animation-delay:.05s}.rev-stars i:nth-child(2){animation-delay:.15s}
 .rev-stars i:nth-child(3){animation-delay:.25s}.rev-stars i:nth-child(4){animation-delay:.35s}
 .rev-stars i:nth-child(5){animation-delay:.45s}
-@keyframes starPop{0%{transform:scale(0) rotate(-90deg);opacity:0}70%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1)}}
+@keyframes starPop{0%{transform:scale(.72) rotate(-30deg)}70%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1)}}
 /* review items staggered entrance */
-.rv-item{opacity:0;animation:rvIn .6s var(--ease) forwards}
-@keyframes rvIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+/* v250 — `.rv-item{opacity:0;animation:rvIn … forwards}` hid every review row
+   until its animation ran; with `forward` fill it also covered the case where a
+   row was added late. Rows are visible now and travel into place. */
+.rv-item{opacity:1;animation:rvIn .6s var(--ease)}
+@keyframes rvIn{from{transform:translateY(16px)}to{transform:none}}
 /* star picker: playful */
 .rate-pick span{display:inline-block;transition:transform .2s var(--ease),color .2s,text-shadow .2s;cursor:pointer}
 .rate-pick span:hover{transform:scale(1.35) translateY(-3px);text-shadow:0 4px 14px rgba(212,175,90,.7)}
@@ -1972,8 +1975,11 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .catlog::before,.testi::before,.acct-tile::before{content:'';position:absolute;inset:0;background:radial-gradient(320px 180px at var(--gx,50%) var(--gy,50%),rgba(255,240,200,.28),transparent 60%);opacity:0;transition:opacity .3s;pointer-events:none;z-index:1}
 .catlog:hover::before,.testi:hover::before,.acct-tile:hover::before{opacity:1}
 /* page transition */
-#view{animation:viewIn .45s var(--ease)}
-@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* v250 — `#view{animation:viewIn}` faded the ENTIRE page in from opacity 0 on
+   every render. That is the blink: the screen goes blank, then the page arrives.
+   The view itself is static; the blocks inside it may travel. */
+#view{animation:none}
+@keyframes viewIn{from{transform:translateY(14px)}to{transform:none}}
 /* 3D flip-lite on category mini cards */
 .cat-mini-card{transform-style:preserve-3d;transition:transform .45s var(--ease),box-shadow .3s}
 .cat-mini-card:hover{transform:translateY(-6px) rotateX(7deg) rotateY(-4deg);box-shadow:0 22px 40px -14px rgba(94,21,32,.35)}
@@ -4887,8 +4893,14 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
   transition: opacity .25s var(--ease), transform .25s var(--ease); box-shadow: var(--sh-2);
 }
 #backTop.show { opacity: 1; transform: none; }
-#view > * { animation: viewIn .45s var(--ease) both; }
-@keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* v250 — `#view > * { animation: viewIn .45s ... both }` is the oldest rule in the
+   file and it is the one the owner keeps seeing. Every section of every page
+   started at `opacity: 0` and faded up, and `both` made it invisible BEFORE the
+   animation started too. Each navigation was therefore: screen empty → fade in.
+   The travel stays (it is what makes a page feel composed), the disappearance
+   goes: `viewIn` no longer touches opacity (see the keyframe above). */
+#view > * { animation: viewIn .45s var(--ease); }
+@keyframes viewIn { from { transform: translateY(8px); } to { transform: none; } }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
 
 /* trending / recently viewed strips */

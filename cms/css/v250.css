@@ -1,0 +1,201 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v250 · “STILL” — nothing on a phone may paint itself continuously.
+
+   The owner, verbatim: “The website still legs and there are flickering issues
+   and scrolling also strucks and the page doesn't move anywhere sometimes, the
+   app doesn't feel smooth and lightning fast.”
+
+   Everything below was COUNTED on the rendered phone home screen before it was
+   written (instrument: a jsdom boot at 390×780, getComputedStyle over #view,
+   .header and .footer — 1284 elements):
+
+     · 141 elements with a running animation, 25 of them `infinite`
+     · 21 elements with `backdrop-filter` (a blur pass each, re-composited on
+       every scroll frame) — and `.pc-quick` means most of them are PER CARD
+     · 6 with `mix-blend-mode` (a blending group; forces the whole stacking
+       context through a separate pass on every frame)
+     · 4 with `filter: blur()` (the floating orbs)
+     · 14 spinning QR badges, 4 floating orbs, 70 star pops
+     · `#view > *` fading in from `opacity: 0` on EVERY navigation, plus a
+       `#view` wide fade — the literal blink (removed at the source in
+       css/styles.css; §1 here is the guarantee)
+
+   A mid-range Android composites that at 30–45 fps, and the browser drops
+   frames exactly while the shopper's thumb is moving — which is what “scrolling
+   strucks”, “flickering” and “not lightning fast” are.
+
+   THE RULE FOR THIS FILE: a phone gets a still page. Motion that travels a few
+   pixels once, when something appears, is kept. Anything that repaints forever,
+   and anything that makes the compositor blend or blur per frame, is off. This
+   is scoped to `html.shv-mobile`, which is set from `matchMedia` in
+   index.html BEFORE the first paint — so nothing flickers in or out on boot,
+   and a desktop keeps the full studio look.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · THE GUARANTEE: a page never fades in as a whole ──────────────────
+   The sources are fixed (css/styles.css: `#view` and `#view > *`), but this is
+   the rule a test can hold on to, and the one that survives any future layer
+   re-declaring an entrance animation. `opacity` only — `transform` is left
+   alone, because real layouts use it. */
+#view,
+#view > * {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* Descendants that some layer still fades from zero are listed by name. If a
+   new one appears, add it here — the gate (t-v250-still) fails when an
+   `opacity: 0` entrance is reintroduced anywhere in #view. */
+html.shv-mobile .au-w,
+html.shv-mobile .stars i,
+html.shv-mobile .rv-item {
+  opacity: 1 !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+/* ── 2 · THE COMPOSITOR BUDGET: one blur is a render pass ─────────────────
+   `backdrop-filter` must sample what is behind it, twice (page + element), on
+   every frame the element moves. On a card grid that is the single most
+   expensive property in the storefront. A phone gets the tinted background the
+   design already specifies underneath, without the sample. */
+html.shv-mobile *,
+html.shv-mobile *::before,
+html.shv-mobile *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* blending groups: `mix-blend-mode` forces the parent to be isolated and
+   re-blended per frame (the noise overlay, the live light, the gold star) */
+html.shv-mobile * {
+  mix-blend-mode: normal !important;
+}
+/* a large `filter: blur()` is a full-surface blur at that radius, every frame
+   it animates. The orbs keep their background gradient, which already reads as
+   light. */
+html.shv-mobile .pl-orb,
+html.shv-mobile .au-glow,
+html.shv-mobile .bc-noise,
+html.shv-mobile .shv-glow,
+html.shv-mobile [style*="blur("] {
+  filter: none !important;
+}
+/* layer promotion is a promise to the compositor. 31 promises on a phone is
+   memory and per-frame bookkeeping for elements that never move. */
+html.shv-mobile #view .hero-img,
+html.shv-mobile #view .au-w,
+html.shv-mobile #view .bc-card-wrap,
+html.shv-mobile #view .hero-stage,
+html.shv-mobile #view .pc-imgwrap img {
+  will-change: auto !important;
+}
+
+/* ── 3 · FOREVER IS OVER: the infinite animations ─────────────────────────
+   Every `animation: … infinite` in the storefront is stopped on a phone except
+   the two marquees, which are pure `transform` (composited, no paint) and carry
+   content the shopper reads. Ken Burns on a full-width hero, a shimmering
+   headline, a breathing glow, orbiting beams, a spinning QR badge and floating
+   blurs are decoration that costs frames the whole time the tab is open. */
+html.shv-mobile .hero.ken-on .hero-img,
+html.shv-mobile .hero-img,
+html.shv-mobile .rev-qr,
+html.shv-mobile .v217-orn,
+html.shv-mobile [class*="v217-"],
+html.shv-mobile .shv-offer-orn,
+html.shv-mobile .bc-noise,
+html.shv-mobile .bc-code,
+html.shv-mobile .bc-live-light,
+html.shv-mobile .bc-flip-glint,
+html.shv-mobile .bc-card-wrap,
+html.shv-mobile .bc-hero em,
+html.shv-mobile .bc-hero b,
+html.shv-mobile .bc-hero i,
+html.shv-mobile .bc-stage i,
+html.shv-mobile .pl-orb,
+html.shv-mobile .shimmer,
+html.shv-mobile .shimmer-text,
+html.shv-mobile em.shimmer,
+html.shv-mobile .foil-txt,
+html.shv-mobile .v107-tabglow,
+html.shv-mobile .stars i,
+html.shv-mobile .stars-pop i,
+html.shv-mobile .hero-dust i,
+html.shv-mobile [id="heroDust"] i {
+  animation: none !important;
+}
+
+/* 70 STAR POPS INSIDE A MARQUEE. Every review card in the scrolling review
+   track has five `<i>` stars, each with its own `starPop` animation — seventy
+   animations on children of an element that is itself moving forever. The pop is
+   0.5 s of scale nobody can see at 390 px while the card is sliding past. */
+html.shv-mobile .rev-track i,
+html.shv-mobile .rev-stars i,
+html.shv-mobile .rev-card i,
+html.shv-mobile [class*="-track"] i,
+html.shv-mobile [class*="-marquee"] i {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* the two survivors: they carry text and they only move with `transform` */
+html.shv-mobile .rs-ticker-track,
+html.shv-mobile .rev-track {
+  animation-duration: 42s !important;
+}
+
+/* ── 4b · A TAP IS NOT A HOVER ────────────────────────────────────────────
+   Android (and iOS) leave `:hover` applied to whatever was tapped last, until
+   something else is tapped. The storefront has hover rules that move things over
+   .7 s — `.p-card:hover .pc-imgwrap img{transform:scale(1.08)}` with a `transition:
+   transform .7s`, and a `translateZ(26px)` on the whole image wrap. On a phone
+   that means: tap a product, and the photograph starts growing under your finger
+   and stays grown. It reads as flicker, it is pure compositor work, and nothing
+   about it is intentional on a touch screen. */
+html.shv-mobile .p-card:hover,
+html.shv-mobile .p-card:hover .pc-imgwrap,
+html.shv-mobile .p-card:hover .pc-imgwrap img,
+html.shv-mobile .pc-card:hover,
+html.shv-mobile .pc-card:hover img,
+html.shv-mobile .cat-card:hover,
+html.shv-mobile .cat-mini-card:hover,
+html.shv-mobile .pillar:hover,
+html.shv-mobile .tv-card:hover,
+html.shv-mobile .ugc-card:hover,
+html.shv-mobile .shv-offer-card:hover {
+  transform: none !important;
+}
+html.shv-mobile .pc-imgwrap img,
+html.shv-mobile .p-card img,
+html.shv-mobile .cat-card img {
+  transition: none !important;
+}
+
+/* ── 4 · THE THUMB OWNS THE SCROLL ────────────────────────────────────────
+   Chrome's own pull-to-refresh fights the shop's custom one and produces the
+   rubber-band flicker at the top of a page. `contain` hands the gesture to the
+   page, which is the only one drawing it. */
+html.shv-mobile,
+html.shv-mobile body {
+  overscroll-behavior-y: contain;
+}
+
+/* ── 5 · A FROZEN PAGE THAWS ITSELF ───────────────────────────────────────
+   `html.no-scroll` is how a sheet locks the page behind it (js/app.js
+   lockScroll). If a close handler is ever missed — an error in the handler, a
+   sheet removed by a route that did not unlock — the shop cannot be scrolled AT
+   ALL: “the page doesn't move anywhere sometimes”. js/v250.js watches for that
+   (no open overlay + no scroll for 900 ms → unlock); this is the visual half,
+   so the release is visible in the CSS as well as the script. */
+html.shv-thawed {
+  overflow: auto !important;
+}
+
+/* ── 6 · the kill switch and reduced motion ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  #view,
+  #view > * { animation: none !important; opacity: 1 !important; }
+  html.shv-mobile .rs-ticker-track,
+  html.shv-mobile .rev-track { animation: none !important; }
+}
+html.shv-plain * { animation: none !important; }

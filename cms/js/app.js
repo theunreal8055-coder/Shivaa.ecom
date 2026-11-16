@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 249;
+const APP_REL = 250;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -55,6 +55,21 @@ function lockScroll() {
   if (_scrollLock.n === 0) { _scrollLock.save = document.documentElement.style.overflow || ''; document.documentElement.classList.add('no-scroll'); }
   _scrollLock.n++;
 }
+/* v250 — THE PAGE THAT WILL NOT MOVE.
+   lockScroll/unlockScroll is a counter, and every sheet, drawer, modal and
+   lightbox has to release it on close. One missed release (an error inside a
+   close handler, a sheet torn out by a route, a double-close) leaves `n > 0` and
+   `html.no-scroll` set with nothing open: the shop cannot be scrolled at all and
+   taps look dead. js/v250.js watches for exactly that shape and calls this.
+   Nothing else in the app may assume the lock is balanced. */
+function forceUnlockScroll() {
+  _scrollLock.n = 0;
+  document.documentElement.classList.remove('no-scroll');
+  document.documentElement.classList.add('shv-thawed');
+  document.documentElement.style.overflow = _scrollLock.save || '';
+  setTimeout(() => document.documentElement.classList.remove('shv-thawed'), 1200);
+}
+
 function unlockScroll() {
   _scrollLock.n = Math.max(0, _scrollLock.n - 1);
   if (_scrollLock.n === 0) document.documentElement.classList.remove('no-scroll');
@@ -5414,13 +5429,32 @@ function wireShopPullToRefresh(view, apply) {
     status.setAttribute('aria-hidden', visible ? 'false' : 'true');
     if (label) label.textContent = text;
   };
-  const resetGesture = () => { tracking = false; distance = 0; };
+  /* v250 — THE SCROLL KILLER. This listener was registered `{ passive: false }`
+     on #view for the whole life of the shop page, and it is the only non-passive
+     touchmove in the entire storefront. A non-passive touchmove tells the
+     browser “wait for JavaScript before you move the page”, on EVERY frame of
+     every gesture, over the largest element on the screen. On a phone that is
+     the difference between a page that follows the thumb and a page that lags
+     behind it — the owner's “scrolling also strucks … the page doesn't move
+     anywhere sometimes”. It is now attached only while a pull is actually in
+     progress (at the top of the page, one finger, after the start edge), and
+     removed the moment the finger leaves. Read-only scrolling costs the main
+     thread nothing at all: no touchmove listener exists during it. */
+  let moveOn = false;
+  const armMove = on => {
+    if (on === moveOn) return;
+    moveOn = on;
+    if (on) view.addEventListener('touchmove', onMove, { passive: false });
+    else view.removeEventListener('touchmove', onMove);
+  };
+  const resetGesture = () => { tracking = false; distance = 0; armMove(false); };
   const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 2;
   const onStart = e => {
     if (!e.touches || e.touches.length !== 1 || !atTop() || refreshing) return;
     if (e.target && e.target.closest && e.target.closest('#shopRefresh,input,select,textarea,[contenteditable="true"],.filters.open,.modal-overlay.open')) return;
     startY = e.touches[0].clientY; startX = e.touches[0].clientX;
     distance = 0; tracking = true;
+    armMove(true);          /* only now can a scroll possibly be a pull */
   };
   const onMove = e => {
     if (!tracking || !e.touches || e.touches.length !== 1) return;
@@ -5469,13 +5503,12 @@ function wireShopPullToRefresh(view, apply) {
   }
   button.addEventListener('click', refresh);
   view.addEventListener('touchstart', onStart, { passive: true });
-  view.addEventListener('touchmove', onMove, { passive: false });
   view.addEventListener('touchend', onEnd, { passive: true });
   view.addEventListener('touchcancel', onCancel, { passive: true });
   view._shopPullCleanup = () => {
     button.removeEventListener('click', refresh);
     view.removeEventListener('touchstart', onStart);
-    view.removeEventListener('touchmove', onMove);
+    armMove(false);
     view.removeEventListener('touchend', onEnd);
     view.removeEventListener('touchcancel', onCancel);
     setStatus('Pull to refresh', false);
@@ -12141,6 +12174,7 @@ Object.assign(window.Shivaa, {
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
   softCatalogue,   // v249 — a data refresh patches prices, never repaints the page
+  forceUnlockScroll,   // v250 — the page that will not move
   openCart, closeCart, renderMiniCart, flyToBag,
 });
 /* ─────────── v99 · STAFF-ONLY BUNDLE, LOADED ON DEMAND ───────────

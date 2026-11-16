@@ -4,15 +4,15 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 250,
+  "next_release": 251,
   "live": {
-    "release": 249,
-    "title": "Steady",
+    "release": 250,
+    "title": "Still",
     "since": "2026-11-12",
     "confirmed_by": null,
-    "owner_words": "Screen blinks and still slow loading, fix this in the next update",
+    "owner_words": "The website still legs and there are flickering issues and scrolling also strucks and the page doesn't move anywhere sometimes, the app doesn't feel smooth and lightning fast",
     "deployed_build": 244,
-    "note": "v249 answers the blink and the bytes. BLINK — (1) nothing that is content may start at opacity:0 and fade in: the route rise, the .rv reveals, the review rows and the picture fade all lost their invisible first keyframe (css/v249.css keeps motion, it just travels instead of fading up); (2) no second full render: when the first paint already showed real products, the late boot batch is adopted (state + .js-price patch + rates event) instead of calmBoot() rewriting #view — that second render was the blink AND the duplicate download; js/v166.js's background catalogue repair does the same via Shivaa.softCatalogue() instead of redraw(); (3) the splash is never painted for a device that already holds the catalogue — index.html sets html.shv-warm from localStorage before the first frame; (4) the warm paint cap drops 700 -> 250 ms. SLOW LOADING — app.js and rel.js are minified by tools/build-min.mjs with a sha256 banner that check-handoff verifies (a stale min is a red gate): 1,282,512 B -> 787,267 B raw (-39 %), 383 KB -> 243 KB gzip, and ~40 % less to parse. Also: a programmatic render cannot land under a thumb (Shivaa.redraw is deferred to the next calm frame), and Shivaa.v249.report() counts unasked repaints so the next report can say 'the view was replaced twice without a tap'. Gates: new qa/browser/t-v249-steady.mjs (36 checks, incl. a seeded warm boot with a 1.2 s API proving zero re-renders) — 413 browser checks in total, 0 red; check-handoff green."
+    "note": "v250 measures the phone's compositor instead of guessing. On the rendered 390x780 home screen (1284 elements) it found and removed: 21 backdrop-filter render passes (one per card button), 6 mix-blend-mode blending groups, 4 full-surface blur filters, 31 layer promotions and 25 animations that never stop (14 spinning QR badges, 4 floating blurs, orbiting beams, a breathing glow, 70 star pops inside a moving marquee). After: animated 141 -> 15, infinite 25 -> 2 (the two transform-only marquees), blur 0, blend 0, filter-blur 0, promoted 0 — scoped to html.shv-mobile, set during parsing, so a desktop keeps every one of them (asserted in the gate). FLICKER: v248's own 'cut every animation while html.shv-scrolling' rule was the flicker — the class toggles at the first scroll event of every gesture, so animations were cut and restarted; retired. BLINK: the real culprit was older than v248/v249 — `#view > *{animation:viewIn .45s both}` and `#view{animation:viewIn}` faded every page (and the whole view) in from opacity 0 on every render, and `.rv-item`, `v210Rise`, `v211Rise`, `starPop` all started at zero opacity; fixed at the source in css/styles.css / v210 / v211 plus a `#view,#view > *` guarantee. SCROLL: the shop page held the storefront's ONLY non-passive touchmove listener on #view (pull to refresh) for its whole life — every frame of every gesture waited on the main thread; it is armed only while a pull is in progress. Plus overscroll-behavior-y:contain so Chrome's own pull-to-refresh stops fighting it, and hover transforms that stick after a tap are neutralised on phones. PAGE THAT WILL NOT MOVE: lockScroll is a counter; one missed release left html.no-scroll set with nothing open, so the shop could not be scrolled at all. js/v250.js watches for that shape (visible overlay check, not a class list) and hands the page back via Shivaa.forceUnlockScroll(). Instrument: Shivaa.v250.audit() / .report() count what the phone is compositing right now. Gates: new qa/browser/t-v250-still.mjs (34) — 447 browser checks, 0 red."
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -52,6 +52,12 @@
       "title": "Steady",
       "since": "2026-11-12",
       "note": "no content animates in from opacity 0; the late batch is adopted instead of repainting; the curtain is not painted on a warm device; the JS pair is minified (-39 % raw, -41 % gzip) with a verified fingerprint; Shivaa.v249.report()"
+    },
+    {
+      "release": 250,
+      "title": "Still",
+      "since": "2026-11-12",
+      "note": "phone compositor budget (blur/blend/filter/layer-promotion/infinite-motion) 141 -> 15 animated, 25 -> 2 infinite; the viewIn blink fixed at the source; the non-passive touchmove removed; a frozen page unlocks itself; Shivaa.v250.audit()"
     }
   ],
   "releases": [
@@ -417,6 +423,21 @@
       "files": 767,
       "bytes": 45302852,
       "sha256": "b165432761e840e7b9d4e76dfcb56e0d2a76b983c9923ef67905efdb0cb6a365",
+      "status": "superseded",
+      "deployed": null,
+      "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",
+      "layer": null,
+      "superseded_by": 250,
+      "note": "handed over 12 Nov 2026, not confirmed installed; the owner then reported \"still legs and flickering, scrolling strucks, the page doesn't move anywhere sometimes\""
+    },
+    {
+      "release": 250,
+      "commit": null,
+      "title": "Still",
+      "zip": "shivaa-update-v250.zip",
+      "files": 769,
+      "bytes": 45317152,
+      "sha256": "0b96fcf2d7604090fb73d3f222e381fca9ccdab8f309a7d5944d09bedc295537",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",

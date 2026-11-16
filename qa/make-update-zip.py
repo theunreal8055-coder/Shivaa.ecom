@@ -110,6 +110,10 @@ ADDED = {
     # MINIFIED files index.html now loads (tools/build-min.mjs). The sources stay
     # in the package: a rollback is two script tags, and every QA gate reads them.
     249: ['js/v249.js', 'js/app.min.js', 'js/rel.min.js'],
+    # v250 "still" — one js layer, one css layer (auto-detected). The minified
+    # pair is rebuilt (`node tools/build-min.mjs`) and its fingerprint is checked
+    # by qa/check-handoff.py, so it rides along.
+    250: ['js/v250.js'],   # the minified pair rides forward from the v249 list
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)
