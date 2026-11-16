@@ -78,12 +78,12 @@ by the polish. MEDIA stays at v168.
    cache keeps more entries because thumbnails are small: same megabytes, far
    more of the shop stays warm on a cheap phone. No route, no price, no money
    path changed. */
-const SHELL = 'shivaa-shell-v250';
+const SHELL = 'shivaa-shell-v251';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 250;
+const REL = 251;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -106,14 +106,14 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = [
-  '/css/shivaa.css?v=250', '/',
+  '/css/shivaa.min.css?v=251', '/',
   '/index.html',
-  '/js/app.min.js?v=250', '/js/rel.min.js?v=250', 
-  '/js/motion.js?v=250',
-  '/js/aurum.js?v=250', '/js/boost.js?v=250',
+  '/js/app.min.js?v=251', '/js/rel.min.js?v=251', 
+  '/js/motion.js?v=251',
+  '/js/aurum.js?v=251', '/js/boost.js?v=251',
   
-  '/fonts/jost.woff2?v=250', '/fonts/cormorant-garamond.woff2?v=250', '/fonts/marcellus-400.woff2?v=250',
-  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=250',
+  '/fonts/jost.woff2?v=251', '/fonts/cormorant-garamond.woff2?v=251', '/fonts/marcellus-400.woff2?v=251',
+  '/desk.html', '/desk.webmanifest', '/js/v234.js?v=251',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];

@@ -1,18 +1,33 @@
 # NEXT CHAT HEAD — read this first
 
-> **CURRENT STATE — v250 “Still” PACKAGED, AWAITING THE OWNER'S YES (12 Nov 2026).**
-> The only zip to install: **`shivaa-update-v250.zip`** — **769 files · 45,317,152 B ·
-> `0b96fcf2d7604090fb73d3f222e381fca9ccdab8f309a7d5944d09bedc295537`**.
-> It contains v237–v249, so **one upload brings the shop fully up to date.**
-> **Next release number: v251.** Branch: `arena/95be65a4-shivaa-ecom`.
-> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/95be65a4-shivaa-ecom/shivaa-update-v250.zip`
+> **CURRENT STATE — v251 “Alive” PACKAGED, AWAITING THE OWNER'S YES (16 Nov 2026).**
+> The only zip to install: **`shivaa-update-v251.zip`** — **772 files · 45,504,067 B ·
+> `c03ff713453d3d2c7c3ed2c93168419f8d6b5eb06b3927471eb22a81c4fa60fa`**.
+> It contains v237–v250, so **one upload brings the shop fully up to date.**
+> **Next release number: v252.** Branch: `arena/95be65a4-shivaa-ecom`.
+> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/95be65a4-shivaa-ecom/shivaa-update-v251.zip`
+
+> **v251 in one paragraph.** The owner: *“The app should feel more live and smooth and the smoothness must be on
+> the next level, it should load faster and without decreasing the quality.”* v250 had taken the phone's
+> continuous animation away and, with it, every sign that the shop is alive. v251 gives the sign back out of a
+> budget a phone can spare — transform and opacity, answered by an event, never running on its own — and makes
+> the page smaller on the way in **without touching what it looks like**: `index.html` now loads
+> `css/shivaa.min.css` (965,451 → 876,841 B), written by a new `tools/build-css-min.mjs` that **refuses to write
+> a sheet that is not structurally identical** to the readable bundle (8,758 effective rules compared with their
+> media context, 9 `@font-face`, 264 `@keyframes`, `restructure:false` so no rule is ever merged or moved).
+> Press on every tappable surface (90 ms, `scale(.977)`, `filter` removed), a pending price that breathes, a
+> 6 px live dot on the utility strip, the first row settling 24 ms apart, the bag badge popping, a gold hairline
+> sweeping when a fresh rate lands, and a 2 px read bar filling to the shopper's place in the page — transform
+> only, one rAF per scroll frame, page height measured **off** the scroll path. `decoding="async"` on all 43
+> image templates. On a settled page exactly **one** of the live signals is running. New instrument:
+> `Shivaa.v251.report()` → `alive 251 · phone · live pulses 1 · pending prices 0 · sync-decode fixups 0 · page 0%`.
 
 > **BRANCH WARNING.** Work on `arena/95be65a4-shivaa-ecom` only. The `release_branch` field inside
 > `docs/release-ledger.json` still says `arena/e8a470c6-shivaa-ecom` for the twin tree — do **not** switch
 > to it, do not create a branch, do not force-push. Forward-only.
 
 > **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD, then `python3 qa/check-handoff.py` and
-> `node qa/browser/t-v250-still.mjs` (34).
+> `node qa/browser/t-v251-alive.mjs` (46) and `node qa/browser/t-v250-still.mjs` (34).
 
 ---
 
@@ -57,6 +72,14 @@ this. **No rule in this release was written before it was measured.** If the own
 - **Never switch animations off inside a class that toggles with a gesture** — cutting and restarting is a flicker.
 - **A phone gets no `backdrop-filter`, no `mix-blend-mode`, no `filter: blur()`, no never-ending animation.**
   Scope the look to `html.shv-mobile` (set during parsing) and let the desktop keep it.
+- **The stylesheet ships minified, and only through its proof.** `cms/css/shivaa.min.css` is written by
+  `node tools/build-css-min.mjs`, which compares the minified sheet with `cms/css/shivaa.css` rule by rule
+  (selector **and** media context, `@font-face` count, `@keyframes` names) and exits 1 rather than write a sheet
+  that differs. Never hand-edit either file, never switch csso to `restructure: true` (it merges and moves
+  rules), and never delete the proof to make it pass — normalise the comparison instead (comma-space,
+  attribute quoting, `*` implied before a combinator or a pseudo, empty `@media` blocks).
+- **Never read `scrollHeight` inside a scroll handler.** v251's read bar measures the page on resize and after a
+  route; reading layout in the scroll path is how a smoothness feature becomes the jank it answered.
 - **Bundles are generated**: `build-js-bundle.py --write`, `build-css-bundle.py --write`, then **always**
   `node tools/build-min.mjs` (and commit `app.min.js` + `rel.min.js`; the sha256 banner is a gate).
 - **Never write `images[0]` into `src=`** — every picture goes through `thumbAttrs()`.

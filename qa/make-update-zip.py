@@ -114,6 +114,11 @@ ADDED = {
     # pair is rebuilt (`node tools/build-min.mjs`) and its fingerprint is checked
     # by qa/check-handoff.py, so it rides along.
     250: ['js/v250.js'],   # the minified pair rides forward from the v249 list
+    # v251 "alive" — one js layer, one css layer (auto-detected) and the
+    # MINIFIED STYLESHEET index.html now loads (tools/build-css-min.mjs). Same
+    # deal as the minified scripts: cms/css/shivaa.css ships beside it, so a
+    # rollback is one <link> tag.
+    251: ['js/v251.js', 'css/shivaa.min.css'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

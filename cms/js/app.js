@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 250;
+const APP_REL = 251;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -1819,7 +1819,7 @@ function finaleHomeBand() {
     <div class="container fb-wrap">
       <div class="fb-art">
         <div class="shv-poster-img-frame" style="max-width:280px">
-          <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g Gold Biscuit" loading="lazy">
+          <img decoding="async" src="/images/banners/gold-biscuit-campaign.jpg" alt="10g Gold Biscuit" loading="lazy">
         </div>
         <i class="fin-spark" style="top:10%;left:12%;animation-delay:-.4s">✦</i>
         <i class="fin-spark" style="bottom:14%;right:10%;animation-delay:-1.6s;font-size:12px">✦</i>
@@ -1950,7 +1950,7 @@ function finaleLanding() {
           </div>
           <div class="shv-poster-art">
             <div class="shv-poster-img-frame">
-              <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit" loading="eager">
+              <img decoding="async" src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit" loading="eager">
               <div class="shv-poster-img-badge">✦ 10g 24K Bullion · Certified</div>
             </div>
             ${finaleBarArt()}
@@ -2040,7 +2040,7 @@ function finaleLanding() {
           <!-- Gents / Male Card -->
           <div class="shv-gender-card" onclick="Shivaa.setSchemeStep('products', 'gents')">
             <div class="shv-gender-img-wrap">
-              <img src="/images/banners/gender-gents-gold.jpg" alt="Gents Gold Studs" loading="lazy">
+              <img decoding="async" src="/images/banners/gender-gents-gold.jpg" alt="Gents Gold Studs" loading="lazy">
               <span class="shv-gender-ribbon">✦ GENTS / MALE COLLECTION</span>
             </div>
             <div class="shv-gender-content">
@@ -2060,7 +2060,7 @@ function finaleLanding() {
           <!-- Ladies / Female Card -->
           <div class="shv-gender-card" onclick="Shivaa.setSchemeStep('products', 'ladies')">
             <div class="shv-gender-img-wrap">
-              <img src="/images/banners/gender-ladies-gold.jpg" alt="Ladies Gold Studs" loading="lazy">
+              <img decoding="async" src="/images/banners/gender-ladies-gold.jpg" alt="Ladies Gold Studs" loading="lazy">
               <span class="shv-gender-ribbon">✦ LADIES / FEMALE COLLECTION</span>
             </div>
             <div class="shv-gender-content">
@@ -3407,7 +3407,7 @@ const emptyShell = (crumb, title, inner) => `
 const signInGate = (view, next, title, blurb) => {
   if (!view) return;
   view.innerHTML = emptyShell(title, title, `<div class="adm-card" style="max-width:520px;margin:0 auto;text-align:center">
-    <img src="/images/logo.png" style="height:42px;margin:0 auto 12px" alt="Shivaa">
+    <img decoding="async" src="/images/logo.png" style="height:42px;margin:0 auto 12px" alt="Shivaa">
     <p style="color:var(--ink-2);font-size:14.5px;line-height:1.7;margin-bottom:18px">${blurb}</p>
     <button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin(${jsArg(next || '')})">Sign in with mobile OTP ✦</button>
     <p style="margin-top:12px;font-size:12.5px;color:var(--ink-3)">Jeweller? Use the partner door in the same sheet (email + password).</p>
@@ -3624,7 +3624,7 @@ window.Shivaa.openBillFile = async (btn, billId, index, mode) => {
       return;
     }
     if (/^image\//.test(ctype)) {
-      openModal(`<img class="bill-view-img" src="${url}" alt="Your Shivaa in-store purchase bill">`, 'bill-view');
+      openModal(`<img decoding="async" class="bill-view-img" src="${url}" alt="Your Shivaa in-store purchase bill">`, 'bill-view');
       return;
     }
     toast('This file cannot be previewed here — use Download instead.', 'err');
@@ -3721,7 +3721,7 @@ pages.privacy = async (view) => {
     </div>
 
     <div class="priv-hero-card">
-      <img src="/images/logo.png" class="priv-logo" alt="Shivaa">
+      <img decoding="async" src="/images/logo.png" class="priv-logo" alt="Shivaa">
       <div>
         <span class="label">The promise</span>
         <h2>Jewellery is personal. So is your data.</h2>
@@ -4301,7 +4301,7 @@ function blackCardVisual(card = null, opts = {}) {
     <div class="bc-card${backFirst ? ' is-flipped' : ''}" aria-label="Shivaa Black card${backFirst ? ', reverse face' : ''}">
       <span class="bc-face bc-front" data-bc-face="front" aria-hidden="${backFirst ? 'true' : 'false'}">
         <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span><span class="bc-live-light" aria-hidden="true"></span><span class="bc-micro-grid" aria-hidden="true"></span>
-        <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
+        <span class="bc-top"><span class="bc-brand"><img decoding="async" src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
         <span class="bc-holo-seal" aria-hidden="true"><b>S</b><small>MEMBER</small></span>
         <span class="bc-benefit"><b>${blackPct()}<span>%</span></b><small>OFF MAKING<br>CHARGES</small></span>
         <span class="bc-code-label">MEMBER · COUPON CODE</span>
@@ -5058,7 +5058,7 @@ pages.home = async (view) => {
 
   <section class="container" style="padding-bottom:70px">
     <div class="banner rv bc-home-final" style="min-height:280px">
-      <img src="/images/banners/b2b-bullion.jpg" alt="Shivaa Black permanent member locker" loading="lazy">
+      <img decoding="async" src="/images/banners/b2b-bullion.jpg" alt="Shivaa Black permanent member locker" loading="lazy">
       <div class="b-fade"></div>
       <div class="b-body">
         <span class="label">Shivaa Black · yours whenever you return</span>
@@ -5289,7 +5289,7 @@ pages.amrita = async (view) => {
     <div class="am-wrap" id="amRoot">
       <div class="am-glow" aria-hidden="true"></div>
       <div class="am-inner">
-        <div class="am-brand"><img src="/images/logo.png" alt="Shivaa" loading="lazy"><span>Shivaa &middot; Jayal</span></div>
+        <div class="am-brand"><img decoding="async" src="/images/logo.png" alt="Shivaa" loading="lazy"><span>Shivaa &middot; Jayal</span></div>
         ${AM.err ? `<p class="am-msg bad" id="amMsg">${esc(AM.err)}</p>` : `<p class="am-msg" id="amMsg"></p>`}
         ${body}
         <p class="am-foot">Made for one guest, for a few days. Nothing here is shared with anyone else.</p>
@@ -5656,9 +5656,9 @@ pages.shop = async (view, q) => {
         shopSlice();               /* v119 — first slice now, the rest as the shopper scrolls */
         shopSentinelWatch();
       } else {
-        let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+        let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
         if (f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
-          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 77 signature rings</a></div></div>`;
+          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 77 signature rings</a></div></div>`;
         }
         if (state.shop.observer) { try { state.shop.observer.disconnect(); } catch (e) {} state.shop.observer = null; }
         if (grid) grid.innerHTML = emptyHtml;
@@ -5761,7 +5761,7 @@ pages.product = async (view, q, id) => {
           <div class="gal-track" id="galTrack">
             ${(p.video ? [videoCanAutoload()
                 ? `<div class="gal-slide gal-vid on"><video src="${safeUrl(p.video) || ''}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`
-                : `<div class="gal-slide gal-vid on"><button type="button" class="gal-vid-load" data-video="${safeUrl(p.video) || ''}" data-poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}" aria-label="Play the 360-degree film"><img src="${safeUrl(p.images && p.images[0]) || ''}" alt="" draggable="false"><span class="gal-vid-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="gal-vid-tag">▶ Tap to load 360° film · saves mobile data<small class="gal-vid-always" role="button" tabindex="0" onclick="event.stopPropagation();Shivaa.setVideoAutoload(true);this.closest('.gal-vid-load').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Always load films automatically</small></span></button></div>`
+                : `<div class="gal-slide gal-vid on"><button type="button" class="gal-vid-load" data-video="${safeUrl(p.video) || ''}" data-poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}" aria-label="Play the 360-degree film"><img decoding="async" src="${safeUrl(p.images && p.images[0]) || ''}" alt="" draggable="false"><span class="gal-vid-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="gal-vid-tag">▶ Tap to load 360° film · saves mobile data<small class="gal-vid-always" role="button" tabindex="0" onclick="event.stopPropagation();Shivaa.setVideoAutoload(true);this.closest('.gal-vid-load').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Always load films automatically</small></span></button></div>`
               ] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"${!p.video && i === 0 ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"'}></div>`)).join('')}
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
@@ -5860,7 +5860,7 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
           ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
-            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img src="${safeUrl(src)}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img decoding="async" src="${safeUrl(src)}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
             ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
           </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
           <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,${jsArg(p.id)})">
@@ -6604,7 +6604,7 @@ pages.compare = async (view, q) => {
     view.innerHTML = `
     <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
       <p>Add up to four pieces from product cards or product pages. The comparison uses only live prices and product details already shown on Shivaa.</p></div></section>
-    <div class="empty pcmp-empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Your compare tray is empty</h2><p style="margin:10px 0 22px;color:var(--ink-3)">Tap “Compare” on any piece to build a private shortlist on this device.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
+    <div class="empty pcmp-empty"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h2>Your compare tray is empty</h2><p style="margin:10px 0 22px;color:var(--ink-3)">Tap “Compare” on any piece to build a private shortlist on this device.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
     updateCompareUI();
     return;
   }
@@ -6633,7 +6633,7 @@ pages.compare = async (view, q) => {
     <div class="pcmp-grid" role="list">
       ${items.map(p => { const pr = price(p); return `<article class="pcmp-card" role="listitem">
         <button type="button" class="pcmp-remove" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
-        <a href="#/product/${p.id}" class="pcmp-img"><img src="${safeUrl(p.images && p.images[0])}" alt="${esc(p.name)}"></a>
+        <a href="#/product/${p.id}" class="pcmp-img"><img decoding="async" src="${safeUrl(p.images && p.images[0])}" alt="${esc(p.name)}"></a>
         <div class="pcmp-card-body">
           <span class="label">${esc(CATS[p.category]?.name || p.category)}</span>
           <h3><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
@@ -6719,7 +6719,7 @@ function laterSectionHTML() {
     <div class="sec-title" style="margin:22px 0 10px">Saved for later · ${l.length}</div>
     <div class="cart-items">${l.map(({ p, size, qty }) => `
       <div class="cart-item">
-        <a href="#/product/${p.id}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
+        <a href="#/product/${p.id}"><img decoding="async" src="${safeUrl(p.images && p.images[0])}" alt=""></a>
         <div>
           <a href="#/product/${p.id}" class="ci-name">${esc(p.name)}</a>
           <div class="ci-meta">${p.metal === 'Silver' ? 'Silver 925' : esc(p.purity || '') + ' gold'} · ${p.weightG} g${size ? ' · size ' + esc(size) : ''} · qty ${qty}</div>
@@ -6734,7 +6734,7 @@ pages.cart = async (view) => {
   ensureCampaignStuds();
   const laterHTML = laterSectionHTML();
   if (!state.cart.length) {
-    view.innerHTML = emptyShell('Cart', 'Your Cart', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Your cart awaits its sparkle</h2><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML);
+    view.innerHTML = emptyShell('Cart', 'Your Cart', `<div class="empty" style="padding:70px 20px"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h2>Your cart awaits its sparkle</h2><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML);
     return;
   }
   const items = state.cart.map(c => {
@@ -6756,7 +6756,7 @@ pages.cart = async (view) => {
       <div class="cart-items">
         ${lines.map(({ it, pr }) => `
         <div class="cart-item">
-          <a href="#/product/${it.p.id}"><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
+          <a href="#/product/${it.p.id}"><img decoding="async" src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
           <div>
             <a href="#/product/${it.p.id}" class="ci-name">${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : esc(it.p.purity || '') + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
@@ -6777,7 +6777,7 @@ pages.cart = async (view) => {
       ${laterHTML}
     </div>
     <div class="summary">
-      <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
+      <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img decoding="async" src="/images/logo.png" alt=""></div>
       ${blackCommerceHTML(makingSubtotal, '#/cart', 'this bag')}
       <h3>Order Summary</h3>
       <div class="sum-row"><span>Subtotal (${cartCount()} items, incl. GST)</span><b data-cart-sub>${fmt(subtotal)}</b></div>
@@ -6931,7 +6931,7 @@ function miniCartHTML() {
       ${lines.map((it, i) => {
         const pr = price(it.p);
         return `<div class="mc-line" style="--i:${i}">
-          <a href="#/product/${it.p.id}" data-mc-close><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
+          <a href="#/product/${it.p.id}" data-mc-close><img decoding="async" src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
           <div class="mc-line-tx">
             <a href="#/product/${it.p.id}" class="ci-name" data-mc-close>${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : esc(it.p.purity || '') + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved' : ''}</div>
@@ -7354,7 +7354,7 @@ pages.checkout = async (view) => {
     </div>
 
     <div class="summary">
-      <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
+      <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img decoding="async" src="/images/logo.png" alt=""></div>
       <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
@@ -7784,7 +7784,7 @@ function upiPaySheet(po, orderId) {
     const note = encodeURIComponent('Shivaa order ' + orderId);
     const upiUri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt.toFixed(2)}&cu=INR&tn=${note}&tr=${encodeURIComponent(orderId)}`;   // v107 — merchant txn ref, UPI apps echo it back
     openModal(`<div class="pay-sheet">
-      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Pay by any UPI app</b><small>GPay · PhonePe · Paytm · BHIM</small></div></div>
+      <div class="ps-head"><img decoding="async" src="/images/logo.png" alt=""><div><b>Pay by any UPI app</b><small>GPay · PhonePe · Paytm · BHIM</small></div></div>
       <div class="ps-amt">${fmt(amt)}</div>
       ${upiQRSvg(upiUri)}
       <div class="ps-upiid"><span>UPI ID</span><b>${esc(pa)}</b><button type="button" class="btn btn-ghost btn-sm" id="psCopyUpi">⧉ copy</button></div>
@@ -7824,7 +7824,7 @@ function demoPaySheet(po, orderId) {
       ? `<div class="ps-tabs"><button type="button" class="ps-tab on" data-tab="card">💳 Card / net-banking <small>demo</small></button><button type="button" class="ps-tab" data-tab="upi">⌖ UPI QR <small>real payment</small></button></div>`
       : '';
     openModal(`<div class="pay-sheet">
-      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Shivaa · secure payment</b><small>${po.upiId ? 'UPI QR is live · cards in demo' : 'DEMO GATEWAY — no real charge'}</small></div></div>
+      <div class="ps-head"><img decoding="async" src="/images/logo.png" alt=""><div><b>Shivaa · secure payment</b><small>${po.upiId ? 'UPI QR is live · cards in demo' : 'DEMO GATEWAY — no real charge'}</small></div></div>
       <div class="ps-amt">${fmt(amt)}</div>
       ${tabs}
       <div id="psCardPane">
@@ -8360,7 +8360,7 @@ pages.order = async (view, q, id) => {
   <div style="min-height:70vh;display:flex;align-items:center;padding:60px 0">
     <div class="container" style="max-width:860px">
       <div class="center rv in">
-        <img src="/images/logo.png" class="order-logo" alt="Shivaa">
+        <img decoding="async" src="/images/logo.png" class="order-logo" alt="Shivaa">
         <div style="font-size:34px;margin-bottom:8px;color:var(--gold)">✦</div>
         <span class="label">Order placed</span>
         <h1 style="font-size:42px">${(() => {
@@ -8580,7 +8580,7 @@ pages.account = async (view, q) => {
           return `<span class="ms-step ${hit ? 'done' : ''}" title="${key}">${ic}</span>`;
         }).join('')}</div>`}
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        ${o.items.map(i => `<img src="${safeUrl(i.img)}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
+        ${o.items.map(i => `<img decoding="async" src="${safeUrl(i.img)}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
           <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail(${jsArg(o.id)})">Details</a>
           <a class="btn btn-outline btn-sm" rel="noopener" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
           <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
@@ -8704,7 +8704,7 @@ pages.wishlist = async (view) => {
       </div>
     </div>
     <div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
-    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Nothing saved yet</h2><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+    : `<div class="empty"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h2>Nothing saved yet</h2><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
   if (items.length) {
     const ids = items.map(p => p.id).join(',');
@@ -8742,7 +8742,7 @@ pages.giftlist = async (view, q) => {
         <a class="btn btn-gold btn-lg" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦\n\nI would like to gift a piece from ' + (by || 'a') + '’s Shivaa gift registry: ' + location.href)}">💝 Talk to the wedding &amp; gifting desk</a>
         <a class="btn btn-ghost" href="#/shop">Create your own registry</a>
       </div>`
-    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>This registry is empty</h2><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+    : `<div class="empty"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h2>This registry is empty</h2><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -8977,7 +8977,7 @@ function careRequestsHTML(mine) {
 /* ═══════════ v58 · shareable quotation from the cart (48 h rate hold) ═══════════ */
 pages.quote = async view => {
   const lines = state.cart.map(c => ({ c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
-  if (!lines.length) { view.innerHTML = emptyShell('Quotation', 'Price Quotation', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Your cart is empty</h2><p style="margin:10px 0 20px">Add pieces and then generate a quotation.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`); return; }
+  if (!lines.length) { view.innerHTML = emptyShell('Quotation', 'Price Quotation', `<div class="empty" style="padding:70px 20px"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h2>Your cart is empty</h2><p style="margin:10px 0 20px">Add pieces and then generate a quotation.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`); return; }
   const R = state.rates;
   const rows = lines.map(({ c, p }) => {
     const pr = price(p);
@@ -8997,7 +8997,7 @@ pages.quote = async view => {
     </div>
     <div class="quote-sheet" id="quoteSheet">
       <header class="q-head">
-        <img src="/images/logo.png" alt="Shivaa">
+        <img decoding="async" src="/images/logo.png" alt="Shivaa">
         <div><b>PRICE QUOTATION</b><small>Quotation no. ${qNo} · valid till ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small></div>
         <span class="q-stamp">RATE HELD<br>48 HOURS</span>
       </header>
@@ -9113,7 +9113,7 @@ pages.rates = async (view) => {
         .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''}"><div class="rc-name">${c[0]}</div><div class="rc-val" data-rr="rc-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b data-rr="rc10-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
     </div>
     <div class="chart-wrap mt-3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <h2 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
+      <h2 style="font-size:20px;display:flex;align-items:center;gap:10px"><img decoding="async" src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
       <span data-rr="srcbadge" class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
@@ -9530,7 +9530,7 @@ pages.b2b = async (view) => {
           if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (e) {} }
           if (window.URL && URL.createObjectURL && (/^image\//.test(f.type) || /\.(jpe?g|png|webp|gif)$/i.test(f.name))) {
             objUrl = URL.createObjectURL(f);
-            prev.innerHTML = '<img src="' + objUrl + '" alt="Business card preview">';
+            prev.innerHTML = '<img decoding="async" src="' + objUrl + '" alt="Business card preview">';
           } else prev.textContent = '📄';
         }
         try { navigator.vibrate?.(8); } catch (e) {}
@@ -9810,7 +9810,7 @@ pages.about = async (view) => {
           <a class="btn btn-outline btn-sm" href="#/trust">Why Trust Shivaa →</a>
         </div>
       </div>
-      <div class="rv"><div class="banner" style="min-height:460px"><img src="/images/banners/wedding.jpg" alt=""><div class="b-fade"></div>
+      <div class="rv"><div class="banner" style="min-height:460px"><img decoding="async" src="/images/banners/wedding.jpg" alt=""><div class="b-fade"></div>
         <div class="b-body"><span class="label">Vision 2030</span><h3>Rajasthan's most trusted jewellery platform</h3>
         <p style="margin-bottom:14px">◦ B2B network across every tier-2/3 town<br>◦ Self-owned stores in big cities<br>◦ Indian jewellery exported worldwide</p></div></div></div>
     </div>
@@ -10082,7 +10082,7 @@ function openLogin(next = '') {
   openModal(`
   <div class="auth-shell">
     <aside class="auth-brand" aria-hidden="true">
-      <img src="/images/logo.png" alt="" class="ab-logo">
+      <img decoding="async" src="/images/logo.png" alt="" class="ab-logo">
       <b>The House of<br>Honest Gold</b>
       <p>Live Shivaa rates &middot; piece-level HUID guidance &middot; OTP-verified accounts.</p>
       <ul class="ab-list">
@@ -10333,7 +10333,7 @@ pages.invoice = async (view, q, id) => {
     <div class="inv-no-print inv-top"><button class="btn btn-primary" onclick="window.print()">⬇ Download / Print PDF</button><a class="btn btn-ghost" href="${kind === 'metal' ? '#/partner' : '#/account?tab=orders'}">← Back</a></div>
     <div class="inv-sheet">
       <div class="inv-wm">${esc(wm)}<br>${esc(o.id)}</div>
-      <div class="inv-head"><img src="/images/logo.png" alt="Shivaa"><div><b>SHIVAA</b><small>Ernate Shine Jewellery Pvt. Ltd.<br>Jayal, Nagaur, Rajasthan · GSTIN on request</small></div>
+      <div class="inv-head"><img decoding="async" src="/images/logo.png" alt="Shivaa"><div><b>SHIVAA</b><small>Ernate Shine Jewellery Pvt. Ltd.<br>Jayal, Nagaur, Rajasthan · GSTIN on request</small></div>
       <div class="inv-meta"><b>Invoice ${esc(o.invoiceNo || o.id)}</b><small>${new Date(o.createdAt).toLocaleString('en-IN')}<br>${kind === 'metal' ? 'B2B · Metal Settlement' : 'Retail Invoice'}<br>Status: ${esc(o.status)}</small></div></div>
       <div class="inv-to"><b>Billed to:</b> ${esc(o.address?.name || o.partnerName || state.user.name)}${o.address ? ` · ${esc(o.address.city || '')} ${esc(o.address.pincode || '')}` : ''}</div>
       <table class="inv-tbl"><thead><tr><th>Item</th><th>Qty</th><th>${kind === 'metal' ? 'Weight' : 'Rate'}</th><th>${kind === 'metal' ? 'Line wt' : 'Amount'}</th></tr></thead>
@@ -10363,7 +10363,7 @@ function certificateSheet(o) {
   <div class="cert-sheet" id="certSheet">
     <div class="cert-border">
       <header class="cert-head">
-        <img src="/images/logo.png" alt="Shivaa">
+        <img decoding="async" src="/images/logo.png" alt="Shivaa">
         <div><b>CERTIFICATE OF AUTHENTICITY</b><small>Shuddhata praman patra · issued with your order</small></div>
         <div class="cert-id"><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div>
       </header>
@@ -10424,7 +10424,7 @@ pages.certificates = async view => {
       <span class="cc-ic">&#127970;</span>
       <div><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${o.items.reduce((a, i) => a + i.qty, 0)} piece(s) · ${fmt(o.total)}</small></div>
       <span class="cc-go">View &amp; print &#8250;</span></a>`).join('')}</div>`
-      : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>No certificates yet</h2><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+      : `<div class="empty"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h2>No certificates yet</h2><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -10434,7 +10434,7 @@ pages.p = async (view, q, slug) => {
   let pg = null;
   try { pg = await api('/api/pages?slug=' + encodeURIComponent(slug || '')); } catch (e) {}
   if (!isCurrent()) return;
-  if (!pg || pg.error || !pg.title) { view.innerHTML = emptyShell('Page', 'Page not found', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><p style="color:var(--ink-3);margin-bottom:18px">That page may have been renamed or retired.</p><a class="btn btn-outline" href="#/">Back home</a></div>`); return; }
+  if (!pg || pg.error || !pg.title) { view.innerHTML = emptyShell('Page', 'Page not found', `<div class="empty" style="padding:70px 20px"><img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><p style="color:var(--ink-3);margin-bottom:18px">That page may have been renamed or retired.</p><a class="btn btn-outline" href="#/">Back home</a></div>`); return; }
   const safe = esc(pg.body || '')
     .split(/\n\s*\n/)                                   // blank line → paragraph
     .map(par => '<p>' + par.replace(/\n/g, '<br>') + '</p>')
@@ -11231,7 +11231,7 @@ pages.savings = async (view) => {
   };
   const nbReceiptSheet = (p, r) => `
     <div class="nb-sheet">
-      <div class="nb-sheet-h"><img src="/images/logo.png" alt="Shivaa" width="46" height="46"><div>
+      <div class="nb-sheet-h"><img decoding="async" src="/images/logo.png" alt="Shivaa" width="46" height="46"><div>
         <b>Shivaa Jewels</b><small>Jayal, Nagaur · shivaa.in</small></div></div>
       <h2>Swarna Nidhi receipt</h2>
       <table>
@@ -12218,7 +12218,7 @@ function loadStaffBundle() {
   return _staffBundle;
 }
 const _staffEmpty = (h, p, retry) => `<div class="empty" style="padding:120px 20px">` +
-  `<img src="/images/logo.png" class="empty-logo" alt=""><h3>${h}</h3><p>${p}</p>` +
+  `<img decoding="async" src="/images/logo.png" class="empty-logo" alt=""><h3>${h}</h3><p>${p}</p>` +
   (retry ? `<button type="button" class="btn" style="margin-top:14px" onclick="Shivaa.redraw()">Retry</button>` : '') +
   `</div>`;
 
@@ -12548,7 +12548,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}${ASSET_V}" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img decoding="async" src="${c.img}${ASSET_V}" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -12560,14 +12560,14 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}${ASSET_V}" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img decoding="async" src="${c.img}${ASSET_V}" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
   el.innerHTML =
     `<div class="sugg-lbl"><span>Pieces · ${all.length > 8 ? '8+' : all.length}</span></div>`
     + list.map(p => `<div class="sugg" data-pid="${p.id}">
-    <img src="${safeUrl(p.images && p.images[0])}" alt="" loading="lazy"><div><b>${esc(p.name)}</b><small>${esc(productSearchSub(p))}</small></div><span class="sugg-go">›</span></div>`).join('')
+    <img decoding="async" src="${safeUrl(p.images && p.images[0])}" alt="" loading="lazy"><div><b>${esc(p.name)}</b><small>${esc(productSearchSub(p))}</small></div><span class="sugg-go">›</span></div>`).join('')
     + `<div class="sugg sugg-all" data-q="${esc(qs)}"><span class="sugg-ic">🔍</span><span>See all ${all.length} pieces for “${esc(qs)}”</span></div>`;
   el.classList.add('open');
 }

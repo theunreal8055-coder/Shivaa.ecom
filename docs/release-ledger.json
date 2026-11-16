@@ -1,18 +1,18 @@
 {
   "schema": 1,
   "project": "Shivaa Ecom",
-  "updated": "2026-11-12",
+  "updated": "2026-11-16",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 251,
+  "next_release": 252,
   "live": {
-    "release": 250,
-    "title": "Still",
-    "since": "2026-11-12",
+    "release": 251,
+    "title": "Alive",
+    "since": "2026-11-16",
     "confirmed_by": null,
-    "owner_words": "The website still legs and there are flickering issues and scrolling also strucks and the page doesn't move anywhere sometimes, the app doesn't feel smooth and lightning fast",
+    "owner_words": "The app should feel more live and smooth and the smoothness must be on the next level, it should load faster and without decreasing the quality, make the next update, improve more smoothness",
     "deployed_build": 244,
-    "note": "v250 measures the phone's compositor instead of guessing. On the rendered 390x780 home screen (1284 elements) it found and removed: 21 backdrop-filter render passes (one per card button), 6 mix-blend-mode blending groups, 4 full-surface blur filters, 31 layer promotions and 25 animations that never stop (14 spinning QR badges, 4 floating blurs, orbiting beams, a breathing glow, 70 star pops inside a moving marquee). After: animated 141 -> 15, infinite 25 -> 2 (the two transform-only marquees), blur 0, blend 0, filter-blur 0, promoted 0 — scoped to html.shv-mobile, set during parsing, so a desktop keeps every one of them (asserted in the gate). FLICKER: v248's own 'cut every animation while html.shv-scrolling' rule was the flicker — the class toggles at the first scroll event of every gesture, so animations were cut and restarted; retired. BLINK: the real culprit was older than v248/v249 — `#view > *{animation:viewIn .45s both}` and `#view{animation:viewIn}` faded every page (and the whole view) in from opacity 0 on every render, and `.rv-item`, `v210Rise`, `v211Rise`, `starPop` all started at zero opacity; fixed at the source in css/styles.css / v210 / v211 plus a `#view,#view > *` guarantee. SCROLL: the shop page held the storefront's ONLY non-passive touchmove listener on #view (pull to refresh) for its whole life — every frame of every gesture waited on the main thread; it is armed only while a pull is in progress. Plus overscroll-behavior-y:contain so Chrome's own pull-to-refresh stops fighting it, and hover transforms that stick after a tap are neutralised on phones. PAGE THAT WILL NOT MOVE: lockScroll is a counter; one missed release left html.no-scroll set with nothing open, so the shop could not be scrolled at all. js/v250.js watches for that shape (visible overlay check, not a class list) and hands the page back via Shivaa.forceUnlockScroll(). Instrument: Shivaa.v250.audit() / .report() count what the phone is compositing right now. Gates: new qa/browser/t-v250-still.mjs (34) — 447 browser checks, 0 red."
+    "note": "Answered in three parts, each measured on this tree. SMOOTHER: the press vocabulary now covers what a thumb actually touches (it covered buttons only), and the press is a compositor scale with filter removed. LIVE: pending price breathes, live dot on the utility strip, first-row settle, bag badge pop, rate hairline — all event-bound; on a settled page one of them is running. FASTER WITHOUT LOSING QUALITY: the one stylesheet ships minified (-88,610 B raw, ~-16 KB gzip) with a build step that proves the minified sheet is the same sheet rule by rule before writing it; cms/css/shivaa.css stays in the repo and in the package, so a rollback is one <link>. Also: decoding=async on every image the app renders. Desktop keeps its blur and hover vocabulary — every new rule is scoped to html.shv-mobile."
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -58,6 +58,12 @@
       "title": "Still",
       "since": "2026-11-12",
       "note": "phone compositor budget (blur/blend/filter/layer-promotion/infinite-motion) 141 -> 15 animated, 25 -> 2 infinite; the viewIn blink fixed at the source; the non-passive touchmove removed; a frozen page unlocks itself; Shivaa.v250.audit()"
+    },
+    {
+      "release": 250,
+      "title": "Still",
+      "since": "2026-11-12",
+      "note": "phone compositor budget 141 -> 15 animated, 25 -> 2 infinite, blur/blend/filter-blur/promoted to 0; v248's scrolling rule retired as the flicker; viewIn blink fixed at the source; the non-passive touchmove armed only during a pull; a frozen page given back by a watchdog"
     }
   ],
   "releases": [
@@ -438,10 +444,25 @@
       "files": 769,
       "bytes": 45317152,
       "sha256": "0b96fcf2d7604090fb73d3f222e381fca9ccdab8f309a7d5944d09bedc295537",
-      "status": "live",
+      "status": "superseded",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",
-      "layer": null
+      "layer": null,
+      "superseded_by": 251
+    },
+    {
+      "release": 251,
+      "commit": null,
+      "title": "Alive",
+      "zip": "shivaa-update-v251.zip",
+      "files": 772,
+      "bytes": 45504067,
+      "sha256": "c03ff713453d3d2c7c3ed2c93168419f8d6b5eb06b3927471eb22a81c4fa60fa",
+      "status": "live",
+      "deployed": null,
+      "awaiting": "the owner's explicit yes — packaged 16 Nov 2026, not installed",
+      "layer": "v251.css",
+      "note": "v250 took the phone's continuous animation away and, with it, every SIGN that the shop is live. v251 gives the sign back out of a budget a phone can spare — transform and opacity, answered by an event, never running on its own. PRESS: every card, tile, chip, tab, drawer row and icon button on a phone answers a tap in 90 ms with scale(.977) on the universal --sx-* rhythm; filter is explicitly removed from the press path (v107 repainted on every press). LIVE: a pending price breathes (opacity only, 1.4 s), the utility strip carries a 6 px live dot, the first row of the grid settles in 24 ms steps travelling 10 px (opacity never changes, so it cannot blink), the bag badge pops for 320 ms when its number changes (MutationObserver on #cartCount/#wishCount), and a fresh rate sweeps one gold hairline (the `rates` event). On a settled page exactly ONE of those is running. POSITION: a 2 px gold read bar, created by the script, filled with transform: scaleX() from one rAF per scroll frame; the page height is measured on resize/route, never inside the scroll handler. FASTER: index.html now loads the MINIFIED build of the one stylesheet — cms/css/shivaa.min.css, 965,451 B -> 876,841 B (-9.2 %; gzip ~191 KB -> 174,636 B) — and tools/build-css-min.mjs REFUSES to write it unless it is structurally identical to the readable bundle (8,758 effective rules compared with their media context, 9 @font-face, 264 @keyframes, csso with restructure:false so no rule is ever merged or moved). Every <img> the app writes carries decoding=async (43 template sites), with a runtime backstop that reports anything a future template forgets. Gates: new qa/browser/t-v251-alive.mjs (46) — 46 + 34 + 36 + 37 suites green, check-handoff green. Instruments: Shivaa.v251.{report,pulses,pop,tick,progress,syncImages}()."
     }
   ],
   "session_branch_2026_11_12": "arena/95be65a4-shivaa-ecom"

@@ -1,10 +1,44 @@
-> ## CURRENT STATE — **v250 “Still” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v251 “Alive” PACKAGED, AWAITING THE OWNER'S YES** (16 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v250 “Still” is the newest release** — packaged 12 Nov 2026, **not deployed**. The only zip to
->   install. `shivaa-update-v250.zip` — **769 files · 45,317,152 B ·
->   `0b96fcf2d7604090fb73d3f222e381fca9ccdab8f309a7d5944d09bedc295537`**. **Next release number: v251.**
->   It contains v237–v249. v250 layers: `js/v250.js` + `css/v250.css` (plus the source edits in `css/styles.css`, `css/v210.css`, `css/v211.css` and `js/app.js`). Minified pair `js/app.min.js` + `js/rel.min.js` via `tools/build-min.mjs`.
-> - **Why v250 exists.** The owner, after v249: *“The website still legs and there are flickering issues and
+> - **v251 “Alive” is the newest release** — packaged 16 Nov 2026, **not deployed**. The only zip to
+>   install. `shivaa-update-v251.zip` — **772 files · 45,504,067 B ·
+>   `c03ff713453d3d2c7c3ed2c93168419f8d6b5eb06b3927471eb22a81c4fa60fa`**. **Next release number: v252.**
+>   It contains v237–v250. v251 layers: `js/v251.js` + `css/v251.css`, plus the **minified stylesheet**
+>   `css/shivaa.min.css` that `index.html` now loads (new `tools/build-css-min.mjs`), and the rebuilt minified
+>   pair `js/app.min.js` + `js/rel.min.js` (`tools/build-min.mjs`).
+> - **Why v251 exists.** The owner, after v250: *“The app should feel more live and smooth and the smoothness
+>   must be on the next level, it should load faster and without decreasing the quality, make the next update,
+>   improve more smoothness.”* v250 had taken the phone's continuous animation away — and with it, every sign
+>   that the shop is alive. v251 gives the sign back out of the budget a phone can spare: **motion that answers
+>   the shopper is free, motion that runs on its own is not.**
+> - **SMOOTHER.** Every surface a thumb actually touches — cards, tiles, chips, tabs, drawer rows, icon buttons —
+>   answers a press in 90 ms with `scale(.977)` on the universal `--sx-*` rhythm (they had no press at all;
+>   only buttons did). `filter` is explicitly removed from the press path: v107 repainted on every press.
+>   Every new rule is scoped to `html.shv-mobile`; a desktop keeps its blur and its hover vocabulary (asserted).
+> - **LIVE.** A pending price breathes (opacity only, 1.4 s) instead of sitting as a frozen grey bar; the
+>   utility strip carries a 6 px live dot; the first row of the grid settles in 24 ms steps travelling 10 px
+>   (opacity never changes, so it cannot blink); the bag badge pops for 320 ms when its number changes
+>   (MutationObserver on `#cartCount`/`#wishCount`, not a poll); a fresh rate sweeps one gold hairline on the
+>   `rates` event. **On a settled page exactly one of them is running.**
+> - **POSITION.** A 2 px gold read bar, created by the script (no markup, no bar without JavaScript), filled
+>   with `transform: scaleX()` from **one rAF per scroll frame**. The page height is measured on resize and
+>   after a route — never inside the scroll handler.
+> - **FASTER, AND PROVABLY THE SAME SHEET.** `index.html` loads the minified build of the one stylesheet:
+>   **965,451 → 876,841 B (−9.2 % raw, gzip ≈ 191 KB → 174,636 B)**. `tools/build-css-min.mjs` **refuses to
+>   write it** unless it is structurally identical to `cms/css/shivaa.css` — 8,758 effective rules compared
+>   with their media context, 9 `@font-face`, 264 `@keyframes`, csso with `restructure:false` so no rule is
+>   ever merged or moved. The readable bundle stays in the repo and in the package: **a rollback is one `<link>`.**
+>   Additionally every `<img>` the app writes carries `decoding="async"` (43 template sites), with a runtime
+>   backstop that reports anything a future template forgets.
+> - **Instrument:** `Shivaa.v251.report()` →
+>   `alive 251 · phone · live pulses 1 · pending prices 0 · sync-decode fixups 0 · page 0%`;
+>   also `.pulses()`, `.pop()`, `.tick()`, `.progress()`, `.syncImages()`.
+> - **Gates:** `node qa/browser/t-v251-alive.mjs` (**46**) · `t-v250-still` 34 · `t-v249-steady` 36 ·
+>   `t-v248-instant` 37 · `t-v247-premium` 53 · `t-v246-light` 58 · `t-v245-scroll` 39 · `t-v244-butter` 54 ·
+>   `t-v243-header` 36 · `t-v242-taps` 41 · `t-v241-perf` 43 · `t-v240-rip` 16 — all 0 red;
+>   `python3 qa/check-handoff.py` green.
+>
+> - **Why v250 exists (history).** The owner, after v249: *“The website still legs and there are flickering issues and
 >   scrolling also strucks and the page doesn't move anywhere sometimes … even if I don't have mention them find
 >   them and fix them.”* So this release **measured the phone's compositor** instead of guessing. On the rendered
 >   390×780 home screen (1284 elements) it found: **21 `backdrop-filter` passes** (one per card button),

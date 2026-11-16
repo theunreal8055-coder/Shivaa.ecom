@@ -237,6 +237,32 @@ def main():
     ok('index.html loads the minified pair',
        '/js/app.min.js?v=' in idx and '/js/rel.min.js?v=' in idx)
 
+    # v251 — THE MINIFIED STYLESHEET MUST BE CURRENT, for exactly the same
+    # reason as the pair above, and with a stronger guarantee behind it:
+    # tools/build-css-min.mjs refuses to write cms/css/shivaa.min.css unless the
+    # minified sheet is structurally identical to cms/css/shivaa.css (every
+    # rule compared with its media context, every @font-face and @keyframes
+    # name). Its banner carries the sha256 of the source it was built from, so a
+    # forgotten rebuild is a red gate here instead of a stale stylesheet in
+    # front of the shopper.
+    try:
+        want = hashlib.sha256(open(os.path.join(ROOT, 'cms/css/shivaa.css'), 'rb').read()).hexdigest()
+        head_txt = open(os.path.join(ROOT, 'cms/css/shivaa.min.css'),
+                        encoding='utf-8', errors='replace').read(400)
+        m = re.search(r"sha256 ([0-9a-f]{64})", head_txt)
+        ok('cms/css/shivaa.min.css is built from the current cms/css/shivaa.css',
+           bool(m) and m.group(1) == want,
+           ('banner %s, source %s' % (m.group(1)[:12], want[:12])) if m else 'no banner')
+    except FileNotFoundError:
+        ok('cms/css/shivaa.min.css exists', False, 'missing — run: node tools/build-css-min.mjs')
+    ok('index.html loads the minified stylesheet',
+       ('/css/shivaa.min.css?v=%d' % newest) in idx,
+       [l for l in idx.splitlines() if 'stylesheet' in l][:1])
+    ok('index.html links exactly one stylesheet',
+       len(re.findall(r'<link rel="stylesheet"', idx)) == 1)
+    ok('sw.js precaches the stylesheet the page asks for',
+       ("'/css/shivaa.min.css?v=%d'" % newest) in sw)
+
     head_doc = read('docs/NEXT-CHAT-HEAD.md')
     ok('NEXT-CHAT-HEAD names the release branch',
        'arena/e8a470c6-shivaa-ecom' in head_doc)

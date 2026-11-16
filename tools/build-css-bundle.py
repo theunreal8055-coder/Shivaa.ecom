@@ -127,10 +127,16 @@ def main():
     # ── index.html must link exactly this one stylesheet ────────────────────
     index_src = io.open(INDEX, encoding='utf-8').read()
     links = re.findall(r'<link rel="stylesheet" href="([^"]+)"', index_src)
-    expect_link = '/css/%s?v=%s' % (BUNDLE_NAME,
-                                    (re.search(r'__SHIVAA_REL=(\d+)', index_src) or [None, '?'])[1])
-    if links != [expect_link]:
-        sys.exit('index.html must link exactly [%s], found %s' % (expect_link, links))
+    rel_tag = (re.search(r'__SHIVAA_REL=(\d+)', index_src) or [None, '?'])[1]
+    expect_link = '/css/%s?v=%s' % (BUNDLE_NAME, rel_tag)
+    # v251 — the page may ship the MINIFIED build of this same bundle instead
+    # (cms/css/shivaa.min.css, tools/build-css-min.mjs, which refuses to write a
+    # sheet that is not structurally identical to this one). Either target is
+    # this bundle; anything else — a second stylesheet, an old stamp — is not.
+    min_link = '/css/%s?v=%s' % ('shivaa.min.css', rel_tag)
+    if links not in ([expect_link], [min_link]):
+        sys.exit('index.html must link exactly [%s] or [%s], found %s'
+                 % (expect_link, min_link, links))
     print('\nindex.html links            : %s' % expect_link)
     print('index.html stylesheet links : 1 (was 58)')
 

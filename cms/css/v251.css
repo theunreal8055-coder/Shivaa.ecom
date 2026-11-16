@@ -1,0 +1,233 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v251 · “ALIVE” — the app feels live again without costing a frame.
+
+   The owner: “The app should feel more live and smooth and the smoothness must be
+   on the next level … without decreasing the quality.”
+
+   There is one rule in this file and it is the whole release:
+
+     MOTION THAT ANSWERS THE SHOPPER IS FREE. MOTION THAT RUNS ON ITS OWN IS NOT.
+
+   v250 took the phone's continuous animation away (141 animated elements → 15,
+   25 never-ending → 2) because it was burning the compositor the shopper needed
+   for their thumb. What that also took away was the *sign* that the shop is
+   alive — pending prices stopped breathing, a tap produced nothing until the
+   page changed. This layer gives the sign back, out of the only budget a phone
+   has to spare: **transform and opacity on elements the shopper just touched,
+   plus a handful of independent compositor animations that stop existing the
+   moment their content arrives.**
+
+   Nothing here animates layout. Nothing here paints. Nothing here starts from
+   invisible (the v249/v250 rule). Everything is on the universal `--sx-*`
+   vocabulary, so the press rhythm is identical on every surface in the shop.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · A TAP ANSWERS IN 90 ms, EVERYWHERE ───────────────────────────────
+   v247 gave the buttons a press; the things a jewellery shopper actually
+   touches — the cards, the tiles, the chips, the rows in the drawer — got
+   nothing on a phone, because their hover was correctly deleted and their press
+   was never added. Press is `transform` only: the compositor moves a layer it
+   already has, so it is free even on the slowest device, and it is the single
+   strongest “this is real” signal an interface can give. */
+html.shv-mobile .p-card:active,
+html.shv-mobile .tv-card:active,
+html.shv-mobile .ugc-card:active,
+html.shv-mobile .pc-card:active,
+html.shv-mobile .cat-card:active,
+html.shv-mobile .cat-mini-card:active,
+html.shv-mobile .pillar:active,
+html.shv-mobile .cb-item:active,
+html.shv-mobile .catlog:active,
+html.shv-mobile .shv-offer-card:active,
+html.shv-mobile .chip:active,
+html.shv-mobile .tab:active,
+html.shv-mobile .mnav a:active,
+html.shv-mobile .mnav button:active,
+html.shv-mobile .dw-row:active,
+html.shv-mobile .icon-btn:active,
+html.shv-mobile .pc-quick:active {
+  transform: scale(.977);
+}
+/* one rhythm for all of them: fast in, calm out */
+html.shv-mobile .p-card,
+html.shv-mobile .tv-card,
+html.shv-mobile .ugc-card,
+html.shv-mobile .pc-card,
+html.shv-mobile .cat-card,
+html.shv-mobile .cat-mini-card,
+html.shv-mobile .pillar,
+html.shv-mobile .cb-item,
+html.shv-mobile .catlog,
+html.shv-mobile .shv-offer-card,
+html.shv-mobile .chip,
+html.shv-mobile .tab,
+html.shv-mobile .dw-row,
+html.shv-mobile .icon-btn,
+html.shv-mobile .pc-quick {
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)),
+              box-shadow var(--sx-dur-2, 160ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
+}
+/* a press that also changes brightness is a PAINT on every press (v107 did it
+   with `filter`). The scale is enough, and it costs nothing. */
+html.shv-mobile .v107-press:active { filter: none !important; }
+
+/* ── 2 · WAITING BREATHES ─────────────────────────────────────────────────
+   A gold rate that has not arrived renders a skeleton in the price slot
+   (`PRICE_PENDING`, v247). v250's quiet pass stopped its pulse, which left a
+   static grey bar where a price should be — the most “frozen” thing on the page.
+   It breathes again: opacity only, so the compositor owns it, and only while the
+   element exists. This is the “live” signal the owner is asking for, and it
+   costs exactly nothing once the rate lands. */
+@keyframes v251Breathe {
+  0%, 100% { opacity: .13 }
+  50%      { opacity: .30 }
+}
+.pr-sk {
+  animation: v251Breathe 1.4s ease-in-out infinite !important;
+  /* v250 removed all 31 held layer promises; a pending price does not get one
+     back. An animating opacity is promoted by the compositor for as long as the
+     animation runs, and demoted when it ends — which is exactly the lifetime
+     this signal needs. `will-change` would hold it forever. */
+}
+@media (prefers-reduced-motion: reduce) {
+  .pr-sk { animation: none !important; opacity: .18; }
+}
+
+/* the first screen's skeleton breathes too, for the same reason */
+@keyframes v251Wash {
+  0%, 100% { opacity: .55 }
+  50%      { opacity: .85 }
+}
+.shv-skeleton .sk-hero,
+.shv-skeleton .sk-card {
+  animation: v251Wash 1.8s ease-in-out infinite !important;
+}
+
+/* ── 3 · THE SHOP IS LIVE ─────────────────────────────────────────────────
+   The utility strip says “LIVE RATES” in words. One dot makes it true: a 6 px
+   opacity pulse beside the label, one element, no paint, and it is the reason a
+   jewellery page reads as a market instead of a catalogue. */
+.ub-live::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 2px;
+  animation: v251Live 2.2s ease-in-out infinite;
+}
+@keyframes v251Live {
+  0%, 100% { opacity: .25; transform: scale(.85) }
+  50%      { opacity: 1; transform: scale(1) }
+}
+
+/* ── 4 · A GRID ARRIVES IN ORDER ──────────────────────────────────────────
+   The first row of cards settles in sequence, 24 ms apart, travelling 10 px.
+   Opacity never changes (v249/v250: nothing animates in from invisible), so
+   this cannot blink — and because it is the FIRST ROW only and it ends, it costs
+   eight short compositor animations instead of a permanent layer. It is the
+   difference between “a new page appeared” and “the page was laid down”. */
+@keyframes v251Arrive {
+  from { transform: translateY(10px) }
+  to   { transform: none }
+}
+html.shv-mobile .p-grid > .p-card:nth-child(-n+8),
+html.shv-mobile .tv-track > .tv-card:nth-child(-n+6),
+html.shv-mobile .cat-grid > .cat-card:nth-child(-n+8) {
+  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) both;
+}
+html.shv-mobile .p-grid > .p-card:nth-child(2),
+html.shv-mobile .cat-grid > .cat-card:nth-child(2) { animation-delay: 24ms }
+html.shv-mobile .p-grid > .p-card:nth-child(3),
+html.shv-mobile .cat-grid > .cat-card:nth-child(3) { animation-delay: 48ms }
+html.shv-mobile .p-grid > .p-card:nth-child(4),
+html.shv-mobile .cat-grid > .cat-card:nth-child(4) { animation-delay: 72ms }
+html.shv-mobile .p-grid > .p-card:nth-child(5),
+html.shv-mobile .cat-grid > .cat-card:nth-child(5) { animation-delay: 96ms }
+html.shv-mobile .p-grid > .p-card:nth-child(6),
+html.shv-mobile .cat-grid > .cat-card:nth-child(6) { animation-delay: 120ms }
+html.shv-mobile .p-grid > .p-card:nth-child(7) { animation-delay: 144ms }
+html.shv-mobile .p-grid > .p-card:nth-child(8) { animation-delay: 168ms }
+
+/* ── 5 · THE BAG ANSWERS ──────────────────────────────────────────────────
+   Adding something to the bag changes a number in the corner. js/v251.js adds
+   `.shv-pop` to that badge for 320 ms; the badge is one element and the move is
+   a scale, so the confirmation costs nothing and lands in the same frame as the
+   tap. */
+@keyframes v251Pop {
+  0%   { transform: scale(1) }
+  45%  { transform: scale(1.28) }
+  100% { transform: scale(1) }
+}
+.badge.shv-pop { animation: v251Pop 320ms var(--sx-spring, cubic-bezier(.34, 1.28, .64, 1)) }
+
+/* ── 6 · THE RATE HAIRLINE ────────────────────────────────────────────────
+   When a new rate lands, the strip under the utility bar sweeps once, left to
+   right, in gold. It is the refresh's receipt: 500 ms, one pseudo-element,
+   transform only. js/v251.js adds `.shv-tick` when the `rates` event fires. */
+.ub-rates { position: relative; }
+.ub-rates::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 90, .85), transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+}
+.ub-rates.shv-tick::after { animation: v251Tick 520ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) }
+@keyframes v251Tick {
+  0%   { transform: scaleX(0); opacity: 0 }
+  30%  { opacity: 1 }
+  100% { transform: scaleX(1); opacity: 0 }
+}
+
+/* ── 7 · THE PAGE HAS A POSITION ──────────────────────────────────────────
+   A two-pixel gold hairline at the very top of the screen, filled to the
+   shopper's place in the page. It is not decoration: on a long jewellery grid a
+   phone gives no other sign of how much is left, and “am I near the end?” is
+   the question that makes a long page feel endless. js/v251.js drives it with
+   `transform: scaleX()` only — a compositor property, no layout, no paint, and
+   one rAF per scroll frame at most.
+   The element is created by the script, so a page with no JavaScript has no bar
+   to fill. */
+#shvReadBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 99990;
+  pointer-events: none;
+  background: linear-gradient(90deg, #b8860b, #e6c46a 55%, #f6e7b0);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  opacity: 0;
+  border-radius: 0 2px 2px 0;
+}
+html.shv-plain #shvReadBar { display: none; }
+
+/* ── 8 · A DESKTOP KEEPS ITS OWN POINTER LANGUAGE ─────────────────────────
+   The press above is scoped to `html.shv-mobile`. A mouse gets the existing
+   hover lift, which is the correct vocabulary for a pointer that can hover. */
+
+/* ── 9 · the kill switch and reduced motion ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html.shv-mobile .p-grid > .p-card,
+  html.shv-mobile .cat-grid > .cat-card,
+  html.shv-mobile .tv-track > .tv-card,
+  .ub-live::before,
+  .shv-skeleton .sk-hero,
+  .shv-skeleton .sk-card,
+  .badge.shv-pop { animation: none !important; }
+  html.shv-mobile .p-card:active,
+  html.shv-mobile .cat-card:active,
+  html.shv-mobile .chip:active { transform: none !important; }
+}
+html.shv-plain .ub-live::before,
+html.shv-plain .pr-sk,
+html.shv-plain .p-grid > .p-card { animation: none !important; }

@@ -21217,3 +21217,174 @@ html.shv-thawed {
   html.shv-mobile .rev-track { animation: none !important; }
 }
 html.shv-plain * { animation: none !important; }
+/* v251.css */
+ 
+
+ 
+html.shv-mobile .p-card:active,
+html.shv-mobile .tv-card:active,
+html.shv-mobile .ugc-card:active,
+html.shv-mobile .pc-card:active,
+html.shv-mobile .cat-card:active,
+html.shv-mobile .cat-mini-card:active,
+html.shv-mobile .pillar:active,
+html.shv-mobile .cb-item:active,
+html.shv-mobile .catlog:active,
+html.shv-mobile .shv-offer-card:active,
+html.shv-mobile .chip:active,
+html.shv-mobile .tab:active,
+html.shv-mobile .mnav a:active,
+html.shv-mobile .mnav button:active,
+html.shv-mobile .dw-row:active,
+html.shv-mobile .icon-btn:active,
+html.shv-mobile .pc-quick:active {
+  transform: scale(.977);
+}
+ 
+html.shv-mobile .p-card,
+html.shv-mobile .tv-card,
+html.shv-mobile .ugc-card,
+html.shv-mobile .pc-card,
+html.shv-mobile .cat-card,
+html.shv-mobile .cat-mini-card,
+html.shv-mobile .pillar,
+html.shv-mobile .cb-item,
+html.shv-mobile .catlog,
+html.shv-mobile .shv-offer-card,
+html.shv-mobile .chip,
+html.shv-mobile .tab,
+html.shv-mobile .dw-row,
+html.shv-mobile .icon-btn,
+html.shv-mobile .pc-quick {
+  transition: transform var(--sx-dur-1, 90ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1)),
+              box-shadow var(--sx-dur-2, 160ms) var(--sx-soft, cubic-bezier(.4, 0, .2, 1));
+}
+ 
+html.shv-mobile .v107-press:active { filter: none !important; }
+
+ 
+@keyframes v251Breathe {
+  0%, 100% { opacity: .13 }
+  50%      { opacity: .30 }
+}
+.pr-sk {
+  animation: v251Breathe 1.4s ease-in-out infinite !important;
+   
+}
+@media (prefers-reduced-motion: reduce) {
+  .pr-sk { animation: none !important; opacity: .18; }
+}
+
+ 
+@keyframes v251Wash {
+  0%, 100% { opacity: .55 }
+  50%      { opacity: .85 }
+}
+.shv-skeleton .sk-hero,
+.shv-skeleton .sk-card {
+  animation: v251Wash 1.8s ease-in-out infinite !important;
+}
+
+ 
+.ub-live::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 2px;
+  animation: v251Live 2.2s ease-in-out infinite;
+}
+@keyframes v251Live {
+  0%, 100% { opacity: .25; transform: scale(.85) }
+  50%      { opacity: 1; transform: scale(1) }
+}
+
+ 
+@keyframes v251Arrive {
+  from { transform: translateY(10px) }
+  to   { transform: none }
+}
+html.shv-mobile .p-grid > .p-card:nth-child(-n+8),
+html.shv-mobile .tv-track > .tv-card:nth-child(-n+6),
+html.shv-mobile .cat-grid > .cat-card:nth-child(-n+8) {
+  animation: v251Arrive 340ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) both;
+}
+html.shv-mobile .p-grid > .p-card:nth-child(2),
+html.shv-mobile .cat-grid > .cat-card:nth-child(2) { animation-delay: 24ms }
+html.shv-mobile .p-grid > .p-card:nth-child(3),
+html.shv-mobile .cat-grid > .cat-card:nth-child(3) { animation-delay: 48ms }
+html.shv-mobile .p-grid > .p-card:nth-child(4),
+html.shv-mobile .cat-grid > .cat-card:nth-child(4) { animation-delay: 72ms }
+html.shv-mobile .p-grid > .p-card:nth-child(5),
+html.shv-mobile .cat-grid > .cat-card:nth-child(5) { animation-delay: 96ms }
+html.shv-mobile .p-grid > .p-card:nth-child(6),
+html.shv-mobile .cat-grid > .cat-card:nth-child(6) { animation-delay: 120ms }
+html.shv-mobile .p-grid > .p-card:nth-child(7) { animation-delay: 144ms }
+html.shv-mobile .p-grid > .p-card:nth-child(8) { animation-delay: 168ms }
+
+ 
+@keyframes v251Pop {
+  0%   { transform: scale(1) }
+  45%  { transform: scale(1.28) }
+  100% { transform: scale(1) }
+}
+.badge.shv-pop { animation: v251Pop 320ms var(--sx-spring, cubic-bezier(.34, 1.28, .64, 1)) }
+
+ 
+.ub-rates { position: relative; }
+.ub-rates::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 90, .85), transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+}
+.ub-rates.shv-tick::after { animation: v251Tick 520ms var(--sx-out, cubic-bezier(.22, 1, .36, 1)) }
+@keyframes v251Tick {
+  0%   { transform: scaleX(0); opacity: 0 }
+  30%  { opacity: 1 }
+  100% { transform: scaleX(1); opacity: 0 }
+}
+
+ 
+#shvReadBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 99990;
+  pointer-events: none;
+  background: linear-gradient(90deg, #b8860b, #e6c46a 55%, #f6e7b0);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  opacity: 0;
+  border-radius: 0 2px 2px 0;
+}
+html.shv-plain #shvReadBar { display: none; }
+
+ 
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  html.shv-mobile .p-grid > .p-card,
+  html.shv-mobile .cat-grid > .cat-card,
+  html.shv-mobile .tv-track > .tv-card,
+  .ub-live::before,
+  .shv-skeleton .sk-hero,
+  .shv-skeleton .sk-card,
+  .badge.shv-pop { animation: none !important; }
+  html.shv-mobile .p-card:active,
+  html.shv-mobile .cat-card:active,
+  html.shv-mobile .chip:active { transform: none !important; }
+}
+html.shv-plain .ub-live::before,
+html.shv-plain .pr-sk,
+html.shv-plain .p-grid > .p-card { animation: none !important; }

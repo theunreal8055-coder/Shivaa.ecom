@@ -134,7 +134,11 @@
      shopper does something, which is what “smooth and lightning fast” means on a
      device with no headroom to spare. */
   var quieted = 0, quietTimer = 0;
-  var KEEP = /(^|\s)(rs-ticker-track|rev-track)(\s|$)/;
+  /* v251 — the keep list is the whole tension of “live but cheap”: the marquees
+     (transform-only, they carry text) and the three SIGNALS that exist only
+     while something is still loading — a pending price, the skeleton, the live
+     dot. Everything else that runs forever is decoration and stops. */
+  var KEEP = /(^|\s)(rs-ticker-track|rev-track|pr-sk|sk-hero|sk-card|ub-live)(\s|$)/;
   function quietThePage() {
     if (!isMobile() || NOFX) return 0;
     var scope = doc.getElementById('view');
