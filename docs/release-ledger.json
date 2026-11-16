@@ -4,17 +4,15 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 248,
+  "next_release": 249,
   "live": {
-    "release": 247,
-    "title": "Atelier",
+    "release": 248,
+    "title": "Instant",
     "since": "2026-11-12",
     "confirmed_by": null,
-    "owner_words": "still doesn't feel good,it is better than before but still not as perfect as I want a smooth ui ux experience for my customers,make it like a premium designer",
+    "owner_words": "Still the app doesn't feel smooth, and whenever you click any option or any button it waits for 3 seconds and then starts loading the next page, why does it lags for 3 seconds and it feels struck and loads very slowly for the first time also and whenever we scroll after that",
     "deployed_build": 244,
-    "note": "v246 cut the bytes; this one is about how the page feels under a finger. Four causes, all measured. (1) A page at rest was paying for decoration: will-change:transform and transform-style:preserve-3d on ten card families, a BASE transform:scale(1.08) on every card photograph, .pc-body{translateZ(10px)} on the text inside every card, and a 24 s infinite Ken Burns across the first screen — 37 elements in a 3D context and 23 compositor layers on the home screen, now 1 and 14 (the 14 are magnetic-press buttons, which a thumb cannot use, so the phone drops those too). (2) v215 started every content image at opacity:0 and depended on motion.js adding .img-ok; a picture that missed it stayed invisible for good. Images are now visible from the start and fade in on their own load event with a 4 s failsafe. (3) Touch: no grey tap rectangle, touch-action:manipulation, 90 ms press feedback, focus-visible rings, and a 16 px input floor so iOS never zooms the page on focus. (4) One motion vocabulary: five tokens, opacity/transform only, balanced headline wrapping, tabular numerals for money, a 240 ms route rise, and prefers-reduced-motion at the end that turns all of it off. Also the home screen now paints at 700 ms from the device catalogue with a price skeleton instead of waiting for the gold rate (never ₹0, never ₹NaN; the six second ceiling stands for a cold device and every other route), the campaign banner and nine film posters got 560/320 webp siblings (home is 1.46 MB of image markup, from 5.11 MB at v245), and two real bugs were found: the trending and recently-viewed strips printed ₹NaN on every card because the API's price field is an object. Contains v237-v246.",
-    "zip": "shivaa-update-v247.zip",
-    "sha256": "6ca456deaacfcf523f2f151e46b3b0700c0252c18387a6abe4d153e99e3214c5"
+    "note": "v248 removes the three places where a tap could be PARKED before the next page: (1) the view-transition navigation in js/v226.js — it called preventDefault() on the link, rasterised a snapshot of the old page and only then set the hash, inside a callback behind a 300 ms cap and an rAF; it is now opt-in behind ?vt=1 and off by default, so a page change is a plain native hash navigation again; (2) window.scrollTo({top:0}) under html{scroll-behavior:smooth} — the new page was drawn at the OLD scroll offset and the document glided home, which reads exactly as 'it waits, then it starts'; the router now asks for behavior:'instant' and css/v248.css makes auto the last word, plus a 700 ms hold around any tap; (3) rail centring (a smooth scrollIntoView) on the very chip that was about to be replaced — skipped for any link that navigates. First load: the preloader is no longer a curtain — index.html's page skeleton is revealed at 260 ms in every case and the cold-visit paint ceiling drops 6 s -> 4 s, because every unknown price is a skeleton, not a zero. Scrolling: one forced layout per navigation instead of three (lazySweep 0/900/2600 -> rAF + 2600), entrance animations and image fades stand down while html.shv-scrolling is on, and the 110 KB of decorative scripts (v117 -> aurum/motion/boost) now wait for 700 ms of real quiet instead of landing mid-gesture. Diagnostics: a tap meter records press -> hash -> page -> paint for the last 12 taps and every long task; window.Shivaa.taps(), window.Shivaa.v248.report(), or ?tapdiag=1 for the numbers on screen. Gates: new qa/browser/t-v248-instant.mjs (37 checks) — 376 browser checks in total, 0 red; check-handoff 229/229."
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -42,6 +40,12 @@
     {
       "release": 241,
       "since": "2026-11-12"
+    },
+    {
+      "release": 248,
+      "title": "Instant",
+      "since": "2026-11-12",
+      "note": "tap latency: the view transition, the smooth scroll-home and the rail centring removed from the tap path; skeleton at 260 ms; one forced layout per route; reveal stand-down under a thumb; tap meter"
     }
   ],
   "releases": [
@@ -377,6 +381,21 @@
       "files": 761,
       "bytes": 45038330,
       "sha256": "6ca456deaacfcf523f2f151e46b3b0700c0252c18387a6abe4d153e99e3214c5",
+      "status": "superseded",
+      "deployed": null,
+      "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",
+      "layer": null,
+      "superseded_by": 248,
+      "note": "handed over 12 Nov 2026, not confirmed installed; the owner reported the app still did not feel smooth and named a 3 s wait before a tap loads the next page"
+    },
+    {
+      "release": 248,
+      "commit": null,
+      "title": "Instant",
+      "zip": "shivaa-update-v248.zip",
+      "files": 763,
+      "bytes": 45051400,
+      "sha256": "861d946d45afaac68b395aafc29eee36399df6ab9e8b067361f7429e10553faa",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",

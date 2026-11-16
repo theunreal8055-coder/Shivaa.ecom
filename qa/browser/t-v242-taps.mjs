@@ -79,14 +79,23 @@ ok('the duplicated v237 layer is in the bundle exactly once',
      · the fast branch is gated on a local catalogue and the home route;
      · a missing rate can never produce a number — it produces the skeleton;
      · the six second ceiling still stands for every other case. */
+/* v248 — this used to pin the literal `: 6000)`. The principle it protects has
+   not changed: a cold first visit is bounded by a SMALL ceiling and the fast
+   path is gated on a real device catalogue, never on a guess. v248 lowered the
+   ceiling to 4 s because the splash now lifts at 260 ms (the skeleton is the
+   first screen) and every unknown price renders as a skeleton — so painting a
+   little sooner is honest, while six seconds of splash is not. Asserted as a
+   range on the extracted number so a future release can tune it without
+   weakening the check. */
+const _capCold = Number((app.match(/_capMs = isRedraw \? 15000 : \(_homeFirst && _realCount\(\) > 0 \? 700 : (\d+)\)/) || [])[1]);
 ok('the fast paint is gated on a device catalogue, never on a guess',
-   /const _homeFirst = !isRedraw[\s\S]{0,200}?_capMs = isRedraw \? 15000 : \(_homeFirst && _realCount\(\) > 0 \? 700 : 6000\)/.test(app));
+   /const _homeFirst = !isRedraw/.test(app) && _capCold > 0 && _capCold <= 6000);
 ok('a missing rate renders a skeleton, never ₹0 and never ₹NaN',
    /function moneyOK\(p, R\)/.test(app) && /const PRICE_PENDING = '<i class="pr-sk"/.test(app) &&
    /function priceHTML\(p, qty, R\) \{\s*if \(!moneyOK\(p, R\)\) return PRICE_PENDING;/.test(app));
 ok('the product card prices through that helper',
    /const pend = !moneyOK\(p\)/.test(app) && /\$\{pend \? PRICE_PENDING : fmt\(pr\.total\)\}/.test(app));
-ok('the cold-visit ceiling is still six seconds', /: 6000\)/.test(app));
+ok('the cold-visit ceiling is small and bounded', _capCold > 0 && _capCold <= 6000);
 ok('a late batch queues a CALM repaint, not an immediate one',
    /_firstBatch\.then\(\(\) => \{ calmBoot\(0\); \}\)/.test(app));
 ok('calmBoot waits for no-touch / no-sheet / visible',

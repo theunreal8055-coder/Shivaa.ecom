@@ -154,8 +154,12 @@ ok('the preconnects stay (free until used)', /preconnect" href="https:\/\/sdk\.c
    batch landed. What survives is the 6 s ceiling and the calm repaint. This
    release's own suite (t-v242-taps) owns that contract; here we only assert the
    ceiling still exists so a future "make it faster" pass cannot remove both. */
+/* v248 — the number moved 6000 → 4000 (the splash lifts at 260 ms now, so the
+   shop can afford to paint honest content sooner). The principle is what this
+   check is for: SOME bounded ceiling exists for a cold visit. Range, not literal. */
+const _capCold = Number((app.match(/const _capMs = isRedraw \? 15000 : .*?: (\d+)\)/) || [])[1]);
 ok('a paint ceiling still exists for a cold first visit',
-   /const _capMs = isRedraw \? 15000 : /.test(app) && /: 6000\)/.test(app));
+   /const _capMs = isRedraw \? 15000 : /.test(app) && _capCold > 0 && _capCold <= 6000);
 ok('the late batch is repainted calmly, never under a finger', /calmBoot\(0\)/.test(app));
 
 /* ── F · release plumbing (v242 — release-agnostic: this suite's job is that

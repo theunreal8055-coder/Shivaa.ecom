@@ -1,12 +1,37 @@
-> ## CURRENT STATE — **v247 “Atelier” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v248 “Instant” PACKAGED, AWAITING THE OWNER'S YES** (12 Nov 2026). This block first, then `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v247 “Atelier” is the newest release** — packaged 12 Nov 2026, **not deployed**. The only zip to
->   install. `shivaa-update-v247.zip` — **761 files · 45,038,330 B ·
->   `6ca456deaacfcf523f2f151e46b3b0700c0252c18387a6abe4d153e99e3214c5`**. **Next release number: v248.**
->   It contains v237–v246. Code commit `b4dbe47`.
+> - **v248 “Instant” is the newest release** — packaged 12 Nov 2026, **not deployed**. The only zip to
+>   install. `shivaa-update-v248.zip` — **763 files · 45,051,400 B ·
+>   `861d946d45afaac68b395aafc29eee36399df6ab9e8b067361f7429e10553faa`**. **Next release number: v249.**
+>   It contains v237–v247. Code commit `b4dbe47`; v248 layer `js/v248.js` + `css/v248.css`.
+> - **Why v248 exists.** The owner: *“whenever you click any option or any button it waits for 3 seconds and
+>   then starts loading the next page … it feels stuck … and loads very slowly for the first time also and
+>   whenever we scroll after that.”* Three seconds is not slow rendering (a hash change plus one innerHTML is
+>   ~90 ms here) — it is a **deferral**, and the audit found exactly three:
+>   **1 · the view transition** (`js/v226.js`) called `preventDefault()` on the link, rasterised a snapshot of
+>   the old page and only then set the hash, inside a callback behind a 300 ms cap and an rAF. It made the
+>   document non-interactive while the browser painted two full-page snapshots — on a phone, on every tap.
+>   **It is opt-in now** (`?vt=1`) and off by default.
+>   **2 · `window.scrollTo({top:0})` under `html{scroll-behavior:smooth}`** — the new page rendered at the OLD
+>   scroll offset and the document glided home, so a tap looked like *nothing … nothing … it starts*.
+>   The router now asks for `behavior:'instant'`, `css/v248.css` makes `auto` the last word, and a 700 ms hold
+>   around any tap keeps it that way.
+>   **3 · rail centring** (a smooth `scrollIntoView`) on the very chip that was about to be replaced — skipped
+>   for any link that navigates.
+> - **First load is no longer a curtain.** `index.html` already ships a page skeleton; the opaque preloader used
+>   to cover it until the whole boot batch answered. It now lifts at **260 ms** in every case, and the cold
+>   paint ceiling drops **6 s → 4 s** (every unknown price is a skeleton, never ₹0). With every request made to
+>   hang forever, the skeleton is still on screen — that is a test (`opts.stall`).
+> - **Scrolling after a tap:** `lazySweep` ran three times per navigation (0 / 900 / 2600 ms), each run forcing
+>   style+layout on every image — now once on the next frame plus the 2600 ms one; entrance animations and image
+>   fades stand down while `html.shv-scrolling` is on; the 110 KB of decorative scripts (v117 → aurum/motion/
+>   boost) wait for **700 ms of real quiet** instead of an idle window that opened mid-gesture.
+> - **The next report must be evidence, not adjectives.** A tap meter records press → hash → page → paint for
+>   the last 12 taps and every long task: `window.Shivaa.taps()`, `window.Shivaa.v248.report()` (one line to
+>   paste), or `?tapdiag=1` for the numbers on screen.
 > - **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD (exit 3 = this tree is behind;
 >   stop and move to the release branch it names). Then `python3 qa/check-handoff.py` and
->   `node qa/browser/t-v247-premium.mjs` (53).
+>   `node qa/browser/t-v248-instant.mjs` (37).
 > - **The owner's two reports, in order.** v246 answered “doesn't load everything fast” (5,113 KB → 1,832 KB
 >   of pictures on the phone home screen, 33 script requests → 2). He then wrote *“it is better than before
 >   but still not as perfect as I want a smooth UI UX … like a premium designer”* — so v247 is about how the

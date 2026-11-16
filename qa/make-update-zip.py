@@ -101,6 +101,11 @@ ADDED = {
     # posters. Without the thumbs the new srcset would 404 and every one of
     # those pictures would fall back to the 167 KB original.
     247: ['js/v247.js', 'images/thumbs/banners/**', 'images/thumbs/films/**'],
+    # v248 "instant" — one js layer (the tap meter, the scroll-behavior hold and
+    # the reveal stand-down) and one css layer. No new pictures: this release is
+    # about the time between a tap and the next page, and it removes work rather
+    # than adding it.
+    248: ['js/v248.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

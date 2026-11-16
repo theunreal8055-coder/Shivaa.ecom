@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 247;
+const APP_REL = 248;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -12277,7 +12277,14 @@ function route() {
       if (n <= 0) { clearInterval(window._v107Redir); window._v107Redir = null; location.hash = '#/'; }
     }, 1000);
   }
-  window.scrollTo({ top: 0 });
+  /* v248 — `html{scroll-behavior:smooth}` (motion.css, and three later layers)
+     turned this one call into an animated slide: tap a category on a long page
+     and the NEW page renders at the OLD scroll offset, then the document glides
+     up to the top over the best part of a second before anything looks settled.
+     That is the “it waits, then starts loading” the owner kept reporting.
+     `behavior:'instant'` is explicit and beats a stylesheet, whatever any later
+     layer does to `scroll-behavior`. */
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   // performance: lazy-load everything below the fold (runs right after paint)
   const lazySweep = () => document.querySelectorAll('img:not([loading])').forEach(img => {
     if (img.getBoundingClientRect().top > innerHeight + 40) {
@@ -12285,7 +12292,13 @@ function route() {
       img.dataset.shvLazy = '1';            // v227 — v227.js re-sweeps the late mounts
     }
   });
-  setTimeout(lazySweep, 0); setTimeout(lazySweep, 900);
+  /* v248 — this used to run three times (0 ms, 900 ms, 2600 ms) and each run
+     calls getBoundingClientRect() on every image, which forces a style+layout
+     pass. Three forced layouts in the first three seconds after every tap, on
+     the main thread the shopper is trying to scroll. One sweep on the next frame
+     covers everything the render produced; the 2.6 s one stays for the CMS rows
+     that arrive later. */
+  requestAnimationFrame(lazySweep);
   setTimeout(lazySweep, 2600);              // v227 — once the CMS rows have arrived
   // branded page banners + advanced category slider
   initCatbar();
@@ -12890,6 +12903,23 @@ async function wishIds() {
     return visibleWishIds();
   } catch (e) { return visibleWishIds(); }   // v103 — never let an odd response break the PDP render
 }
+/* v248 — THE SPLASH IS NO LONGER A CURTAIN.
+   index.html ships a skeleton of the home page (#view > .shv-skeleton): a hero
+   block and four card blocks, in the real colours, shaped like what is coming.
+   For years the opaque preloader covered it until the whole boot batch had
+   answered — on a phone that is the difference between “my shop opened” and
+   “something is happening, I think”. The skeleton is now revealed at 260 ms in
+   every case; the preloader only stays if the document is still parsing.
+   Nothing is faked: the skeleton is replaced by the real page the moment the
+   router has the data, and every price in it is a skeleton until the rate
+   arrives (priceHTML). */
+function liftPreloader() {
+  const pl = document.getElementById('preloader');
+  if (!pl || pl.classList.contains('hide')) return;
+  pl.classList.add('hide');
+  setTimeout(() => { if (pl.parentNode) pl.parentNode.removeChild(pl); }, 700);
+}
+
 async function boot(isRedraw) {
   /* v117 — first paint was held hostage by THREE serial network rounds:
      the five-call batch → a serial rates fetch → a serial pages fetch. On a
@@ -12901,6 +12931,8 @@ async function boot(isRedraw) {
   /* v166 — paint from the device's last-good catalogue at once, so a slow or
      stalled network can never show an empty shop (js/v166.js refreshes and
      retries behind this). */
+  /* reveal the skeleton on the first frame after parse, not after the network */
+  if (!isRedraw) setTimeout(liftPreloader, 260);
   const _cachedCat = catalogCacheRead() || [];
   /* the 6 campaign studs are pushed into productsCache at module load (a twin
      of the server's campaign catalogue), so "is the catalogue here?" can only
@@ -12938,7 +12970,7 @@ async function boot(isRedraw) {
      second ceiling still stands for every other case (cold device, deep link,
      any other route). */
   const _homeFirst = !isRedraw && (!location.hash || location.hash === '#' || location.hash === '#/');
-  const _capMs = isRedraw ? 15000 : (_homeFirst && _realCount() > 0 ? 700 : 6000);
+  const _capMs = isRedraw ? 15000 : (_homeFirst && _realCount() > 0 ? 700 : 4000);
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),
@@ -13101,8 +13133,7 @@ async function boot(isRedraw) {
   // stacked mm-grid / mm-feats / mcat-list blocks (they duplicated the same
   // destinations three times and made the drawer ~860px taller than the phone).
   $('#footCats').innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
-  const pl = $('#preloader');
-  if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
+  liftPreloader();   // v248 — usually already gone; this is the belt
   initMiniCart();   // v91 slide-in bag
   route();
   try { window.Shivaa.exResume(); } catch (e) {}   // v153 — in-page buy survived a tab reclaim?

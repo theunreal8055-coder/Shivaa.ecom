@@ -98,7 +98,13 @@ export async function boot(hash = '#/', opts = {}) {
          mangle. FormData bodies pass straight through (the bill desk uploads
          real multipart). */
       const nf = globalThis.fetch;
+      /* v248 — opts.stall models a phone on a dying connection: every API call
+         is accepted and then NEVER answered. The suite uses it to prove the
+         splash is not a curtain: the skeleton must be on screen whether or not
+         the network ever speaks. */
+      const STALL = !!opts.stall;
       window.fetch = (url, o = {}) => {
+        if (STALL) return new Promise(() => {});
         const u = String(url).startsWith('http') ? String(url) : BASE + (String(url).startsWith('/') ? url : '/' + url);
         return nf(u, o).then(async r => {
           const buf = await r.arrayBuffer();

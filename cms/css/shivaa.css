@@ -20965,3 +20965,69 @@ html.shv-plain #view.shv-rise > * { animation: none !important; opacity: 1 !impo
   }
   .pr-sk { animation: none !important; opacity: .18; }
 }
+/* v248.css */
+ 
+
+ 
+html,
+body {
+  scroll-behavior: auto !important;
+}
+ 
+html.shv-nav,
+html.shv-nav body,
+html.shv-nav * {
+  scroll-behavior: auto !important;
+}
+
+ 
+html.shv-scrolling .rv,
+html.shv-scrolling .au-rise,
+html.shv-scrolling .au,
+html.shv-scrolling .pg,
+html.shv-scrolling .shv-img-in,
+html.shv-scrolling [data-v241-lazy] {
+  animation: none !important;
+  transition: none !important;
+}
+ 
+html.shv-scrolling #view.shv-rise > * {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+ 
+.preloader { transition: opacity .28s ease, visibility .28s ease; }
+
+ 
+#tapDiag {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(29, 5, 9, .93);
+  color: #f6e8c8;
+  font: 500 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, .6);
+  pointer-events: none;
+}
+#tapDiag b {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--gold-2);
+}
+#tapDiag span { opacity: .8; }
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  .preloader { transition: none; animation-duration: .01ms; }
+}
+html.shv-plain .preloader { transition: none; }

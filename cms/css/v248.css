@@ -1,0 +1,102 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v248 · “INSTANT” — the visual half of the tap-to-next-page work.
+
+   Four rules, each one a stall removed:
+
+     1 · A PAGE CHANGE NEVER ANIMATES THE SCROLL. `html{scroll-behavior:smooth}`
+         was declared in motion.css and then re-declared by later layers. With it,
+         the router's `window.scrollTo({top:0})` is an ANIMATION: the new page is
+         drawn at the old scroll offset and the document glides up for the better
+         part of a second. On a long category page that reads exactly as “it waits,
+         then it starts loading”. `auto` is now the last word, and the router also
+         asks for `behavior:'instant'` explicitly (v248 app.js).
+         In-page anchors are unaffected in practice (they jump instantly, which is
+         what a shopper expects from a jump link), and `scrollIntoView` calls that
+         ask for smooth explicitly — the rail centring — still glide.
+
+     2 · WHILE THE THUMB IS MOVING, NOTHING ELSE MOVES. v244 sets
+         `html.shv-scrolling` for the duration of a gesture. Inside that window
+         the entrance animations, the reveal classes and the image fades stand
+         down: a picture that arrives under a moving thumb is simply there. This
+         is the difference between a page that follows the finger and a page that
+         is busy animating thirty cards at the same time.
+
+     3 · THE SKELETON IS THE FIRST SCREEN, NOT A LOGO. index.html already ships a
+         skeleton of the home page; the preloader used to cover it. app.js now
+         lifts the preloader at 260 ms, and this layer makes sure the skeleton it
+         reveals is warm, quiet and the right shape (a shimmer you can see through,
+         not a white flash).
+
+     4 · ?tapdiag=1 — the tap meter, on the screen. Large type, thumb-sized,
+         readable in a screenshot, never in the way of a tap.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · the scroll is a jump, not a slide ──────────────────────────────── */
+html,
+body {
+  scroll-behavior: auto !important;
+}
+/* the 700 ms window around a tap, set by v248.js, in case a later layer or a
+   browser default disagrees */
+html.shv-nav,
+html.shv-nav body,
+html.shv-nav * {
+  scroll-behavior: auto !important;
+}
+
+/* ── 2 · still during a fling ───────────────────────────────────────────── */
+html.shv-scrolling .rv,
+html.shv-scrolling .au-rise,
+html.shv-scrolling .au,
+html.shv-scrolling .pg,
+html.shv-scrolling .shv-img-in,
+html.shv-scrolling [data-v241-lazy] {
+  animation: none !important;
+  transition: none !important;
+}
+/* and the page-level entrance the router adds (css/v247 §9) */
+html.shv-scrolling #view.shv-rise > * {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* ── 3 · the preloader leaves quickly ───────────────────────────────────────
+   The skeleton in index.html and its layout already exist (css/shivaa.css
+   §sk-skeleton); the only thing wrong with them was being hidden behind an
+   opaque splash for as long as the boot batch took. js/app.js lifts the splash
+   at 260 ms now; this shortens the fade from .7 s to .28 s so the skeleton is on
+   screen while the network is still working, instead of a slow fade over it. */
+.preloader { transition: opacity .28s ease, visibility .28s ease; }
+
+/* ── 4 · the tap meter (?tapdiag=1) ─────────────────────────────────────── */
+#tapDiag {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(29, 5, 9, .93);
+  color: #f6e8c8;
+  font: 500 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, .6);
+  pointer-events: none;
+}
+#tapDiag b {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--gold-2);
+}
+#tapDiag span { opacity: .8; }
+
+/* ── 5 · reduced motion and the kill switch take the meter's motion too ─── */
+@media (prefers-reduced-motion: reduce) {
+  .preloader { transition: none; animation-duration: .01ms; }
+}
+html.shv-plain .preloader { transition: none; }

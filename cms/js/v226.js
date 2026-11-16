@@ -121,6 +121,15 @@
      detached node (the router may already have replaced the page). */
   function centerRail(el) {
     if (reduced || !el || !el.isConnected || !el.scrollIntoView) return false;
+    /* v248 — a chip that NAVIGATES is about to be replaced by another page:
+       gliding it to the centre of its rail first is work nobody sees, and a
+       smooth scrollIntoView on the tap competes with the router's own scroll.
+       Centring is for chips that keep you on this page. */
+    var link = closest(el, 'a[href]');
+    if (link) {
+      var h = link.getAttribute('href') || '';
+      if (h.charAt(0) === '#' && h.charAt(1) === '/' && h !== location.hash) return false;
+    }
     var rail = el.parentElement;
     if (!rail) return false;
     if (rail.scrollWidth <= rail.clientWidth + 4) return false;
@@ -236,7 +245,19 @@
      tells motion.js not to replay the entrance for this one navigation —
      both sides of the snapshot are then fully painted, so what cross-fades
      is the page, not an empty shell. */
-  var vtGen = 0, vtOn = typeof doc.startViewTransition === 'function';
+  /* v248 — OFF BY DEFAULT, and the owner's report is why.
+     The cross-fade was nice on the desktop. On a phone it costs more than it
+     gives: `startViewTransition` makes the document non-interactive while the
+     browser rasterises a snapshot of the OLD page and then of the new one, and
+     this layer prevents the default navigation so the hash can be set inside
+     that callback. On a mid-range Android with a 90-image home page that is a
+     visible freeze on EVERY tap — “it waits three seconds and then starts
+     loading the next page”. A page change is now a plain navigation again:
+     the router renders on hashchange within a frame, and the entrance
+     animation supplies the motion. The code stays, behind `?vt=1`, for a day
+     when it can be measured on a real device. */
+  var vtWant = /[?&]vt=1/.test(location.search);
+  var vtGen = 0, vtOn = vtWant && typeof doc.startViewTransition === 'function';
   function runVT(href) {
     var gen = ++vtGen;
     root.classList.add('vt-run');

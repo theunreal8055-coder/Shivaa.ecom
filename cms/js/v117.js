@@ -57,12 +57,48 @@
       .catch(function () { /* ambience is optional — never noisy */ });
   }
 
+  /* ── 3 · nothing decorative may land under a moving thumb ─────────────
+     v248 — `requestIdleCallback` means “when the main thread has spare time”,
+     which is not the same as “when nobody is using the shop”. On a phone the
+     first ten seconds are exactly when the shopper is scrolling and tapping, so
+     the idle window kept opening mid-gesture and 110 KB of decorative script
+     (aurum · motion · boost) was parsed and executed right then — a main-thread
+     stall that reads as the scroll hitching, or as a tap that “waits”. The
+     loader now waits for a genuine quiet moment: 700 ms with no press, wheel or
+     scroll. If the shopper never stops (an infinite-scroll session), the
+     enhancements still load after 12 s: they are ambience, never content, and a
+     shopper who never pauses does not miss them. */
+  var QUIET = 700, CEILING = 12000;
+  function whenCalm(fn) {
+    var last = 0;
+    var t0 = Date.now();
+    var mark = function () { last = Date.now(); };
+    ['pointerdown', 'touchstart', 'wheel', 'scroll', 'keydown'].forEach(function (ev) {
+      addEventListener(ev, mark, { passive: true, capture: true });
+    });
+    function go() {
+      var quiet = Date.now() - last;
+      if ((quiet >= QUIET && !document.documentElement.classList.contains('shv-scrolling')) ||
+          Date.now() - t0 >= CEILING) {
+        ['pointerdown', 'touchstart', 'wheel', 'scroll', 'keydown'].forEach(function (ev) {
+          removeEventListener(ev, mark, { capture: true });
+        });
+        fn();
+        return;
+      }
+      setTimeout(go, Math.max(200, QUIET - quiet));
+    }
+    go();
+  }
+
+  function armEnhancements() {
+    IDLE(function () { whenCalm(loadEnhancements); });
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      IDLE(loadEnhancements);
-    }, { once: true });
+    document.addEventListener('DOMContentLoaded', armEnhancements, { once: true });
   } else {
-    IDLE(loadEnhancements);
+    armEnhancements();
   }
 
 })();
