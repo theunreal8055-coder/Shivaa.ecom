@@ -4,15 +4,15 @@
   "updated": "2026-11-12",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 249,
+  "next_release": 250,
   "live": {
-    "release": 248,
-    "title": "Instant",
+    "release": 249,
+    "title": "Steady",
     "since": "2026-11-12",
     "confirmed_by": null,
-    "owner_words": "Still the app doesn't feel smooth, and whenever you click any option or any button it waits for 3 seconds and then starts loading the next page, why does it lags for 3 seconds and it feels struck and loads very slowly for the first time also and whenever we scroll after that",
+    "owner_words": "Screen blinks and still slow loading, fix this in the next update",
     "deployed_build": 244,
-    "note": "v248 removes the three places where a tap could be PARKED before the next page: (1) the view-transition navigation in js/v226.js — it called preventDefault() on the link, rasterised a snapshot of the old page and only then set the hash, inside a callback behind a 300 ms cap and an rAF; it is now opt-in behind ?vt=1 and off by default, so a page change is a plain native hash navigation again; (2) window.scrollTo({top:0}) under html{scroll-behavior:smooth} — the new page was drawn at the OLD scroll offset and the document glided home, which reads exactly as 'it waits, then it starts'; the router now asks for behavior:'instant' and css/v248.css makes auto the last word, plus a 700 ms hold around any tap; (3) rail centring (a smooth scrollIntoView) on the very chip that was about to be replaced — skipped for any link that navigates. First load: the preloader is no longer a curtain — index.html's page skeleton is revealed at 260 ms in every case and the cold-visit paint ceiling drops 6 s -> 4 s, because every unknown price is a skeleton, not a zero. Scrolling: one forced layout per navigation instead of three (lazySweep 0/900/2600 -> rAF + 2600), entrance animations and image fades stand down while html.shv-scrolling is on, and the 110 KB of decorative scripts (v117 -> aurum/motion/boost) now wait for 700 ms of real quiet instead of landing mid-gesture. Diagnostics: a tap meter records press -> hash -> page -> paint for the last 12 taps and every long task; window.Shivaa.taps(), window.Shivaa.v248.report(), or ?tapdiag=1 for the numbers on screen. Gates: new qa/browser/t-v248-instant.mjs (37 checks) — 376 browser checks in total, 0 red; check-handoff 229/229."
+    "note": "v249 answers the blink and the bytes. BLINK — (1) nothing that is content may start at opacity:0 and fade in: the route rise, the .rv reveals, the review rows and the picture fade all lost their invisible first keyframe (css/v249.css keeps motion, it just travels instead of fading up); (2) no second full render: when the first paint already showed real products, the late boot batch is adopted (state + .js-price patch + rates event) instead of calmBoot() rewriting #view — that second render was the blink AND the duplicate download; js/v166.js's background catalogue repair does the same via Shivaa.softCatalogue() instead of redraw(); (3) the splash is never painted for a device that already holds the catalogue — index.html sets html.shv-warm from localStorage before the first frame; (4) the warm paint cap drops 700 -> 250 ms. SLOW LOADING — app.js and rel.js are minified by tools/build-min.mjs with a sha256 banner that check-handoff verifies (a stale min is a red gate): 1,282,512 B -> 787,267 B raw (-39 %), 383 KB -> 243 KB gzip, and ~40 % less to parse. Also: a programmatic render cannot land under a thumb (Shivaa.redraw is deferred to the next calm frame), and Shivaa.v249.report() counts unasked repaints so the next report can say 'the view was replaced twice without a tap'. Gates: new qa/browser/t-v249-steady.mjs (36 checks, incl. a seeded warm boot with a 1.2 s API proving zero re-renders) — 413 browser checks in total, 0 red; check-handoff green."
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -46,6 +46,12 @@
       "title": "Instant",
       "since": "2026-11-12",
       "note": "tap latency: the view transition, the smooth scroll-home and the rail centring removed from the tap path; skeleton at 260 ms; one forced layout per route; reveal stand-down under a thumb; tap meter"
+    },
+    {
+      "release": 249,
+      "title": "Steady",
+      "since": "2026-11-12",
+      "note": "no content animates in from opacity 0; the late batch is adopted instead of repainting; the curtain is not painted on a warm device; the JS pair is minified (-39 % raw, -41 % gzip) with a verified fingerprint; Shivaa.v249.report()"
     }
   ],
   "releases": [
@@ -396,6 +402,21 @@
       "files": 763,
       "bytes": 45051400,
       "sha256": "861d946d45afaac68b395aafc29eee36399df6ab9e8b067361f7429e10553faa",
+      "status": "superseded",
+      "deployed": null,
+      "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",
+      "layer": null,
+      "superseded_by": 249,
+      "note": "handed over 12 Nov 2026, not confirmed installed; the owner then reported \"Screen blinks and still slow loading\""
+    },
+    {
+      "release": 249,
+      "commit": null,
+      "title": "Steady",
+      "zip": "shivaa-update-v249.zip",
+      "files": 767,
+      "bytes": 45302852,
+      "sha256": "b165432761e840e7b9d4e76dfcb56e0d2a76b983c9923ef67905efdb0cb6a365",
       "status": "live",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged 12 Nov 2026, not installed",

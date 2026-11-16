@@ -106,6 +106,10 @@ ADDED = {
     # about the time between a tap and the next page, and it removes work rather
     # than adding it.
     248: ['js/v248.js'],
+    # v249 "steady" — one js layer, one css layer (auto-detected) and the two
+    # MINIFIED files index.html now loads (tools/build-min.mjs). The sources stay
+    # in the package: a rollback is two script tags, and every QA gate reads them.
+    249: ['js/v249.js', 'js/app.min.js', 'js/rel.min.js'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

@@ -21031,3 +21031,67 @@ html.shv-scrolling #view.shv-rise > * {
   .preloader { transition: none; animation-duration: .01ms; }
 }
 html.shv-plain .preloader { transition: none; }
+/* v249.css */
+ 
+
+ 
+@keyframes v249Rise { from { transform: translateY(6px) } to { transform: none } }
+#view.shv-rise > section:nth-child(-n+6),
+#view.shv-rise > div:nth-child(-n+6),
+#view.shv-rise > header:nth-child(-n+6) {
+  animation: v249Rise var(--sx-dur-3, .24s) var(--sx-out, cubic-bezier(.22,.61,.36,1)) both;
+  opacity: 1;
+}
+
+ 
+.rv {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+.rv.in { opacity: 1; transform: none; }
+
+ 
+.rv-in,
+[class*="rv-in"],
+.stars-pop {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+ 
+.shv-img-in { animation: none !important; opacity: 1 !important; }
+
+ 
+html.js-motion #view .pc-imgwrap img.img-ok,
+html.js-motion #view .pc-imgwrap img:not(.pc-img-b) { opacity: 1 !important; transition: none !important; }
+
+ 
+html { background: var(--cream, #f7f2e9); }
+body { background: var(--cream, #f7f2e9); }
+#view { background-color: transparent; }
+
+ 
+html.shv-warm .preloader {
+  display: none !important;
+}
+ 
+html:not(.shv-warm) .preloader { animation: none; }
+html:not(.shv-warm) .preloader.hide { transition: opacity .22s ease, visibility .22s ease; }
+
+ 
+.header { transition: box-shadow .18s linear; }
+
+ 
+@supports (height: 100svh) {
+  .hero { min-height: calc(100svh - 118px); }
+  @media (max-width: 820px) {
+    .hero { min-height: calc(100svh - 96px); }
+  }
+}
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  #view.shv-rise > * { animation: none !important; transform: none !important; }
+}
+html.shv-plain #view.shv-rise > * { animation: none !important; transform: none !important; }

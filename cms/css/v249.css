@@ -1,0 +1,102 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v249 · “STEADY” — the screen stops blinking.
+
+   The owner, verbatim: “Screen blinks and still slow loading.”
+
+   A blink on a shop is almost never a browser bug. It is one of four things, and
+   this release removes all four from the storefront:
+
+     1 · CONTENT THAT BECOMES INVISIBLE TO ANIMATE IN. `#view.shv-rise > *`
+         animated from `opacity: 0`, `.rv` sat at `opacity: 0` until an observer
+         said otherwise, `.rv-in` and `.shv-img-in` both started from nothing. On
+         a phone, every one of those is a frame — or several — of blank page
+         between the tap and the content: a blink. Motion is kept, but from now
+         on **entrance motion may not hide content**: it travels, it never fades
+         up from zero.
+
+     2 · A SECOND FULL RENDER. The splash used to lift on a timer, then the boot
+         batch landed and `calmBoot(0)` rewrote #view from scratch: every
+         photograph requested again, decode, layout, scroll reset — the page
+         visibly blinked and the data was downloaded twice. js/app.js now adopts
+         a late batch quietly (state + `.js-price` patch) unless the first paint
+         had nothing real to show. `js/v166.js`'s background catalogue repair
+         does the same instead of calling redraw().
+
+     3 · THE CURTAIN ITSELF. On every reload a full-screen maroon curtain was
+         painted over the page and then faded away — the most literal blink in
+         the product. For a device that already holds the catalogue (a returning
+         shopper, i.e. every reload after the first) the curtain is now **never
+         painted at all**: `index.html` marks `<html class="shv-warm">` from
+         localStorage before the first paint, and rule 3 below removes it. A
+         cold first visit keeps the brand moment.
+
+     4 · AN EMPTY VIEW BETWEEN TWO RENDERS. `#view` gets the page background, so
+         a replacement can never show through as white.
+
+   Nothing here removes polish; it removes the *disappearing*. A page that
+   travels 6 px is alive. A page that goes from 0 % to 100 % opaque is a flash.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · motion may travel, never fade up from nothing ──────────────────── */
+@keyframes v249Rise { from { transform: translateY(6px) } to { transform: none } }
+#view.shv-rise > section:nth-child(-n+6),
+#view.shv-rise > div:nth-child(-n+6),
+#view.shv-rise > header:nth-child(-n+6) {
+  animation: v249Rise var(--sx-dur-3, .24s) var(--sx-out, cubic-bezier(.22,.61,.36,1)) both;
+  opacity: 1;
+}
+
+/* the scroll-reveal, with its invisibility removed: the block is there from the
+   first frame and settles 10 px into place */
+.rv {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+.rv.in { opacity: 1; transform: none; }
+
+/* review rows and any other staggered entrance: no fade from zero */
+.rv-in,
+[class*="rv-in"],
+.stars-pop {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* the picture fade is gone entirely — a photograph is simply there */
+.shv-img-in { animation: none !important; opacity: 1 !important; }
+
+/* anything the older layers fade in on load (motion.js `.img-ok`, aurum) */
+html.js-motion #view .pc-imgwrap img.img-ok,
+html.js-motion #view .pc-imgwrap img:not(.pc-img-b) { opacity: 1 !important; transition: none !important; }
+
+/* ── 2 · no white between two renders ───────────────────────────────────── */
+html { background: var(--cream, #f7f2e9); }
+body { background: var(--cream, #f7f2e9); }
+#view { background-color: transparent; }
+
+/* ── 3 · a returning shopper never sees the curtain ─────────────────────── */
+html.shv-warm .preloader {
+  display: none !important;
+}
+/* and when it does appear (a genuine first visit) it fades fast, so the handover
+   is one movement, not a slow dissolve over a page that is already there */
+html:not(.shv-warm) .preloader { animation: none; }
+html:not(.shv-warm) .preloader.hide { transition: opacity .22s ease, visibility .22s ease; }
+
+/* ── 4 · the header's shadow may not animate on the first scroll ────────── */
+.header { transition: box-shadow .18s linear; }
+
+/* ── 5 · 100vh jumps on the first scroll (the mobile URL bar) ───────────── */
+@supports (height: 100svh) {
+  .hero { min-height: calc(100svh - 118px); }
+  @media (max-width: 820px) {
+    .hero { min-height: calc(100svh - 96px); }
+  }
+}
+
+/* ── 6 · reduced motion and the kill switch get a still page ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  #view.shv-rise > * { animation: none !important; transform: none !important; }
+}
+html.shv-plain #view.shv-rise > * { animation: none !important; transform: none !important; }

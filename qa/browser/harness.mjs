@@ -103,8 +103,23 @@ export async function boot(hash = '#/', opts = {}) {
          splash is not a curtain: the skeleton must be on screen whether or not
          the network ever speaks. */
       const STALL = !!opts.stall;
+      /* v249 — opts.delay (ms) models a slow network: every API answer is
+         correct, just late, so the “paint fast, adopt the late batch quietly”
+         path can be measured instead of assumed.
+         opts.ls seeds localStorage before the page runs, which is the only way
+         to boot as a RETURNING shopper (a device that already holds the
+         catalogue) — the case where the curtain must never be painted. */
+      const DELAY = Number(opts.delay || 0);
+      try {
+        const seed = opts.ls || {};
+        Object.keys(seed).forEach(k => window.localStorage.setItem(k, String(seed[k])));
+      } catch (e) {}
       window.fetch = (url, o = {}) => {
         if (STALL) return new Promise(() => {});
+        if (DELAY) return new Promise(res => setTimeout(res, DELAY)).then(() => realFetch(url, o));
+        return realFetch(url, o);
+      };
+      const realFetch = (url, o = {}) => {
         const u = String(url).startsWith('http') ? String(url) : BASE + (String(url).startsWith('/') ? url : '/' + url);
         return nf(u, o).then(async r => {
           const buf = await r.arrayBuffer();

@@ -107,10 +107,12 @@ def main():
         raise SystemExit('REFUSING: the bundle does not parse\n' + r.stderr[:2000])
     print(' node --check        : OK')
 
-    # index.html must ask for app.js + rel.py — nothing else
+    # index.html must ask for the application + the layer bundle — nothing else.
+    # v249 — those two may be the MINIFIED pair (tools/build-min.mjs); the source
+    # names stay acceptable so a rollback is two script tags and no code change.
     idx = io.open(INDEX, encoding='utf-8').read()
     srcs = re.findall(r'<script src="/js/([^"?]+)\?v=\d+" defer></script>', idx)
-    stray = [s for s in srcs if s not in ('app.js', 'rel.js')]
+    stray = [s for s in srcs if s not in ('app.js', 'rel.js', 'app.min.js', 'rel.min.js')]
     print(' index.html requests : %s' % ', '.join(srcs))
     if stray:
         print(' WARNING             : %d layer tag(s) still in index.html: %s' % (len(stray), ', '.join(stray)))

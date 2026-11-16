@@ -66,7 +66,7 @@ ok('every stamp is one release',
   REL >= 244 && new RegExp('const APP_REL = ' + REL + ';').test(app) &&
   new RegExp("'rel' => " + REL).test(api) && new RegExp('const REL = ' + REL + ';').test(sw));
 ok('the worker shell names this release', new RegExp('shivaa-shell-v' + REL).test(sw));
-ok('the worker precaches the bundle that carries it', /'\/js\/rel\.js\?v=\d+'/.test(sw));
+ok('the worker precaches the bundle that carries it', /'\/js\/rel(?:\.min)?\.js\?v=\d+'/.test(sw));
 ok('the feature flags are not double-installed', /if \(window\.__shvButter2\) return;/.test(v244));
 
 /* ── 2 · nothing blurs the scroll path any more ─────────────────────────── */

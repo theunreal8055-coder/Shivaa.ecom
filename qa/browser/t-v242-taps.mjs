@@ -65,7 +65,7 @@ ok('the expensive sweep runs once on activation instead',
    /e\.waitUntil\(trimMedia\(\)\.catch\(\(\) => \{\}\)\);/.test(sw));
 ok('sw shell + REL carry the live release',
    new RegExp('shivaa-shell-v' + REL).test(sw) && new RegExp('const REL = ' + REL + ';').test(sw));
-ok('the bundle that carries v242 is precached', relShips('v242.js') && /'\/js\/rel\.js\?v=\d+'/.test(sw));
+ok('the bundle that carries v242 is precached', relShips('v242.js') && /'\/js\/rel(?:\.min)?\.js\?v=\d+'/.test(sw));
 ok('the duplicated v237 layer is in the bundle exactly once',
    relLayers.filter(n => n === 'v237.js').length === 1);
 
@@ -87,8 +87,13 @@ ok('the duplicated v237 layer is in the bundle exactly once',
    little sooner is honest, while six seconds of splash is not. Asserted as a
    range on the extracted number so a future release can tune it without
    weakening the check. */
-const _capCold = Number((app.match(/_capMs = isRedraw \? 15000 : \(_homeFirst && _realCount\(\) > 0 \? 700 : (\d+)\)/) || [])[1]);
+/* v249 — the expression was refactored (`_fastPaint` is now a named flag, and the
+   fast ceiling went 700 → 250 ms so a returning shopper does not wait for a
+   number already on screen as a skeleton). Both statements below are restated to
+   the principle they protect, not to the literal they happened to have. */
+const _capCold = Number((app.match(/_capMs = isRedraw \? 15000 : \(_fastPaint \? \d+ : (\d+)\)/) || [])[1]);
 ok('the fast paint is gated on a device catalogue, never on a guess',
+   /const _fastPaint = _homeFirst && _realCount\(\) > 0;/.test(app) &&
    /const _homeFirst = !isRedraw/.test(app) && _capCold > 0 && _capCold <= 6000);
 ok('a missing rate renders a skeleton, never ₹0 and never ₹NaN',
    /function moneyOK\(p, R\)/.test(app) && /const PRICE_PENDING = '<i class="pr-sk"/.test(app) &&
@@ -96,8 +101,16 @@ ok('a missing rate renders a skeleton, never ₹0 and never ₹NaN',
 ok('the product card prices through that helper',
    /const pend = !moneyOK\(p\)/.test(app) && /\$\{pend \? PRICE_PENDING : fmt\(pr\.total\)\}/.test(app));
 ok('the cold-visit ceiling is small and bounded', _capCold > 0 && _capCold <= 6000);
-ok('a late batch queues a CALM repaint, not an immediate one',
-   /_firstBatch\.then\(\(\) => \{ calmBoot\(0\); \}\)/.test(app));
+/* v249 — a CALM repaint is now the fallback, not the default: when the first
+   paint already showed real products the late batch is adopted (state + prices)
+   and #view is not touched at all. That second render was the blink. */
+ok('a late batch never repaints under a finger',
+   /_firstBatch\.then\(\(packed\) => \{[\s\S]{0,220}adoptLateBatch\(packed\)/.test(app) &&
+   /calmBoot\(0\);/.test(app));
+ok('and a page that already shows real products is never re-rendered',
+   /function adoptLateBatch\(packed\)/.test(app) &&
+   /if \(_fastPaint && packed\)/.test(app) &&
+   !/adoptLateBatch[\s\S]{0,600}route\(/.test(app));
 ok('calmBoot waits for no-touch / no-sheet / visible',
    /function userTouching\(\)/.test(app) && /__shvLastInput/.test(app) &&
    /\.modal-overlay\.open, \.fsheet-overlay\.open, \.nav\.open/.test(app));
@@ -149,7 +162,7 @@ ok('the panel reports sheet / scroll-lock state', /scroll locked:/.test(v242) &&
 /* ── 6 · release plumbing ───────────────────────────────────────────────── */
 ok('v246 — the layers ride in ONE request, in document order (v242 after v241)',
    layerAt('v242.js') > layerAt('v241.js') && layerAt('v237.js') > layerAt('v242.js') &&
-   /<script src="\/js\/rel\.js\?v=\d+" defer><\/script>/.test(index),
+   /<script src="\/js\/rel(\.min)?\.js\?v=\d+" defer><\/script>/.test(index),
    `v241@${layerAt('v241.js')} v242@${layerAt('v242.js')}`);
 ok('index.html stamps the live rel', /window\.__SHIVAA_REL=\d+;/.test(index));
 ok('every asset URL rides the live release', !/\?v=(24[01])\b/.test(index));

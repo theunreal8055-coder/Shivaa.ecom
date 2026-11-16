@@ -216,6 +216,27 @@ def main():
     ok('make-update-zip.py refuses a spent number',
        'refusing' in zip_py.lower() or 'REFUSING' in zip_py)
 
+    # v249 — THE MINIFIED PAIR MUST BE CURRENT. index.html loads app.min.js and
+    # rel.min.js; each carries the sha256 of the source it was built from. A
+    # forgotten `node tools/build-min.mjs` would ship the previous release's code
+    # under this release's stamp — the worst possible failure, because the shop
+    # would work and be wrong. This is the gate that makes that impossible.
+    import hashlib
+    for src, out in (('cms/js/app.js', 'cms/js/app.min.js'),
+                     ('cms/js/rel.js', 'cms/js/rel.min.js')):
+        try:
+            want = hashlib.sha256(open(os.path.join(ROOT, src), 'rb').read()).hexdigest()
+            banner_txt = open(os.path.join(ROOT, out), encoding='utf-8', errors='replace').read(400)
+            m = re.search(r'sha256 ([0-9a-f]{64})', banner_txt)
+            ok('%s is built from the current %s' % (out, src),
+               bool(m) and m.group(1) == want,
+               ('banner %s, source %s' % (m.group(1)[:12], want[:12])) if m else 'no banner')
+        except FileNotFoundError:
+            ok('%s exists' % out, False, 'missing — run: node tools/build-min.mjs')
+    idx = read('cms/index.html')
+    ok('index.html loads the minified pair',
+       '/js/app.min.js?v=' in idx and '/js/rel.min.js?v=' in idx)
+
     head_doc = read('docs/NEXT-CHAT-HEAD.md')
     ok('NEXT-CHAT-HEAD names the release branch',
        'arena/e8a470c6-shivaa-ecom' in head_doc)

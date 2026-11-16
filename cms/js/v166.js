@@ -220,7 +220,15 @@
           writeLocalCatalog(ps);
           catalogBusy = false; catalogTries = 0;
           retryStrip(false);
-          try { if (w.Shivaa.redraw) w.Shivaa.redraw(); } catch (_) {}
+          /* v249 — a background repair must not repaint what the shopper is
+             reading. The grid already holds the device's copy of the same
+             pieces; the prices are `.js-price[data-pid]` and patch in place, so
+             this is a data refresh, not a re-render. redraw() stays for the
+             empty-grid case (below), which is the only case that needs it. */
+          try {
+            if (w.Shivaa && w.Shivaa.softCatalogue) w.Shivaa.softCatalogue();
+            else if (w.Shivaa && w.Shivaa.redraw) w.Shivaa.redraw();
+          } catch (_) {}
           if (done) done(true);
         }).catch(function () {
           /* the shopper must not stare at an empty grid for half a minute while

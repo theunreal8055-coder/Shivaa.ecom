@@ -101,7 +101,7 @@ ok('no desktop rule forces the rows to full width',
 ok('the mobile width guard (v238-injected) is scoped to .nav.open',
   /\.nav\.open \.nav-scroll>\*\{[^}]*width:100%!important/.test(v238));
 ok('v243 rides in the precached bundle',
-  relShips('v243.js') && /'\/js\/rel\.js\?v=\d+'/.test(sw) &&
+  relShips('v243.js') && /'\/js\/rel(?:\.min)?\.js\?v=\d+'/.test(sw) &&
   new RegExp('shivaa-shell-v' + REL).test(sw));
 
 /* ── 5 · live DOM: desktop bar vs mobile drawer ──────────────────────────── */

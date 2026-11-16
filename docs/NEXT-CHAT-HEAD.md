@@ -1,11 +1,11 @@
 # NEXT CHAT HEAD — read this first
 
-> **CURRENT STATE — v248 “Instant” PACKAGED, AWAITING THE OWNER'S YES (12 Nov 2026).**
-> The only zip to install: **`shivaa-update-v248.zip`** — **763 files · 45,051,400 B ·
-> `861d946d45afaac68b395aafc29eee36399df6ab9e8b067361f7429e10553faa`**.
-> It contains v237–v247, so **one upload brings the shop fully up to date.**
-> **Next release number: v249.** Branch: `arena/95be65a4-shivaa-ecom`.
-> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/95be65a4-shivaa-ecom/shivaa-update-v248.zip`
+> **CURRENT STATE — v249 “Steady” PACKAGED, AWAITING THE OWNER'S YES (12 Nov 2026).**
+> The only zip to install: **`shivaa-update-v249.zip`** — **767 files · 45,302,852 B ·
+> `b165432761e840e7b9d4e76dfcb56e0d2a76b983c9923ef67905efdb0cb6a365`**.
+> It contains v237–v248, so **one upload brings the shop fully up to date.**
+> **Next release number: v250.** Branch: `arena/95be65a4-shivaa-ecom`.
+> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/95be65a4-shivaa-ecom/shivaa-update-v249.zip`
 
 > **BRANCH WARNING.** Work on `arena/95be65a4-shivaa-ecom` only. The `release_branch` field inside
 > `docs/release-ledger.json` still says `arena/e8a470c6-shivaa-ecom` for the twin tree — do **not** switch
@@ -13,117 +13,100 @@
 
 > **Before anything else:** `bash qa/where-am-i.sh` → exit 0 FORWARD (exit 3 = this tree is behind; stop and
 > move to the release branch it names), then `python3 qa/check-handoff.py` and
-> `node qa/browser/t-v248-instant.mjs`.
+> `node qa/browser/t-v249-steady.mjs` (36).
 
 ---
 
 ## 1 · What the owner asked for, in his words
 
-> *“Still the app doesn't feel smooth, and whenever you click any option or any button it waits for 3 seconds
-> and then starts loading the next page, why does it lags for 3 seconds and it feels struck and loads very
-> slowly for the first time also and whenever we scroll after that.”*
+> *“Screen blinks and still slow loading, fix this in the next update.”*
 
-Three complaints, one measurement each: **(a)** a tap waits, then loads; **(b)** the first load is slow;
-**(c)** scrolling after a navigation is heavy. v248 answers all three, and gives him the instruments to prove
-the answer on his own phone.
+Two symptoms, two unrelated causes. Both were answered by **removing** something, not by tuning it:
 
-## 2 · The 3 seconds were a deferral, not slow rendering
+| symptom | cause | gone in v249 |
+|---|---|---|
+| the screen blinks | content that starts at `opacity: 0` and fades in | `css/v249.css` — entrance motion travels 6 px, it never fades up from nothing (route rise, `.rv`, `.rv-in`, picture fade) |
+| the screen blinks | a **second full render**: the late boot batch ran `calmBoot(0)` and rewrote `#view` | `adoptLateBatch()` — state + `.js-price` patch + `rates` event, no repaint; `js/v166.js` uses `Shivaa.softCatalogue()` instead of `redraw()` |
+| the screen blinks | a full-screen maroon splash painted on every reload | `html.shv-warm`, set by an inline script in `index.html` **before the first frame**; the splash is never painted for a device that already holds the catalogue |
+| slow loading | 1.28 MB of unminified JavaScript to download and parse | `tools/build-min.mjs` — **1,282,512 B → 787,267 B raw (−39 %)**, 383 → 243 KB gzip, ~40 % less parse, behind a verified sha256 fingerprint |
 
-Rendering a route here is a hash change plus one `innerHTML` assignment: measured in the jsdom harness it is
-**11 ms to the hash and 145 ms to the new page**, on a phone viewport **54 ms**. Whatever he experienced was
-something standing *between* the tap and `location.hash`. The audit found three such things and all three are
-gone:
+## 2 · Never do these again
 
-| # | what stood in the way | where | what it does now |
-|---|---|---|---|
-| 1 | `startViewTransition` navigation: `preventDefault()` on the link, snapshot of the old page, hash set inside the callback behind a 300 ms cap + rAF | `cms/js/v226.js` | **opt-in** (`?vt=1`), off by default — a plain native hash navigation again |
-| 2 | `window.scrollTo({top:0})` under `html{scroll-behavior:smooth}` → the new page drew at the old offset and glided home | `cms/js/app.js` `route()`, `motion.css` | `behavior:'instant'` + `html,body{scroll-behavior:auto!important}` + a 700 ms hold around any tap (`css/v248.css`) |
-| 3 | rail centring: a smooth `scrollIntoView` on the chip that was about to be replaced | `cms/js/v226.js` `centerRail()` | skipped for any link that navigates |
+- **Nothing that is content may animate in from `opacity: 0`.** A fade-up is a blank frame on a phone.
+  If a transition needs to hide content to look good, delete the transition.
+- **A data refresh may not repaint the page.** Every price is a `.js-price[data-pid]` slot; patch it.
+  `redraw()` is for an empty grid, not for fresh numbers.
+- **Never paint a curtain over a page that is already there.**
+- **Never hand-edit `app.min.js` / `rel.min.js`.** Run `node tools/build-min.mjs`. The banner carries the
+  sha256 of the source; `qa/check-handoff.py` fails the handover if it disagrees, so a stale min cannot ship.
+- If terser is missing: `npm i --no-save terser@5` in a directory node can see (this build resolves it from
+  `/tmp/mindeps` or the cwd — the repository deliberately has no `node_modules`).
 
-**No animation may ever be removed by tuning it.** The rule for v249 and after: if something sits between a
-tap and the page, delete it, do not speed it up.
-
-## 3 · First load
-
-`index.html` ships a real page skeleton (`#view > .shv-skeleton`). The opaque preloader used to cover it until
-the whole boot batch answered. **It lifts at 260 ms in every case** (`liftPreloader()` in `app.js`), and the
-cold paint ceiling went **6000 → 4000 ms** — safe because every unknown price renders as a skeleton
-(`PRICE_PENDING`), never ₹0 and never ₹NaN. Tested with `boot('#/', { stall: true })`: every request hangs
-forever and the skeleton is still on screen.
-
-## 4 · Scrolling after a tap
-
-- `lazySweep` ran **three times** per navigation (0 / 900 / 2600 ms); every run calls `getBoundingClientRect()`
-  on every image, i.e. a forced style+layout. Now **once on the next frame** + the 2600 ms CMS pass.
-- While `html.shv-scrolling` is on (v244 owns it), entrance animations, reveal classes and image fades are
-  switched off — a picture that arrives under a moving thumb is simply there.
-- The 110 KB of decorative scripts (v117 → aurum · motion · boost) no longer land in an idle window that
-  opened *mid-gesture*: they wait for **700 ms of real quiet** (hard ceiling 12 s).
-
-## 5 · The instruments (use these when he reports again)
+## 3 · The instruments
 
 | what | how |
 |---|---|
-| last 12 taps: press → hash → page → paint, plus every long task | `Shivaa.taps()` in the console |
-| one line to paste into a message | `Shivaa.v248.report()` |
-| the same numbers on the screen, big, for a screenshot | open the site with `?tapdiag=1` |
-| kill all decorative motion | `?nofx=1` |
-| the previous audits | `Shivaa.v245.audit()`, `Shivaa.v247.audit()` |
+| how long a tap took (press → hash → page → paint) + long tasks | `Shivaa.v248.report()` |
+| how many times the page redrew itself, and whether it was asked for | `Shivaa.v249.report()` |
+| the same, on screen, for a screenshot | open the site with `?tapdiag=1` |
+| kill every decorative behaviour | `?nofx=1` |
+| previous audits | `Shivaa.v245.audit()`, `Shivaa.v247.audit()` |
 
-The meter reads `pointerdown`, so the number starts at the finger, not at the end of the click.
+## 4 · Honest limits — say this to him
 
-## 6 · Honest limits — say this to him
+jsdom has no compositor, no rasteriser and no scroll engine. This release's claims are of two kinds:
+**structural** (nothing starts at `opacity: 0`; the warm path renders `#view` exactly once, proven with a
+seeded catalogue and a deliberately slow 1.2 s API; the splash is `display:none` on a warm boot) and
+**measured bytes** (39 % smaller). Whether his phone *feels* steady is his call, and the two `report()` lines
+are how he can show it.
 
-jsdom has **no compositor, no rasteriser, no scroll engine and no `startViewTransition`**. Everything in this
-document is a measurement of *code paths*, not of his phone. What v248 can honestly claim: *the three places
-where a tap could be parked are gone, and the meter will show it on the device*. Do not write “smooth” without
-his confirmation.
-
-## 7 · HARD RULES (do not re-learn these the hard way)
+## 5 · HARD RULES (do not re-learn these the hard way)
 
 - **Never `content-visibility`.** v244 froze a phone with it.
 - **Never `overflow-x: hidden` on `html, body`** — use `overflow-x: clip`.
-- **Never `preventDefault()` a navigation link.**
+- **Never `preventDefault()` a navigation link** (only `?vt=1` may, and it is off).
 - **Never leave `scroll-behavior: smooth` on `html`** — a route change must be a jump.
 - **Never write `images[0]` into `src=`** — every picture goes through `thumbAttrs()` / `thumbUrl()`.
-- **Never add a `<script>` tag per layer** — edit the layer, then `python3 tools/build-js-bundle.py --write`;
-  CSS: `python3 tools/build-css-bundle.py --write`. Bundles are generated; never hand-edit `rel.js`/`shivaa.css`.
+- **Bundles are generated**: `python3 tools/build-js-bundle.py --write`, `python3 tools/build-css-bundle.py --write`,
+  then **always** `node tools/build-min.mjs` (and commit `app.min.js` + `rel.min.js`).
 - **Never ship** `.htaccess`, `config.php`, `cms/data/db.json`; no credentials in chat.
 - **Never guess a number into a handover.** If it is not measured, say it is not measured.
 
-## 8 · If he still says it feels slow, do this in order
+## 6 · If he says it still blinks or still loads slowly
 
-1. Ask for one line: `Shivaa.v248.report()` (or a `?tapdiag=1` screenshot). It separates
-   *press → hash* (a deferral or the browser) from *hash → page* (our render) from *long tasks* (parse, decode,
-   layout).
-2. If **press → hash** is large: something is still intercepting the click. Audit every `preventDefault`,
-   every `startViewTransition`, every `navigate()` that sets the hash inside a callback.
-3. If **hash → page** is large: the route itself is doing work. Profile `pages[page]` for that route; look for
-   a synchronous fetch or a full catalogue rebuild.
-4. If **long tasks** are large: look for a 100 KB+ parse (a layer added to the bundle), a big image decode
-   (`thumbAttrs` bypassed), or a layout read in a scroll handler.
-5. Only then consider moving work off the critical path.
+1. Ask for two lines: `Shivaa.v249.report()` and `Shivaa.v248.report()`.
+2. `unasked repaints > 0` → something is still calling `Shivaa.redraw()` after a data change. Find the caller
+   (grep `redraw` in the layers) and give it a `softCatalogue()`-shaped path.
+3. `press → hash` large → a click is being intercepted again.
+4. `long tasks` large → look for a 100 KB+ parse, a big image decode (`thumbAttrs` bypassed), or a layout read
+   in a scroll handler.
+5. Still slow on the *first* byte → it is the host, not the code: check whether his server is sending
+   `Content-Encoding: gzip` and `Cache-Control` for `/js/*.js`, `/css/*.css`, `/images/*`. `.htaccess` is
+   never shipped, so this may be the first time anyone looked. Ask him for the response headers of
+   `…/js/app.min.js` (browser devtools → Network → Headers).
 
-## 9 · Verification state at packaging
+## 7 · Verification state at packaging
 
-- `python3 qa/check-handoff.py` → **234 checks, 0 red** (after this file and the zip are committed).
-- **376 browser checks, 0 red**: `t-v248-instant` 37, `t-v247-premium` 53, `t-v246-light` 58,
-  `t-v244-butter` 54, `t-v241-perf` 43, `t-v242-taps` 40, `t-v245-scroll` 39, `t-v243-header` 36,
-  `t-v240-rip` 16.
-- `python3 tools/build-js-bundle.py` → 34 layers, one request; `build-css-bundle.py` → 75 layers, one request.
-- Stamps at 248: `index.html` (`__SHIVAA_REL`, every `?v=`), `app.js` `APP_REL`, `sw.js` `REL` +
-  `shivaa-shell-v248`, `api.php` `'rel' => 248`.
+- `python3 qa/check-handoff.py` → **239 checks, 0 red** (after this file and the zip are committed).
+- **413 browser checks, 0 red**: `t-v249-steady` 36, `t-v248-instant` 37, `t-v247-premium` 53,
+  `t-v246-light` 58, `t-v245-scroll` 39, `t-v244-butter` 54, `t-v242-taps` 41, `t-v241-perf` 43,
+  `t-v243-header` 36, `t-v240-rip` 16.
+- `build-js-bundle.py` → 35 layers, one request · `build-css-bundle.py` → 76 layers, one request ·
+  `build-min.mjs` → 582,378 B + 204,889 B.
+- Stamps at 249: `index.html` (`__SHIVAA_REL`, every `?v=`), `app.js` `APP_REL`, `sw.js` `REL` +
+  `shivaa-shell-v249` + the precache list (the `.min` pair), `api.php` `'rel' => 249`.
 
-## 10 · Paste block for a fresh chat
+## 8 · Paste block for a fresh chat
 
 ```
 Repo     theunreal8055-coder/Shivaa.ecom   branch arena/95be65a4-shivaa-ecom (do not switch, do not force-push)
-Live     v248 “Instant” — packaged 12 Nov 2026, awaiting the owner's yes (deployed build on his host: 244)
-Package  shivaa-update-v248.zip · 763 files · 45,051,400 B
-         sha256 861d946d45afaac68b395aafc29eee36399df6ab9e8b067361f7429e10553faa
-Contains v237–v247
-Next     v249 — start from the owner's Shivaa.v248.report() line, never from a guess
-Gates    node qa/browser/t-v248-instant.mjs (37) · python3 qa/check-handoff.py (234)
+Live     v249 “Steady” — packaged 12 Nov 2026, awaiting the owner's yes (deployed build on his host: 244)
+Package  shivaa-update-v249.zip · 767 files · 45,302,852 B
+         sha256 b165432761e840e7b9d4e76dfcb56e0d2a76b983c9923ef67905efdb0cb6a365
+Contains v237–v248
+Next     v250 — start from Shivaa.v249.report() + Shivaa.v248.report(), never from a guess
+Gates    node qa/browser/t-v249-steady.mjs (36) · python3 qa/check-handoff.py (239) · node tools/build-min.mjs --check
 Rules    no content-visibility · no overflow-x:hidden on html/body · never preventDefault a nav link
-         no scroll-behavior:smooth on html · bundles are generated · .htaccess/config.php/db.json never ship
+         no scroll-behavior:smooth on html · no content that fades up from opacity 0 · bundles + min are generated
+         .htaccess / config.php / db.json never ship
 ```

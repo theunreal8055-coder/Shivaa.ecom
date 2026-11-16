@@ -70,10 +70,10 @@ console.log('\nA · the layers ride in one request');
 const scriptTags = index.match(/<script src="\/js\/[^"]+"/g) || [];
 ok('index.html asks for exactly two scripts', scriptTags.length === 2, scriptTags.join(' '));
 ok('app.js is one of them, rel.js is the other',
-  scriptTags.some(s => s.includes('/js/app.js')) && scriptTags.some(s => s.includes('/js/rel.js')));
+  scriptTags.some(s => /\/js\/app(\.min)?\.js/.test(s)) && scriptTags.some(s => /\/js\/rel(\.min)?\.js/.test(s)));
 ok('both are preloaded from the head (the parser no longer discovers them last)',
-  /<link rel="preload" href="\/js\/app\.js\?v=\d+" as="script">/.test(index) &&
-  /<link rel="preload" href="\/js\/rel\.js\?v=\d+" as="script">/.test(index));
+  /<link rel="preload" href="\/js\/app(\.min)?\.js\?v=\d+" as="script">/.test(index) &&
+  /<link rel="preload" href="\/js\/rel(\.min)?\.js\?v=\d+" as="script">/.test(index));
 
 const relLayers = (relSrc.match(/\/\* ─────────── ([\w.-]+\.js) ─────────── \*\//g) || [])
   .map(s => s.replace(/^\/\* ─────────── /, '').replace(/ ─────────── \*\/$/, ''));
@@ -92,7 +92,7 @@ ok('rel.js is smaller than the sum of its files + headers', relSrc.length > 3000
 /* ── B · the worker installs without a storm ────────────────────────────── */
 console.log('\nB · the service worker does not fight the page');
 ok('the shell names this release', new RegExp('shivaa-shell-v' + REL).test(sw), 'REL ' + REL);
-ok('the bundle is precached at the live stamp', new RegExp("'/js/rel\\.js\\?v=" + REL + "'").test(sw));
+ok('the bundle is precached at the live stamp', new RegExp("'/js/rel(?:\\.min)?\\.js\\?v=" + REL + "'").test(sw));
 ok('no bundled layer is precached as its own file any more',
   !order.some(n => sw.includes("'/js/" + n + "?v=")),
   (sw.match(/'\/js\/v\d{3}\.js\?v=\d+'/g) || []).join(' '));

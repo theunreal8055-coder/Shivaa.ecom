@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 248;
+const APP_REL = 249;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -47,7 +47,8 @@ const token = () => store.get('shv_token', null);
 const setToken = t => store.set('shv_token', t);
 
 /* ─────────── helpers ─────────── */
-window.Shivaa = { routes: {}, catCache: [], get storageBlocked() { return _storageBlocked; } };   // early shell — extended at the end of this file
+window.Shivaa = {
+  routes: {}, catCache: [], get storageBlocked() { return _storageBlocked; } };   // early shell — extended at the end of this file
 /* ── scroll-lock (sheets/modals lock background — iOS safe) ── */
 const _scrollLock = { n: 0, save: '' };
 function lockScroll() {
@@ -12139,6 +12140,7 @@ Object.assign(window.Shivaa, {
   CATS,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
+  softCatalogue,   // v249 — a data refresh patches prices, never repaints the page
   openCart, closeCart, renderMiniCart, flyToBag,
 });
 /* ─────────── v99 · STAFF-ONLY BUNDLE, LOADED ON DEMAND ───────────
@@ -12870,6 +12872,46 @@ function catalogCacheRead() {
 function catalogCacheWrite(ps) {
   try { if (ps && ps.length) localStorage.setItem(CATALOG_KEY, JSON.stringify({ at: Date.now(), products: ps })); } catch (e) {}
 }
+/* ─────────── v249 · a catalogue refresh must not repaint the page ───────────
+   js/v166.js repairs the catalogue in the background (a refused or empty
+   /api/products, the device copy, a tab coming back online) and, on success,
+   used to call Shivaa.redraw() — a full route() of #view. On a phone that meant:
+   the shop is open, the shopper is reading, and two seconds later every
+   photograph is thrown away and requested again, the scroll is reset and the
+   screen blinks white between the two renders. Every price on screen is a
+   `.js-price[data-pid]`, so a data refresh has no reason to touch the DOM: this
+   patches the prices, the badges and the mini-bag in place and leaves the page
+   alone. redraw() stays for the case it was written for — an empty grid. */
+function softCatalogue() {
+  try { updateBadges(); } catch (e) {}
+  try { dispatchEvent(new Event('rates')); } catch (e) {}   /* re-prices every .js-price */
+  try { if (window.Shivaa && typeof window.Shivaa.paintNewsletterState === 'function') window.Shivaa.paintNewsletterState(); } catch (e) {}
+}
+
+/* ─────────── v249 · adopt a late batch without repainting ───────────
+   The twin of calmBoot() for the case where the view already shows real
+   products. Same state writes as the tail of boot(), no route(), no innerHTML,
+   no image request. Prices patch through the `rates` event (they are skeletons
+   until then); the header through updateBadges(). */
+function adoptLateBatch(packed) {
+  const [me, settings, mc, prods, cats] = packed || [];
+  if (!packed || !prods) return false;
+  const fresh = prods.products || [];
+  if (fresh.length) {
+    state.productsCache = fresh;
+    state.catalogOk = true;
+    catalogCacheWrite(fresh);                 /* the next visit starts fresh */
+    state.compare = normalizeCompare(state.compare).filter(id => fresh.some(p => p.id === id));
+  }
+  if (settings && Object.keys(settings).length) state.settings = { ...SETTINGS_DEFAULTS, ...settings };
+  if (mc && mc.table) state.mcTable = mc.table;
+  if (cats && cats.catalogs) { window.Shivaa.catCache = cats.catalogs; catCache = window.Shivaa.catCache; }
+  if (me && me.user !== undefined) state.user = me.user;
+  try { updateBadges(); } catch (e) {}
+  try { dispatchEvent(new Event('rates')); } catch (e) {}     /* every .js-price patched in place */
+  return true;
+}
+
 /* ─────────── v242 · calm repaint ───────────
    `boot(true)` re-runs the whole shell: state, then route(), which closes any
    open sheet and rewrites #view. That is right for a deliberate redraw and
@@ -12970,7 +13012,15 @@ async function boot(isRedraw) {
      second ceiling still stands for every other case (cold device, deep link,
      any other route). */
   const _homeFirst = !isRedraw && (!location.hash || location.hash === '#' || location.hash === '#/');
-  const _capMs = isRedraw ? 15000 : (_homeFirst && _realCount() > 0 ? 700 : 4000);
+  /* v249 — `_fastPaint` is a device that already holds this catalogue painting
+     the real home grid. It is the ONLY case where painting before the batch is
+     honest, and it is now also the case where the late batch must not repaint
+     (see below). 700 ms had been the cap; a returning shopper should not wait
+     for a number they already have on screen as a skeleton, so it is 250 ms —
+     long enough for a fast network to win the race and paint the finished page
+     in one go, short enough that a phone never looks stuck. */
+  const _fastPaint = _homeFirst && _realCount() > 0;
+  const _capMs = isRedraw ? 15000 : (_fastPaint ? 250 : 4000);
   const _packed = await Promise.race([
     _firstBatch,
     new Promise(res => setTimeout(() => res(null), _capMs)),
@@ -12986,7 +13036,21 @@ async function boot(isRedraw) {
        waits for a calm moment — no touch in the last 4 s, no sheet open, tab
        visible — and retries until it gets one. The data is never lost, only
        deferred. */
-    _firstBatch.then(() => { calmBoot(0); }).catch(() => {});   // v242 — never repaint under a finger
+    /* v249 — AND NEVER TWICE. On a device that painted the real grid at 250 ms,
+       `calmBoot(0)` replaced #view again when the batch landed (anywhere from
+       300 ms to 4 s later): every photograph was re-requested and re-decoded, the
+       scroll jumped, and the shopper saw the screen BLINK — the owner's newest
+       report. A repaint is only correct when the first paint had nothing real to
+       show (a skeleton). When it did, the late batch is adopted quietly: state,
+       the device cache for the next visit, the badges, and a `rates` event that
+       patches every price slot in place. Nothing the shopper is looking at is
+       replaced, and nothing is fetched twice. */
+    _firstBatch.then((packed) => {
+      if (_fastPaint && packed) {
+        try { adoptLateBatch(packed); return; } catch (e) { /* fall through to a calm repaint */ }
+      }
+      calmBoot(0);
+    }).catch(() => {});   // v242 — never repaint under a finger
   }
   const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
   const _oldUserId = String(state.user && state.user.id || '');

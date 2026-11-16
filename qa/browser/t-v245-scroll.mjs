@@ -104,7 +104,7 @@ ok('every stamp is one release',
   new RegExp("'rel' => " + REL).test(api) && new RegExp('const REL = ' + REL + ';').test(sw));
 ok('the worker shell names this release and precaches the bundle that carries the layer',
   new RegExp('shivaa-shell-v' + REL).test(sw) && relShips('v245.js') &&
-  /'\/js\/rel\.js\?v=\d+'/.test(sw));
+  /'\/js\/rel(?:\.min)?\.js\?v=\d+'/.test(sw));
 ok('the v244 blur work was NOT rolled back with it',
   /backdrop-filter:\s*none\s*!important/.test(bundle) && /\.header\.scrolled/.test(bundle));
 

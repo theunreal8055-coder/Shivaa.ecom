@@ -83,7 +83,7 @@ ok('v240 runs after v226.js (so it wins the cascade)',
 const stamp = (index.match(/window\.__SHIVAA_REL=(\d+)/) || [])[1];
 ok('index.html stamps a release >= 240', Number(stamp) >= 240, String(stamp));
 ok('sw.js precaches the bundle that carries v240, at the current stamp',
-   new RegExp("'/js/rel\\.js\\?v=" + stamp + "'").test(sw), 'stamp ' + stamp);
+   new RegExp("'/js/rel(?:\\.min)?\\.js\\?v=" + stamp + "'").test(sw), 'stamp ' + stamp);
 ok('sw.js shell + REL agree with that stamp',
    /shivaa-shell-v\d+/.test(sw) && new RegExp('const REL = ' + stamp + ';').test(sw));
 

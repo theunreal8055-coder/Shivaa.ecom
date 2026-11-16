@@ -175,7 +175,7 @@ ok('app.js APP_REL is at least 241', Number((app.match(/const APP_REL = (\d+);/)
 ok('sw.js shell + REL agree with the page stamp',
    new RegExp(`shivaa-shell-v${stamp}`).test(sw) && new RegExp(`const REL = ${stamp};`).test(sw));
 ok('sw.js precaches the bundle that carries v241 at that stamp',
-   relShips('v241.js') && new RegExp(`'/js/rel\\.js\\?v=${stamp}'`).test(sw));
+   relShips('v241.js') && new RegExp(`'/js/rel(?:\\.min)?\\.js\\?v=${stamp}'`).test(sw));
 ok('sw.js keeps more small pictures warm (MEDIA_MAX 160)', /const MEDIA_MAX = 160;/.test(sw));
 ok('api.php reports the same release', new RegExp(`'rel' => ${stamp}`).test(api));
 ok('v241.js is syntactically loadable and self-guarding', /'use strict'/.test(v241) && /document\.readyState === 'loading'/.test(v241));
