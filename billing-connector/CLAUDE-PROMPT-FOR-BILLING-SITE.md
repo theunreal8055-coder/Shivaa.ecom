@@ -17,6 +17,22 @@
 
 ## Step 3 — Wire Automatic Customer Saving & PDF Bill Upload
 
+### Instant Drop-In for **Shivaa Jewels — Jewellery Software** (`sj-api.php` + `sj-billx.js` / `sj-pwa.js`)
+No editing or secret pasting needed — your existing `shivaa-connector.php` stays untouched:
+1. Upload `billing-connector/shivaa-hooks.php` to `public_html/shivaa-hooks.php` (next to `shivaa-connector.php`). It automatically recognizes logged-in `sj-api.php` users (Owner / Manager / Staff; blocks View-only writes) with zero extra login token.
+2. Upload `billing-connector/sj-ecom.js` to `public_html/sj-ecom.js` (next to `sj-pwa.js`).
+3. Open `public_html/index.html`, find `<script src="sj-pwa.js` right above `</body>`, and add **one line** right after it:
+   ```html
+   <script src="sj-ecom.js?v=46"></script>
+   ```
+4. Refresh the billing software and open **Setup → 🌐 Shivaa.in Website Sync** → tap **🔄 Sync Now**.
+   - Every new Pakka GST sale bill saved in the billing software automatically uploads its Signature/Royal A4 PDF to the customer's `shivaa.in/#/my-bills` profile (matched by 10-digit mobile) and adjusts matching SKU stock.
+   - Every opened bill modal gets a **🌐 Shivaa.in par bhejo** button to send or update any past bill/estimate in one tap; deleting a bill voids it on `shivaa.in`.
+   - Website customers (Retail + B2B Wholesale), CRM leads, and online orders auto-sync every 60 seconds straight into `S.customers` / `S.leads` (AES-256 encrypted via `sj-api.php` across all phones & computers).
+   - Live Gold 24K (`₹/10 g`) and Silver 999 (`₹/kg`) rates apply in one tap from `shivaa.in`.
+   - *(If you update your billing software in Claude later, tell Claude: "Keep `<script src="sj-ecom.js?v=...">` after `sj-pwa.js` in `index.html`, keep `sj-ecom.js` in `sw.js`, and never overwrite `shivaa-connector.php`, `shivaa-hooks.php`, or `sj-ecom.js`.")*
+
+### Generic Prompt (for other PHP/JS billing apps)
 You can paste the prompt below directly into **Claude** inside your billing software project, and it will connect your exact customer/lead database and PDF bill saver automatically:
 
 ```text

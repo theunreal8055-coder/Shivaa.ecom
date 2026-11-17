@@ -9,9 +9,9 @@
     "release": 253,
     "title": "Bridge",
     "since": "2026-11-16",
-    "confirmed_by": null,
+    "confirmed_by": "live https://www.shivaa.in/api/version (rel=253, stamp.matched=true, mysql 78/78)",
     "owner_words": "Connect the separate live Hostinger PHP/HTML/JS billing software to shivaa.in with full automatic two-way sync: website leads/customers/orders/rates/stock -> billing software, and billing customer purchase PDF bills -> customer profile (#/my-bills) + SKU stock; support MySQL + JSON; configure URL/key in Admin Settings; do not deploy without approval.",
-    "deployed_build": 244,
+    "deployed_build": 253,
     "note": "Forward release on verified v252 Silk (c78ef0f). Two-way HMAC-SHA256 showroom billing bridge (cms/billing-sync.php + 17 emitters in cms/api.php + lazy-loaded cms/js/admin.js #billingSyncCard + cms/css/v253.css + turnkey billing-connector/shivaa-connector.php & cms/docs/shivaa-connector.php.txt). Website -> Billing: auto-syncs customers, all 9 lead channels and online orders (with paid GST invoiceNo) via post-response DNS-pinned HTTPS webhooks (0 ms shopper impact) + signed pull/catch-up routes (rates, stock, customers, leads, orders, events/ack). Billing -> Website: auto-saves magic-byte-verified purchase PDF bills into private .shivaa-private-bills vault (0600) linked by 10-digit mobile to customer #/my-bills (including pre-signup walk-in mobiles), plus bill void and idempotent SKU stock movements (delta/setStock). Connector supports MySQL + private JSON, shivaa-hooks.php, PHP SDK and authenticated JS bridge. 0 B added to shopper JS; v252 speed & compositor budget preserved."
   },
   "rules": {
