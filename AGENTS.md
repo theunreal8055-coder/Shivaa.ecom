@@ -1,34 +1,33 @@
-> ## CURRENT STATE — **v252 “Silk” PACKAGED, AWAITING THE OWNER'S YES** (16 Nov 2026). Run `bash qa/where-am-i.sh` first, then read `docs/NEXT-CHAT-HEAD.md`.
+> ## CURRENT STATE — **v253 “Bridge” PACKAGED, AWAITING THE OWNER'S YES** (16 Nov 2026). Run `bash qa/where-am-i.sh` first, then read `docs/NEXT-CHAT-HEAD.md`.
 >
-> - **v252 “Silk” is the newest release** — packaged 16 Nov 2026, **not deployed**. The only zip to
->   install: `shivaa-update-v252.zip` — **774 files · 45,524,517 B ·
->   `6a6b57c2d0d9b585f45a399d7dc0fb7172c6d22758ba3ac03e59a317083306db`**. **Next release number: v253.**
->   Contains v237–v251 (including v250 “Still” and v251 “Alive”). Session branch: `arena/a20b3005-shivaa-ecom`.
->   v252 layers: `js/v252.js` + `css/v252.css`, proof-minified `css/shivaa.min.css` (8,781 rules verified 1:1),
->   and sha256-verified `js/app.min.js` + `js/rel.min.js`.
-> - **FASTER WITHOUT LOSING QUALITY.** `api.php` adds one-round-trip `GET /api/boot` (replacing 6–7 startup
->   requests in one PHP worker + safe `gzencode` for JSON ≥ 1 KB, transparent client fallback); warm home cap
->   tightens 250 → 180 ms; cached product pages render **synchronously on frame 1 (~65 ms)** with 100 %
->   full-resolution gallery photographs kept intact (reviews hydrate in place, photo #2 pre-decodes); mobile
->   drawer tiles drop **803 → 53 KB (−93 %)** via Retina 320w/560w WebP thumbs + `thumbAttrs()` on cart,
->   mini-cart, saved-for-later, compare, search, orders, mega-menu and Shivaa Black banner; `sw.js` returns
->   fresh `MEDIA` cache hits with 0 background refetch churn and serves `?v=252` immutable assets cache-first
->   while keeping HTML shells and manifests strictly network-first.
-> - **NEXT-LEVEL SMOOTHNESS.** Replaced `v250.js`'s 800 ms post-navigation 1,284-element `getComputedStyle`
->   walk with frame-0 CSS rules (`bc-hero-aurora`, `black-hero`, `dust`, `pl-draw`, `#view * { will-change: auto }`,
->   and retiring `motion.css`'s `#view.pg` `opacity:0` route re-fades on phones); scoped `v120.js` overlay
->   watcher to the 5 overlay roots; converted `v245.js`/`v247.js` scroll hooks to true post-scroll debounces;
->   retired idle polls/forced reflows in `v107.js`, `aurum.js`, `motion.js`, `v194.js`, `v242.js`; idle-yielded
->   `v117.js`; changed `v251Arrive` from `both` to `backwards` and dropped mobile `box-shadow` press transition.
-> - **FRAME-1 LIVE FEEL.** Passive `pointerdown` `.shv-tap` spring on phones (0 ms scroll cancel), wishlist
->   heart spring (`.shv-heart-pop`), `#cmpCount` badge pop, live price settle (`.shv-price-live`), 2 px golden
->   route glide (`#shvRouteGlide`), Save-Data-aware intent pre-warm. Desktop keeps all blur, hover and studio
->   motion. Instrument: `Shivaa.v252.report()` / `Shivaa.v252.audit()`.
-> - **Gates:** `node qa/browser/t-v252-silk.mjs` (**48**) · `t-v251-alive` 46 · `t-v250-still` 34 ·
->   `t-v249-steady` 36 · `t-v248-instant` 37 · `t-v247-premium` 53 · `t-v246-light` 58 · `t-v245-scroll` 39 ·
->   `t-v244-butter` 54 · `t-v243-header` 36 · `t-v242-taps` 41 · `t-v241-perf` 43 · `t-v240-rip` 16 —
->   **541/541 passing, 0 red**; `qa/phpbal.py` BALANCED; `python3 qa/check-handoff.py` 0 red.
+> - **v253 “Bridge” is the newest release** — packaged 16 Nov 2026, **not deployed**. The only zip to
+>   install: `shivaa-update-v253.zip` — **777 files · 45,562,801 B ·
+>   `8f752196d38dce6e6d16ceaa4e59f53ad2ed102f18034fd45aacdef9fcd837f6`**. **Next release number: v254.**
+>   Contains v237–v252 (including v250 “Still”, v251 “Alive” and v252 “Silk”). Session branch: `arena/a20b3005-shivaa-ecom`.
+>   v253 ships: `cms/billing-sync.php` + `cms/docs/shivaa-connector.php.txt` + `cms/css/v253.css` + lazy-loaded
+>   `cms/js/admin.js` `#billingSyncCard` + `billing-connector/shivaa-connector.php` + `billing-connector/CLAUDE-PROMPT-FOR-BILLING-SITE.md`
+>   + `docs/BILLING-SYNC-CONTRACT.md`, proof-minified `css/shivaa.min.css` (8,807 rules verified 1:1), and
+>   sha256-verified `js/app.min.js` + `js/rel.min.js` (**0 B added to shopper JS**; v252 speed preserved).
+> - **TWO-WAY SHOWROOM BILLING SYNC.** Connects the owner's separate, already-live Hostinger PHP/HTML/JS
+>   billing website to `shivaa.in` (dark `403` until a sync key is saved in **Admin → Settings**):
+>   - **Website → Billing (auto, 0 ms shopper wait):** customers (OTP register/login, profile, addresses, Shivaa
+>     Black, B2B), all 9 lead channels (contact, services/appointments, custom order, metal exchange, partner KYC,
+>     Swarna Nidhi, rate alert, abandoned cart, newsletter) and online orders (`order.created`, `order.paid` with
+>     GST `invoiceNo`, `order.updated`) push post-response via SSRF-safe DNS-pinned HTTPS HMAC-SHA256 webhooks
+>     plus signed `GET /api/billing/{rates,stock,customers,leads,orders,events}` & `POST /api/billing/events/ack`.
+>   - **Billing → Website (auto PDF bills + stock):** `POST /api/billing/bills` (JSON base64 or multipart) verifies
+>     real `%PDF-`/image bytes, saves `0600` in `.shivaa-private-bills` outside `public_html`, deduplicates by
+>     `externalId`, optionally deducts SKU stock, and links by 10-digit mobile to customer `#/my-bills` (View &
+>     Download only — even for walk-in customers registering later); plus `bill-void` and idempotent `stock-movement`.
+>   - **Connector & Admin:** `shivaa-connector.php` works with both MySQL (`shivaa_synced_*`) and locked private
+>     JSON (`.shivaa-billing-sync`), `shivaa-hooks.php` callbacks, PHP SDK & staff JS bridge; Admin → Settings manages
+>     URLs, write-only masked key (`••••`), 5 toggles, Test Connection, Backfill, Retry, 1-click Connector download & log.
+> - **Gates:** `node qa/browser/t-v253-bridge.mjs` (**71**) · `t-v229-bills` (**102**) · `t-v252-silk` (**48**) ·
+>   `t-v251-alive` (**46**) · `t-v250-still` (**34**) · `t-v249-steady` (**36**) — **337/337 passing, 0 red**;
+>   `qa/phpbal.py` BALANCED on all 3 PHP files; `python3 qa/check-handoff.py` 0 red.
 >
+> - **v252 “Silk” (history, superseded by v253)** — packaged 16 Nov 2026 (`c78ef0f`), `shivaa-update-v252.zip`
+>   (774 files · 45,524,517 B · `6a6b57c2d0d9b585f45a399d7dc0fb7172c6d22758ba3ac03e59a317083306db`).
 > - **v251 “Alive” (history, superseded by v252)** — packaged 16 Nov 2026 (`ccd80aa`), `shivaa-update-v251.zip`
 >   (772 files · 45,504,067 B · `c03ff713453d3d2c7c3ed2c93168419f8d6b5eb06b3927471eb22a81c4fa60fa`).
 >   It contains v237–v250. v251 layers: `js/v251.js` + `css/v251.css`, plus the **minified stylesheet**

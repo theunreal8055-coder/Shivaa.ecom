@@ -16,7 +16,7 @@ v37 (compute_price / current_rates ported 1:1).
 
 Run: python3 qa/preview_shim.py [--port 8090]
 """
-import argparse, copy, datetime, json, re, secrets, threading, time
+import argparse, copy, datetime, hashlib, json, re, secrets, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -894,8 +894,185 @@ def dev_bill_public(b, admin=False):
         out["userId"] = b.get("userId", "")
         out["notes"] = b.get("notes", "")
         out["createdBy"] = b.get("createdBy", "")
+        out["source"] = b.get("source", "manual")
+        out["externalId"] = b.get("externalId", "")
         out["anonymizedAt"] = b.get("anonymizedAt")
     return out
+
+
+# ── v253 · two-way Billing Bridge shim mirror (api.php + billing-sync.php) ──
+DEV_BILLING = {"seq": 0, "outbox": [], "log": [], "movements": {}, "stock_delta": {}, "leads": []}
+
+
+def dev_settings_for_user(d, u):
+    raw = dict(d.get("settings") or {})
+    if u and u.get("role") == "admin":
+        has_k = bool(str(raw.get("billingSyncSecret") or "").strip())
+        raw["billingSyncConfigured"] = has_k
+        if has_k:
+            raw["billingSyncSecret"] = "••••"
+        else:
+            raw.pop("billingSyncSecret", None)
+        return raw
+    for bk in ("billingSyncSecret", "billingSyncConfigured", "billingAppUrl", "billingWebhookUrl",
+               "billingPushCustomers", "billingPushLeads", "billingPushOrders",
+               "billingAcceptBills", "billingAcceptStock"):
+        raw.pop(bk, None)
+    return raw
+
+
+def dev_billing_validate_url(url, label="Billing URL"):
+    import ipaddress
+    u = str(url or "").strip()
+    if not u:
+        return None
+    if len(u) > 500:
+        return label + " is too long (max 500 chars)."
+    p = urlparse(u)
+    if p.scheme.lower() != "https":
+        return label + " must start with https://"
+    if p.username or p.password:
+        return label + " must not contain a username or password."
+    host = (p.hostname or "").lower()
+    if not host or host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
+        return label + " must point to a public live domain (not localhost)."
+    try:
+        ip = ipaddress.ip_address(host)
+        if not ip.is_global:
+            return label + " must use a public IP or domain."
+    except ValueError:
+        pass
+    if p.port and p.port not in (443, 8443):
+        return label + " must use standard HTTPS port 443 (or 8443)."
+    return None
+
+
+def dev_billing_flag(key):
+    s = db().get("settings") or {}
+    return bool(s.get(key, True))
+
+
+def dev_billing_auth(handler, method, route, raw_bytes=b"", multipart_meta=None):
+    import hmac
+    secret = str((db().get("settings") or {}).get("billingSyncSecret") or "").strip()
+    if not secret:
+        return 403, {"ok": False, "error": "Billing sync is not configured — set a sync key in Shivaa Admin → Settings first."}
+    ts = str(handler.headers.get("X-Shivaa-Ts") or "").strip()
+    sig = str(handler.headers.get("X-Shivaa-Signature") or "").strip().lower()
+    if not ts or not sig or not ts.isdigit():
+        return 401, {"ok": False, "error": "Missing X-Shivaa-Ts or X-Shivaa-Signature header."}
+    if abs(int(time.time()) - int(ts)) > 300:
+        return 401, {"ok": False, "error": "Stale signature timestamp (±5 minute window). Check server clock."}
+    if multipart_meta is not None:
+        bill_no, phone, fsha = multipart_meta
+        canon = ("%s\n%s\n%s\nmultipart:%s:%s:%s" % (ts, method, route, bill_no, phone, fsha)).encode("utf-8")
+    else:
+        body_part = b"" if method in ("GET", "HEAD") else raw_bytes
+        canon = ("%s\n%s\n%s\n" % (ts, method, route)).encode("utf-8") + body_part
+    expect = hmac.new(secret.encode("utf-8"), canon, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expect, sig):
+        return 401, {"ok": False, "error": "Bad HMAC signature."}
+    return 200, None
+
+
+def dev_billing_log(direction, event, status, summary):
+    DEV_BILLING["log"].append({
+        "id": "bl_" + secrets.token_hex(4),
+        "at": time.strftime("%Y-%m-%dT%H:%M:%S+05:30"),
+        "dir": direction, "event": event, "status": status, "summary": summary[:220],
+    })
+    DEV_BILLING["log"] = DEV_BILLING["log"][-200:]
+
+
+def dev_billing_customer_payload(u):
+    email = str(u.get("email") or "").strip().lower()
+    if email.endswith(("@phone.shivaa.in", "@deleted.invalid")):
+        email = ""
+    prof = u.get("profile") or {}
+    card = dev_black_card(u.get("id"))
+    pub_c = dev_black_public(card) if card else None
+    ph = dev_phone10(u.get("phone"))
+    return {
+        "id": str(u.get("id") or ""), "source": "shivaa.in", "role": str(u.get("role") or "customer"),
+        "name": str(u.get("name") or ""), "phone": ph if dev_valid_phone(ph) else "", "email": email,
+        "dob": str(prof.get("dob") or ""), "anniversary": str(prof.get("anniversary") or ""),
+        "gender": str(prof.get("gender") or ""), "city": str(prof.get("city") or ""),
+        "state": "", "pincode": "", "address": "", "defaultAddress": None, "addresses": list(u.get("addresses") or []),
+        "firm": "", "contactPerson": "", "gstin": "", "pan": "",
+        "blackMember": bool(pub_c and pub_c.get("status") == "active"),
+        "blackCardNo": str((pub_c or {}).get("cardNumber") or ""),
+        "blackDiscountPct": int((pub_c or {}).get("discountPct") or 0),
+        "loyaltyPoints": int(u.get("loyaltyPoints") or 0),
+        "createdAt": str(u.get("createdAt") or time.strftime("%Y-%m-%dT%H:%M:%S+05:30")),
+    }
+
+
+def dev_billing_enqueue(event, dedup_key, summary, data, skip_dup=False):
+    secret = str((db().get("settings") or {}).get("billingSyncSecret") or "").strip()
+    if not secret:
+        return None
+    if skip_dup and dedup_key and any(e.get("dedupKey") == dedup_key for e in DEV_BILLING["outbox"]):
+        return None
+    DEV_BILLING["seq"] += 1
+    seq = DEV_BILLING["seq"]
+    row = {"id": "bev_%d_%s" % (seq, secrets.token_hex(4)), "seq": seq, "event": event,
+           "dedupKey": dedup_key, "summary": summary[:180], "status": "pending", "attempts": 0,
+           "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S+05:30"), "data": data}
+    DEV_BILLING["outbox"].append(row)
+    dev_billing_log("out", event, "queued", summary)
+    return row
+
+
+def dev_billing_stock_of(p):
+    pid = str(p.get("id") or "")
+    return max(0, int(p.get("stock") or 0) + int(DEV_BILLING["stock_delta"].get(pid, 0)))
+
+
+def dev_billing_apply_move(m):
+    mid = re.sub(r"[^A-Za-z0-9_:\-.]", "", str(m.get("movementId") or ""))
+    if not mid or len(mid) > 80:
+        return {"ok": False, "error": "movementId required"}
+    if mid in DEV_BILLING["movements"]:
+        return {"ok": True, "duplicate": True, "movementId": mid, "result": DEV_BILLING["movements"][mid]}
+    has_set = "setStock" in m and m.get("setStock") not in (None, "")
+    set_val = None
+    delta = 0
+    if has_set:
+        try:
+            set_val = int(m.get("setStock"))
+            if float(m.get("setStock")) != set_val or set_val < 0 or set_val > 10000000:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"ok": False, "movementId": mid, "error": "setStock must be a whole number between 0 and 10000000"}
+    else:
+        try:
+            delta = int(m.get("delta"))
+            if float(m.get("delta")) != delta or delta == 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"ok": False, "movementId": mid, "error": "delta must be a non-zero whole number"}
+        if abs(delta) > 100000:
+            return {"ok": False, "movementId": mid, "error": "delta out of range"}
+    pid_q = str(m.get("productId") or "").strip()
+    sku_q = str(m.get("sku") or "").strip()
+    if not pid_q and not sku_q:
+        return {"ok": False, "movementId": mid, "error": "sku or productId required"}
+    hit = next((p for p in db().get("products", [])
+                if (pid_q and str(p.get("id")) == pid_q) or (sku_q and str(p.get("sku") or "").lower() == sku_q.lower())), None)
+    if not hit:
+        return {"ok": False, "notFound": True, "movementId": mid, "error": "Product not found"}
+    pid = str(hit["id"])
+    before = dev_billing_stock_of(hit)
+    after = set_val if set_val is not None else max(0, min(10000000, before + delta))
+    if set_val is not None:
+        delta = after - before
+    DEV_BILLING["stock_delta"][pid] = after - int(hit.get("stock") or 0)
+    res = {"productId": pid, "sku": str(hit.get("sku") or ""), "name": str(hit.get("name") or ""),
+           "stockBefore": before, "stockAfter": after, "delta": delta,
+           "ref": str(m.get("ref") or "")[:64], "note": str(m.get("note") or "")[:200],
+           "at": time.strftime("%Y-%m-%dT%H:%M:%S+05:30")}
+    DEV_BILLING["movements"][mid] = res
+    return {"ok": True, "duplicate": False, "movementId": mid, "result": res}
 
 
 def dev_bills_for(u):
@@ -1084,13 +1261,21 @@ class Handler(SimpleHTTPRequestHandler):
             body = {}
         if not isinstance(body, dict):
             body = {}
+        self._raw_post = raw
         if self.dev_api(route, body) is not False:
             return
         return self._json(405, {"error": "Preview shim is read-only"})
 
     def dev_multipart_api(self, route, fields, files, q):
-        """v229 — the bill desk. Owner-side only: a customer token gets 403 here,
-        exactly as api.php's need_admin() does."""
+        """v229/v253 — the bill desk (admin) + HMAC multipart billing/bills."""
+        if route == "billing/bills":
+            bno = str(fields.get("billNo") or "").strip()
+            ph = re.sub(r"\D", "", str(fields.get("phone") or ""))[-10:]
+            fsha = hashlib.sha256(files[0]["data"]).hexdigest() if files else ""
+            code, err = dev_billing_auth(self, "POST", route, b"", (bno, ph, fsha))
+            if code != 200:
+                return self._json(code, err)
+            return self._dev_billing_save_bill(fields, multipart_files=files)
         u = dev_token(self)
         if not u or u.get("role") != "admin":
             return self._json(403, {"error": "Admin access required"})
@@ -1251,6 +1436,14 @@ class Handler(SimpleHTTPRequestHandler):
             DEV["users"].append(u)
             if password:
                 DEV["passwords"][u["id"]] = password
+            # v253 — auto-link any showroom PDF bills waiting on this mobile + queue customer sync
+            for b_row in DEV["bills"]:
+                if not b_row.get("userId") and dev_phone10(b_row.get("phone")) == phone:
+                    b_row["userId"] = u["id"]
+            if dev_billing_flag("billingPushCustomers"):
+                cp = dev_billing_customer_payload(u)
+                dev_billing_enqueue("customer.created", "customer.created:" + cp["id"],
+                                    "Customer %s (%s)" % (cp["name"], cp["phone"]), cp)
             return self._json(200, {"token": dev_issue(u), "user": dev_pub_user(u)})
         if route == "auth/delete-account":
             # v228 — mirrors api.php: a session *or* a fresh SMS code proves the
@@ -1900,15 +2093,50 @@ class Handler(SimpleHTTPRequestHandler):
         if route == "contact":
             if not (body.get("name") and body.get("message")):
                 return self._json(400, {"error": "Name & message required"})
+            ph = dev_phone10(body.get("phone"))
+            ld = {"leadId": "contact:cm_" + secrets.token_hex(4), "source": "shivaa.in", "channel": "contact",
+                  "name": str(body.get("name"))[:80], "phone": ph if dev_valid_phone(ph) else "",
+                  "email": str(body.get("email") or "").strip().lower()[:190],
+                  "city": "", "gstin": "", "message": str(body.get("message"))[:3000],
+                  "summary": "Contact enquiry: " + str(body.get("message"))[:180], "budget": "", "amount": 0.0,
+                  "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S+05:30")}
+            DEV_BILLING["leads"].append(ld)
+            if dev_billing_flag("billingPushLeads"):
+                dev_billing_enqueue("lead.created", "lead:" + ld["leadId"],
+                                    "Lead [contact] · " + (ld["name"] or ld["phone"]), ld)
             return self._json(200, {"ok": True, "preview": True})
         if route == "newsletter":
-            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,}", str(body.get("email") or "")):
+            em = str(body.get("email") or "").strip().lower()
+            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,}", em):
                 return self._json(400, {"error": "Valid email required"})
+            ld = {"leadId": "newsletter:" + hashlib.md5(em.encode()).hexdigest(), "source": "shivaa.in",
+                  "channel": "newsletter", "name": "", "phone": "", "email": em, "city": "", "gstin": "",
+                  "summary": "Newsletter signup: " + em, "message": "", "budget": "", "amount": 0.0,
+                  "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S+05:30")}
+            DEV_BILLING["leads"].append(ld)
+            if dev_billing_flag("billingPushLeads"):
+                dev_billing_enqueue("lead.created", "lead:" + ld["leadId"], "Lead [newsletter] · " + em, ld, True)
             return self._json(200, {"ok": True, "preview": True})
         if route == "services":
             if not (body.get("name") and body.get("phone")):
                 return self._json(400, {"error": "Name & phone required"})
+            ph = dev_phone10(body.get("phone"))
+            stype = str(body.get("type") or "Appointment")[:40]
+            ld = {"leadId": "service_request:sr_" + secrets.token_hex(4), "source": "shivaa.in",
+                  "channel": "service_request", "name": str(body.get("name"))[:80],
+                  "phone": ph if dev_valid_phone(ph) else "",
+                  "email": str(body.get("email") or "").strip().lower()[:120],
+                  "city": "", "gstin": "", "budget": str(body.get("budget") or "")[:30],
+                  "message": str(body.get("details") or "")[:1000],
+                  "summary": stype + (" — " + str(body.get("details"))[:140] if body.get("details") else ""),
+                  "amount": 0.0, "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S+05:30")}
+            DEV_BILLING["leads"].append(ld)
+            if dev_billing_flag("billingPushLeads"):
+                dev_billing_enqueue("lead.created", "lead:" + ld["leadId"], "Lead [service_request] · " + ld["name"], ld)
             return self._json(200, {"ok": True, "preview": True})
+        # ── v253 · two-way Billing Bridge POST endpoints ──
+        if route.startswith("billing/") or route.startswith("admin/billing/"):
+            return self._dev_billing_post(route, body, getattr(self, "_raw_post", b""))
         if route == "coupons/validate":
             code = str(body.get("code") or "").strip().upper()
             amount = float(body.get("amount") or 0)
@@ -1985,13 +2213,278 @@ class Handler(SimpleHTTPRequestHandler):
                 if n < 0 or n > 40:
                     return self._json(400, {"error": "blackDiscountPct is outside its allowed range (0–40)"})
                 body["blackDiscountPct"] = n
+            # v253 — validate Billing Bridge settings identically to api.php
+            for buk, blbl in (("billingAppUrl", "Billing software URL"), ("billingWebhookUrl", "Billing webhook URL")):
+                if buk in body:
+                    err_u = dev_billing_validate_url(body[buk], blbl)
+                    if err_u:
+                        return self._json(400, {"error": err_u})
+                    body[buk] = str(body[buk] or "").strip().rstrip("/") if buk == "billingAppUrl" else str(body[buk] or "").strip()
+            if body.get("billingSyncClear"):
+                DEV_SETTINGS.pop("billingSyncSecret", None)
+                body.pop("billingSyncSecret", None)
+                body.pop("billingSyncClear", None)
+            elif "billingSyncSecret" in body:
+                bs = str(body["billingSyncSecret"] or "").strip()
+                if bs in ("", "••••"):
+                    body.pop("billingSyncSecret", None)
+                elif not re.fullmatch(r"[A-Za-z0-9_\-]{16,128}", bs):
+                    return self._json(400, {"error": "Billing sync key must be 16–128 chars (letters, digits, dash, underscore)"})
+                else:
+                    body["billingSyncSecret"] = bs
+            body.pop("billingSyncConfigured", None)
+            body.pop("billingSyncClear", None)
+            for bfl in ("billingPushCustomers", "billingPushLeads", "billingPushOrders", "billingAcceptBills", "billingAcceptStock"):
+                if bfl in body:
+                    body[bfl] = bool(body[bfl])
             # mirror api.php: merge keys, keep everything else (incl. cin/udyam/gstin)
             DEV_SETTINGS.update({k: v for k, v in body.items()})
-            return self._json(200, db()["settings"])
+            return self._json(200, dev_settings_for_user(db(), u))
         return self._json(405, {"error": "Preview shim is read-only"})
+    def _dev_billing_save_bill(self, body, multipart_files=None):
+        import base64
+        if not dev_billing_flag("billingAcceptBills"):
+            return self._json(403, {"ok": False, "error": "Incoming PDF bill sync is switched off in Shivaa Admin → Settings."})
+        bill_no = str(body.get("billNo") or body.get("invoiceNo") or "").strip()[:40]
+        ext_raw = str(body.get("externalId") or body.get("billId") or bill_no).strip()
+        ext_id = re.sub(r"[^A-Za-z0-9_:\-/.]", "", ext_raw)[:80]
+        cname = str(body.get("customerName") or body.get("name") or "").strip()[:120]
+        phone = dev_phone10(body.get("phone") or body.get("mobile") or body.get("customerPhone"))
+        email = str(body.get("email") or "").strip().lower()
+        store = (str(body.get("store") or "").strip()[:120] or "Shivaa Jewels · Jaipur")
+        bdate = str(body.get("billDate") or body.get("date") or time.strftime("%Y-%m-%d")).strip()
+        mdmy = re.match(r"^(\d{2})[/\-](\d{2})[/\-](\d{4})$", bdate)
+        if mdmy:
+            bdate = "%s-%s-%s" % (mdmy.group(3), mdmy.group(2), mdmy.group(1))
+        else:
+            bdate = bdate[:10]
+        try:
+            amount = round(max(0.0, min(1e8, float(body.get("amount") if body.get("amount") is not None else (body.get("total") or 0)))), 2)
+        except (TypeError, ValueError):
+            amount = 0.0
+        notes = str(body.get("notes") or "").strip()[:600]
+        raw_items = body.get("items")
+        line_items = []
+        if isinstance(raw_items, list):
+            line_items = raw_items
+            parts = []
+            for li in line_items:
+                if isinstance(li, dict):
+                    s = str(li.get("name") or li.get("title") or li.get("sku") or "Jewellery").strip()
+                    if li.get("purity"):
+                        s += " " + str(li["purity"]).strip()
+                    if li.get("weightG"):
+                        s += " · %g g" % round(float(li["weightG"]), 3)
+                    if int(li.get("qty") or 1) > 1:
+                        s += " ×%d" % int(li.get("qty") or 1)
+                    parts.append(s)
+                elif li:
+                    parts.append(str(li).strip())
+            items_text = ", ".join(parts)[:600]
+        else:
+            items_text = str(raw_items or "").strip()[:600]
+            if isinstance(body.get("lineItems"), list):
+                line_items = body["lineItems"]
+
+        if not bill_no:
+            return self._json(400, {"ok": False, "error": "billNo is required."})
+        if not ext_id:
+            ext_id = "bill_" + hashlib.md5((bill_no + "|" + phone).encode()).hexdigest()
+        if not cname:
+            return self._json(400, {"ok": False, "error": "customerName is required."})
+        if not dev_valid_phone(phone):
+            return self._json(400, {"ok": False, "error": "A valid 10-digit Indian customer mobile (phone) is required."})
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", bdate):
+            return self._json(400, {"ok": False, "error": "billDate must be YYYY-MM-DD."})
+        tomorrow = time.strftime("%Y-%m-%d", time.localtime(time.time() + 86400))
+        if bdate > tomorrow:
+            return self._json(400, {"ok": False, "error": "billDate cannot be in the future."})
+
+        stored = []
+        if multipart_files is not None:
+            stored, ferr = dev_bill_store(multipart_files)
+            if stored is None:
+                return self._json(400, {"ok": False, "error": ferr})
+        else:
+            flist = body.get("files") if isinstance(body.get("files"), list) and body.get("files") else (
+                [{"base64": body["pdfBase64"], "filename": body.get("filename") or (bill_no + ".pdf")}]
+                if isinstance(body.get("pdfBase64"), str) and body["pdfBase64"].strip() else [])
+            if len(flist) > 6:
+                return self._json(400, {"ok": False, "error": "At most 6 files per bill are allowed."})
+            fake_parts = []
+            for fi, fobj in enumerate(flist):
+                if not isinstance(fobj, dict):
+                    continue
+                b64 = str(fobj.get("base64") or fobj.get("pdfBase64") or fobj.get("data") or "").strip()
+                if b64.startswith("data:") and "," in b64:
+                    b64 = b64.split(",", 1)[1]
+                try:
+                    raw_f = base64.b64decode(re.sub(r"\s+", "", b64), validate=True)
+                except Exception:
+                    return self._json(400, {"ok": False, "error": "File #%d must be valid base64." % (fi + 1)})
+                fake_parts.append({"filename": str(fobj.get("filename") or (bill_no + ".pdf")), "data": raw_f})
+            if fake_parts:
+                stored, ferr = dev_bill_store(fake_parts)
+                if stored is None:
+                    return self._json(400, {"ok": False, "error": ferr})
+
+        existing = next((b for b in DEV["bills"] if b.get("externalId") == ext_id and not b.get("anonymizedAt")), None)
+        replace = bool(body.get("replace", True))
+        if existing and not replace:
+            return self._json(200, {"ok": True, "duplicate": True, "created": False, "updated": False,
+                                    "linked": bool(existing.get("userId")), "userId": existing.get("userId", ""),
+                                    "billId": existing["id"], "externalId": ext_id, "bill": dev_bill_public(existing, True)})
+        if not existing and not stored:
+            return self._json(400, {"ok": False, "error": "Attach the bill PDF (pdfBase64, files[], or multipart file)."})
+
+        now = time.strftime("%Y-%m-%dT%H:%M:%S+05:30")
+        if existing:
+            if stored:
+                existing["files"] = stored
+            existing.update({"billNo": bill_no, "billDate": bdate, "store": store, "customerName": cname,
+                             "phone": phone, "amount": amount, "items": items_text, "source": "billing-sync",
+                             "externalId": ext_id, "userId": "", "updatedAt": now})
+            if notes:
+                existing["notes"] = notes
+            linked = dev_bill_link(existing)
+            if not linked and email:
+                hit_u = next((u for u in dev_all_users() if u.get("role", "customer") == "customer" and str(u.get("email") or "").lower() == email), None)
+                if hit_u:
+                    existing["userId"] = hit_u["id"]
+                    linked = True
+            row, created, updated = existing, False, True
+        else:
+            row = {"id": "sb_" + secrets.token_hex(6), "externalId": ext_id, "source": "billing-sync",
+                   "billNo": bill_no, "billDate": bdate, "store": store, "customerName": cname,
+                   "phone": phone, "userId": "", "amount": amount, "items": items_text, "notes": notes,
+                   "files": stored, "createdBy": "billing-sync", "createdAt": now, "updatedAt": now}
+            linked = dev_bill_link(row)
+            if not linked and email:
+                hit_u = next((u for u in dev_all_users() if u.get("role", "customer") == "customer" and str(u.get("email") or "").lower() == email), None)
+                if hit_u:
+                    row["userId"] = hit_u["id"]
+                    linked = True
+            DEV["bills"].append(row)
+            created, updated = True, False
+
+        stock_res = []
+        if (body.get("adjustStock") or body.get("deductStock")) and dev_billing_flag("billingAcceptStock") and line_items:
+            for idx, li in enumerate(line_items):
+                if not isinstance(li, dict):
+                    continue
+                sku = str(li.get("sku") or "").strip()
+                pid = str(li.get("productId") or "").strip()
+                if not sku and not pid:
+                    continue
+                qty = max(1, int(li.get("qty") or 1))
+                stock_res.append(dev_billing_apply_move({
+                    "movementId": ("bill:%s:%d:%s" % (ext_id, idx, sku or pid))[:80],
+                    "sku": sku, "productId": pid, "delta": -qty, "ref": bill_no, "note": "Showroom bill " + bill_no,
+                }))
+        dev_billing_log("in", "bill.created" if created else "bill.updated", "ok",
+                        "PDF Bill %s · %s (%s) · ₹%d" % (bill_no, cname, phone, int(round(amount))))
+        return self._json(200, {"ok": True, "created": created, "updated": updated, "linked": linked,
+                                "userId": row.get("userId", ""), "billId": row["id"], "externalId": ext_id,
+                                "billNo": bill_no, "filesStored": len(row.get("files") or []),
+                                "profileRoute": "#/my-bills", "stockResults": stock_res,
+                                "bill": dev_bill_public(row, True)})
+
+    def _dev_billing_post(self, route, body, raw_bytes):
+        if route.startswith("admin/billing/"):
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"ok": False, "error": "Admin access required"})
+            if route == "admin/billing/backfill":
+                if not str((db().get("settings") or {}).get("billingSyncSecret") or "").strip():
+                    return self._json(400, {"ok": False, "error": "Save a Billing Sync Key first."})
+                q = {"customers": 0, "leads": 0, "orders": 0}
+                if body.get("customers", True):
+                    for usr in dev_all_users():
+                        if usr.get("role", "customer") == "admin" or usr.get("anonymizedAt"):
+                            continue
+                        cp = dev_billing_customer_payload(usr)
+                        if dev_billing_enqueue("customer.created", "customer.created:" + cp["id"],
+                                               "Customer %s (%s)" % (cp["name"] or cp["id"], cp["phone"]), cp, True):
+                            q["customers"] += 1
+                if body.get("leads", True):
+                    for ld in DEV_BILLING["leads"]:
+                        if dev_billing_enqueue("lead.created", "lead:" + ld["leadId"],
+                                               "Lead [%s] · %s" % (ld["channel"], ld["name"] or ld["phone"] or ld["email"]), ld, True):
+                            q["leads"] += 1
+                return self._json(200, {"ok": True, "queued": q, "totalQueued": sum(q.values()),
+                                        "willDeliverNow": bool((db().get("settings") or {}).get("billingWebhookUrl"))})
+            if route == "admin/billing/test":
+                st = db().get("settings") or {}
+                if not st.get("billingSyncSecret"):
+                    return self._json(400, {"ok": False, "error": "Save a Billing Sync Key first."})
+                if not st.get("billingWebhookUrl"):
+                    return self._json(400, {"ok": False, "error": "Save your Billing Webhook URL first."})
+                dev_billing_log("out", "billing.ping", "ok", "Preview handshake ready (live test runs on Hostinger PHP)")
+                return self._json(200, {"ok": True, "httpCode": 200, "latencyMs": 12,
+                                        "reply": {"ok": True, "connector": "shivaa-connector/253", "storage": "preview"}})
+            if route == "admin/billing/retry":
+                return self._json(200, {"ok": True, "sent": 0, "failed": 0})
+            return self._json(404, {"ok": False, "error": "Unknown admin billing route"})
+
+        code, err = dev_billing_auth(self, "POST", route, raw_bytes)
+        if code != 200:
+            return self._json(code, err)
+        if route == "billing/ping":
+            return self._json(200, {"ok": True, "rel": 253, "shop": "Shivaa Jewels", "billStorageReady": True,
+                                    "clockSkewSec": int(time.time()) - int(self.headers.get("X-Shivaa-Ts") or time.time())})
+        if route == "billing/bills":
+            return self._dev_billing_save_bill(body)
+        if route == "billing/bill-void":
+            if not dev_billing_flag("billingAcceptBills"):
+                return self._json(403, {"ok": False, "error": "Incoming bill sync is switched off."})
+            ext_id = str(body.get("externalId") or body.get("billNo") or "").strip()
+            hit = next((b for b in DEV["bills"] if b.get("externalId") == ext_id or b.get("id") == ext_id), None)
+            if not hit:
+                return self._json(404, {"ok": False, "error": "No synced bill found for externalId " + ext_id})
+            gone = len(hit.get("files") or [])
+            DEV["bills"] = [b for b in DEV["bills"] if b is not hit]
+            dev_billing_log("in", "bill.voided", "ok", "Voided bill " + str(hit.get("billNo") or ext_id))
+            return self._json(200, {"ok": True, "voided": ext_id, "billId": hit["id"], "filesUnlinked": gone})
+        if route == "billing/stock-movement":
+            if not dev_billing_flag("billingAcceptStock"):
+                return self._json(403, {"ok": False, "error": "Incoming stock sync is switched off."})
+            if isinstance(body.get("movements"), list):
+                lst = body["movements"][:100]
+                if not lst:
+                    return self._json(400, {"ok": False, "error": "movements array is empty."})
+                results = [dev_billing_apply_move(m) for m in lst if isinstance(m, dict)]
+                applied = sum(1 for r in results if r.get("ok") and not r.get("duplicate"))
+                return self._json(200, {"ok": True, "applied": applied, "results": results})
+            r = dev_billing_apply_move(body)
+            if not r.get("ok"):
+                return self._json(404 if r.get("notFound") else 400, r)
+            return self._json(200, r)
+        if route == "billing/events/ack":
+            ids = set(str(x) for x in (body.get("ids") or []))
+            acked = 0
+            for ev in DEV_BILLING["outbox"]:
+                if ev.get("id") in ids and ev.get("status") != "delivered":
+                    ev["status"] = "delivered"
+                    ev["deliveredAt"] = time.strftime("%Y-%m-%dT%H:%M:%S+05:30")
+                    acked += 1
+            return self._json(200, {"ok": True, "acked": acked})
+        return self._json(404, {"ok": False, "error": "Unknown billing route"})
+
     def do_DELETE(self, *a):
         u = urlparse(self.path)
         route = u.path[len("/api/"):] if u.path.startswith("/api/") else ""
+        mbv = re.match(r"^billing/bills/([A-Za-z0-9_:\-.]{1,80})$", route)
+        if mbv:
+            code, err = dev_billing_auth(self, "DELETE", route, b"")
+            if code != 200:
+                return self._json(code, err)
+            ext_id = mbv.group(1)
+            hit = next((b for b in DEV["bills"] if b.get("externalId") == ext_id or b.get("id") == ext_id), None)
+            if not hit:
+                return self._json(404, {"ok": False, "error": "No synced bill found"})
+            gone = len(hit.get("files") or [])
+            DEV["bills"] = [b for b in DEV["bills"] if b is not hit]
+            return self._json(200, {"ok": True, "voided": ext_id, "billId": hit["id"], "filesUnlinked": gone})
         m = re.match(r"^admin/store-bills/([\w-]+)$", route)
         if m:
             # v229 — deleting a bill deletes its stored pages too, which is the
@@ -2102,9 +2595,9 @@ class Handler(SimpleHTTPRequestHandler):
                    for x in d.get("pages", []) if x.get("published", True)]
             return self._json(200, {
                 "ok": True,
-                "rel": 252,
+                "rel": 253,
                 "me": {"user": dev_pub_user(u_boot) if u_boot else None, "events": []},
-                "settings": d["settings"],
+                "settings": dev_settings_for_user(d, u_boot),
                 "mc": {"table": d["makingCharges"], "gst": 3},
                 "prods": {"products": lst, "rates": jr},
                 "cats": {"catalogs": [], "gated": True},
@@ -2112,7 +2605,118 @@ class Handler(SimpleHTTPRequestHandler):
                 "rates": rates_payload,
             })
         if route == "settings":
-            return self._json(200, d["settings"])
+            return self._json(200, dev_settings_for_user(d, dev_token(self)))
+        if route.startswith("billing/") or route.startswith("admin/billing/"):
+            q = parse_qs(u.query)
+            if route == "admin/billing/status":
+                me = dev_token(self)
+                if not me or me.get("role") != "admin":
+                    return self._json(403, {"ok": False, "error": "Admin access required"})
+                st = d.get("settings") or {}
+                key_set = bool(str(st.get("billingSyncSecret") or "").strip())
+                wh = str(st.get("billingWebhookUrl") or "").strip()
+                pend = sum(1 for e in DEV_BILLING["outbox"] if e.get("status") == "pending")
+                deliv = sum(1 for e in DEV_BILLING["outbox"] if e.get("status") == "delivered")
+                fail = sum(1 for e in DEV_BILLING["outbox"] if e.get("status") == "failed")
+                synced_b = sum(1 for b in DEV["bills"] if b.get("source") == "billing-sync")
+                cust_n = sum(1 for x in dev_all_users() if x.get("role", "customer") != "admin" and not x.get("anonymizedAt"))
+                return self._json(200, {
+                    "ok": True, "configured": key_set, "twoWayReady": key_set and bool(wh),
+                    "appUrl": str(st.get("billingAppUrl") or ""), "webhookUrl": wh, "billStorageReady": True,
+                    "switches": {k: dev_billing_flag(k) for k in (
+                        "billingPushCustomers", "billingPushLeads", "billingPushOrders", "billingAcceptBills", "billingAcceptStock")},
+                    "counts": {"pending": pend, "delivered": deliv, "failed": fail,
+                               "syncedBills": synced_b, "totalBills": len(DEV["bills"]),
+                               "stockMovements": len(DEV_BILLING["movements"]),
+                               "customersTotal": cust_n, "leadsTotal": len(DEV_BILLING["leads"]),
+                               "ordersTotal": len(d.get("orders") or [])},
+                    "recentLog": list(reversed(DEV_BILLING["log"][-20:])),
+                    "recentOutbox": list(reversed(DEV_BILLING["outbox"][-15:])),
+                })
+            if route == "admin/billing/connector":
+                me = dev_token(self)
+                if not me or me.get("role") != "admin":
+                    return self._json(403, {"ok": False, "error": "Admin access required"})
+                tpl = ROOT / "docs" / "shivaa-connector.php.txt"
+                src = tpl.read_text(encoding="utf-8") if tpl.is_file() else "<?php\n"
+                base = str((d.get("settings") or {}).get("siteBaseUrl") or "").strip().rstrip("/")
+                if re.fullmatch(r"https://[A-Za-z0-9.\-]+(?::\d{2,5})?", base):
+                    src = src.replace("'https://www.shivaa.in'", "'%s'" % base)
+                data_b = src.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream; charset=utf-8")
+                self.send_header("Content-Disposition", 'attachment; filename="shivaa-connector.php"')
+                self.send_header("Content-Length", str(len(data_b)))
+                self.end_headers()
+                self.wfile.write(data_b)
+                return
+            code, err = dev_billing_auth(self, "GET", route, b"")
+            if code != 200:
+                return self._json(code, err)
+            if route == "billing/ping":
+                cts = int(self.headers.get("X-Shivaa-Ts") or time.time())
+                return self._json(200, {
+                    "ok": True, "rel": 253, "shop": d["settings"].get("shopName", "Shivaa Jewels"),
+                    "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S+05:30"), "clockSkewSec": int(time.time()) - cts,
+                    "billStorageReady": True, "webhookConfigured": bool(d["settings"].get("billingWebhookUrl")),
+                    "capabilities": {
+                        "pushCustomers": dev_billing_flag("billingPushCustomers"),
+                        "pushLeads": dev_billing_flag("billingPushLeads"),
+                        "pushOrders": dev_billing_flag("billingPushOrders"),
+                        "acceptBills": dev_billing_flag("billingAcceptBills"),
+                        "acceptStock": dev_billing_flag("billingAcceptStock"),
+                    },
+                    "counts": {"products": len(d.get("products") or []),
+                               "customers": sum(1 for x in dev_all_users() if x.get("role", "customer") != "admin"),
+                               "bills": len(DEV["bills"]),
+                               "pendingEvents": sum(1 for e in DEV_BILLING["outbox"] if e.get("status") == "pending")},
+                })
+            if route == "billing/stock":
+                sku_f = (q.get("sku") or [""])[0].strip().lower()
+                jr = current_rates(d)
+                rows = []
+                for p in d.get("products") or []:
+                    if sku_f and str(p.get("sku") or "").lower() != sku_f:
+                        continue
+                    pr = priced(d, p).get("price")
+                    rows.append({"id": p.get("id", ""), "sku": p.get("sku", ""), "name": p.get("name", ""),
+                                 "category": p.get("category", ""), "metal": p.get("metal", "Gold"),
+                                 "purity": p.get("purity", "22K"), "weightG": float(p.get("weightG") or 0),
+                                 "stock": dev_billing_stock_of(p), "active": bool(p.get("active")),
+                                 "price": pr})
+                return self._json(200, {"ok": True, "products": rows, "total": len(rows), "offset": 0,
+                                        "limit": 500, "rates": jr, "asOf": time.strftime("%Y-%m-%dT%H:%M:%S+05:30")})
+            if route == "billing/rates":
+                jr = current_rates(d)
+                return self._json(200, {"ok": True, "retail": jr, "rates": {**d["rates"]["last"], "jaipur": jr},
+                                        "makingCharges": d.get("makingCharges", []), "gstPct": 3,
+                                        "asOf": time.strftime("%Y-%m-%dT%H:%M:%S+05:30")})
+            if route == "billing/customers":
+                qf = (q.get("q") or [""])[0].strip().lower()
+                rows = [dev_billing_customer_payload(x) for x in reversed(dev_all_users())
+                        if x.get("role", "customer") != "admin" and not x.get("anonymizedAt")]
+                if qf:
+                    rows = [c for c in rows if qf in (c["name"] + " " + c["phone"] + " " + c["email"]).lower()]
+                return self._json(200, {"ok": True, "customers": rows, "total": len(rows), "offset": 0, "limit": 200})
+            if route == "billing/leads":
+                ch = (q.get("channel") or [""])[0].strip()
+                rows = [x for x in reversed(DEV_BILLING["leads"]) if not ch or ch == "all" or x.get("channel") == ch]
+                return self._json(200, {"ok": True, "leads": rows, "total": len(rows), "offset": 0, "limit": 200})
+            if route == "billing/orders":
+                rows = list(reversed(d.get("orders") or []))
+                return self._json(200, {"ok": True, "orders": rows, "total": len(rows), "offset": 0, "limit": 200})
+            if route == "billing/bills":
+                ph_f = dev_phone10((q.get("phone") or [""])[0])
+                rows = [dev_bill_public(b, True) for b in reversed(DEV["bills"])
+                        if not ph_f or dev_phone10(b.get("phone")) == ph_f]
+                return self._json(200, {"ok": True, "bills": rows, "total": len(rows), "offset": 0, "limit": 100})
+            if route == "billing/events":
+                after = max(0, int((q.get("after") or ["0"])[0] or 0))
+                lim = max(1, min(500, int((q.get("limit") or ["100"])[0] or 100)))
+                evs = [{"id": e["id"], "seq": e["seq"], "event": e["event"], "createdAt": e["createdAt"], "data": e["data"]}
+                       for e in DEV_BILLING["outbox"] if e["seq"] > after]
+                return self._json(200, {"ok": True, "events": evs[:lim], "lastSeq": DEV_BILLING["seq"], "hasMore": len(evs) > lim})
+            return self._json(404, {"ok": False, "error": "Unknown billing route"})
         if route == "rates":
             last = d["rates"]["last"]
             return self._json(200, {**last,

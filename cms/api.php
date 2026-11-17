@@ -23,6 +23,7 @@ require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
 require_once __DIR__ . '/mail.php';  // v48 — OTP by email when no SMS gateway exists
+require_once __DIR__ . '/billing-sync.php'; // v253 — two-way signed showroom billing bridge
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -188,7 +189,9 @@ function shv_request_origin_matches_host(): bool {
       && $originPort === $requestPort;
 }
 function shv_guard_write_origin(string $route, string $method): void {
-  if (in_array(strtoupper($method), ['GET', 'HEAD', 'OPTIONS'], true) || $route === 'pay/cashfree/webhook') return;
+  if (in_array(strtoupper($method), ['GET', 'HEAD', 'OPTIONS'], true)
+      || $route === 'pay/cashfree/webhook'
+      || str_starts_with($route, 'billing/')) return;
   if (!shv_request_origin_matches_host()) jout(403, ['error' => 'Cross-origin state-changing request rejected']);
 }
 /* v81 — real client IP. X-Forwarded-For is a client-controlled header, so it
@@ -253,6 +256,7 @@ function shv_wants_write_lock(string $route, string $method): bool {
     'pay/cashfree/status' => 1, 'pay/cashfree/webhook' => 1,
         'admin/refund' => 1, 'admin/pay-test' => 1,
     'sms/test' => 1, 'mail/test' => 1, 'admin/feed-test' => 1,
+    'admin/billing/test' => 1, 'admin/billing/retry' => 1,
     'kyc/gst-lookup' => 1, 'admin/gst-reverify' => 1, 'bullion/tick' => 1, // v87/v88: GST calls wait on apitxt.com
   ];
   if (isset($slow[$route])) return false;
@@ -3568,6 +3572,7 @@ function order_issue_invoice(array &$db, array &$ord): void {
   $ord['invoicedAt'] = now_iso();
   audit_log($db, 'invoice.issued', ['order' => $ord['id'] ?? '', 'invoiceNo' => $ord['invoiceNo'],
                                     'amount' => (int)($ord['amountPaid'] ?? 0)]);
+  shv_billing_emit_order($db, $ord, 'order.paid');
 }
 
 /* v137 (#16) — royalty points are EARNED when the order is paid, not when the
@@ -5104,6 +5109,8 @@ function bill_public(array $b, bool $admin = false): array {
     $out['userId'] = (string)($b['userId'] ?? '');
     $out['notes'] = (string)($b['notes'] ?? '');
     $out['createdBy'] = (string)($b['createdBy'] ?? '');
+    $out['source'] = (string)($b['source'] ?? 'manual');
+    $out['externalId'] = (string)($b['externalId'] ?? '');
     $out['anonymizedAt'] = isset($b['anonymizedAt']) ? (string)$b['anonymizedAt'] : null;
   }
   return $out;
@@ -5166,7 +5173,7 @@ function bill_clean(array $in, bool $create): array {
   elseif ($row['customerName'] === '') $row['error'] = 'The customer name is required.';
   elseif (!preg_match('/^[6-9]\d{9}$/', $row['phone'])) $row['error'] = 'A valid 10-digit customer mobile is required — it is how the bill reaches the right account.';
   elseif ($row['billDate'] === '') $row['error'] = 'The bill date must look like 2026-05-06.';
-  elseif (strtotime($row['billDate'] . 'T23:59:59') < time()) $row['error'] = 'A bill date cannot be in the future.';
+  elseif (strcmp($row['billDate'], date('Y-m-d', time() + 86400)) > 0) $row['error'] = 'A bill date cannot be in the future.';
   return $row;
 }
 /* Turn $_FILES into stored rows. At most six files per bill, each at most
@@ -5318,7 +5325,21 @@ function shv_rates_payload(array &$db, bool &$changed, string $dbFile): array {
 }
 function shv_settings_for_user(array $db, ?array $uSet): array {
   $raw = is_array($db['settings'] ?? null) ? $db['settings'] : [];
-  if ($uSet && ($uSet['role'] ?? '') === 'admin') return $raw;
+  if ($uSet && ($uSet['role'] ?? '') === 'admin') {
+    /* v253 — billingSyncSecret is strictly write-only: never echo the raw HMAC
+       key back over HTTP even to an admin tab; expose only a masked marker. */
+    $hasBillingKey = trim((string)($raw['billingSyncSecret'] ?? '')) !== '';
+    $raw['billingSyncConfigured'] = $hasBillingKey;
+    if ($hasBillingKey) $raw['billingSyncSecret'] = '••••';
+    else unset($raw['billingSyncSecret']);
+    return $raw;
+  }
+  /* v253 — strip all billing-bridge configuration from public /boot & /settings. */
+  foreach (['billingSyncSecret', 'billingSyncConfigured', 'billingAppUrl', 'billingWebhookUrl',
+            'billingPushCustomers', 'billingPushLeads', 'billingPushOrders',
+            'billingAcceptBills', 'billingAcceptStock'] as $bk) {
+    unset($raw[$bk]);
+  }
   $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'appkey', 'mpin',
     'relaykey', 'smskey', 'otpkey', 'authkey', 'clientsecret', 'accesstoken', 'gstapi', 'gstkey',
     'token', 'credential', 'webhooksecret', 'saltkey', 'salt', 'webhookpass', 'clientsecret'];
@@ -5350,6 +5371,9 @@ function shv_settings_for_user(array $db, ?array $uSet): array {
 }
 
 try {
+  /* ── v253 · two-way signed showroom billing bridge ── */
+  shv_billing_handle_route($route, $method, $db, $DB_FILE);
+
   /* ── v252 · one-round-trip storefront boot ── */
   if ($route === 'boot' && $method === 'GET') {
     $ratesPayload = shv_rates_payload($db, $changed, $DB_FILE);
@@ -5385,7 +5409,7 @@ try {
     $pgPayload = ['pages' => array_map(fn($x) => ['title' => $x['title'], 'slug' => $x['slug'], 'updatedAt' => $x['updatedAt'] ?? ''], $pgList)];
     jout(200, [
       'ok' => true,
-      'rel' => 252,
+      'rel' => 253,
       'me' => $mePayload,
       'settings' => $setPayload,
       'mc' => $mcPayload,
@@ -5431,12 +5455,14 @@ try {
     $email = filter_var((string)($b['email'] ?? ''), FILTER_VALIDATE_EMAIL) ? substr((string)$b['email'], 0, 160) : '';
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if ($email === '' && !preg_match('/^[6-9]\d{9}$/', $phone)) jout(400, ['error' => 'A valid email or 10-digit mobile is required']);  // v84
-    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => $email,
+    $raRec = ['id' => uid('ra'), 'email' => $email,
       'phone' => preg_match('/^[6-9]\d{9}$/', $phone) ? $phone : '',
       'metal' => substr((string)($b['metal'] ?? ''), 0, 20), 'target' => $target,
       'productId' => substr((string)($b['productId'] ?? ''), 0, 40),
       'userId' => ($u = req_user($db)) ? $u['id'] : '', 'createdAt' => now_iso()];
+    $db['rateAlerts'][] = $raRec;
     if (count($db['rateAlerts']) > 2000) $db['rateAlerts'] = array_slice($db['rateAlerts'], -2000);
+    shv_billing_emit_lead($db, 'rate_alert', $raRec);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
@@ -5992,6 +6018,8 @@ try {
       // v82 — single-use: a code cannot be replayed within its 5-minute window.
       $o['consumedByLogin'] = true;
       $tk = issue_token($db, $loginUser);
+      shv_billing_link_user_bills($db, $loginUser);
+      shv_billing_emit_customer($db, $loginUser, 'customer.created', true);
       db_save($DB_FILE, $db);
       jout(200, ['token' => $tk, 'user' => pub_user($loginUser)]);
     }
@@ -6044,6 +6072,8 @@ try {
     if ($profile) $u['profile'] = $profile;
     $db['users'][] = $u;
     otp_consume_verified($db, $phone);   // v83 — burn the code on use
+    shv_billing_link_user_bills($db, $u);
+    shv_billing_emit_customer($db, $u, 'customer.created');
     $tk = issue_token($db, $u);
     db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($u)]);
   }
@@ -6322,6 +6352,7 @@ try {
       if (!empty($b['name'])) $uu['name'] = cut500(trim((string)$b['name']));
       $u = $uu;
     }
+    shv_billing_emit_customer($db, $u, 'customer.updated');
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'user' => pub_user($u)]);
   }
   /* v183 — SELF-SERVICE ACCOUNT ERASURE.
@@ -6448,6 +6479,7 @@ try {
       $uu['addresses'][] = $addr;
       $out = $uu;
     }
+    if (!empty($out)) shv_billing_emit_customer($db, $out, 'customer.updated');
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'addresses' => $out['addresses']]);
   }
   if (preg_match('#^addresses/([\w-]+)$#', $route, $mAD)) {
@@ -6477,6 +6509,7 @@ try {
       $out = $uu;
     }
     if (!$found) jout(404, ['error' => 'Address not found']);
+    if ($mutated && !empty($out)) shv_billing_emit_customer($db, $out, 'customer.updated');
     if ($mutated) db_save($DB_FILE, $db);   // v84 — GET never rewrites the database
     jout(200, ['ok' => true, 'addresses' => $out['addresses'] ?? []]);
   }
@@ -6657,6 +6690,7 @@ try {
       $created = true; $changed = true;
       audit_log($db, 'black-card.claim', ['userId' => $u['id'], 'memberId' => $card['memberId'],
         'expiresAt' => $card['expiresAt']]);
+      shv_billing_emit_customer($db, $db['users'][$idx], 'customer.updated');
     }
     if ($changed) db_save($GLOBALS['DB_FILE'], $db);
     jout(200, ['ok' => true, 'created' => $created, 'membership' => black_card_public($card),
@@ -6893,7 +6927,7 @@ try {
     foreach (['billNo', 'billDate', 'store', 'customerName', 'phone', 'amount', 'items', 'notes'] as $k) {
       if (!array_key_exists($k, $in)) continue;
       if ($k === 'billDate' && $clean['billDate'] === '') continue;      // never blank a real date
-      if ($k === 'billDate' && strtotime($clean['billDate'] . 'T23:59:59') < time())
+      if ($k === 'billDate' && strcmp($clean['billDate'], date('Y-m-d', time() + 86400)) > 0)
         jout(400, ['error' => 'A bill date cannot be in the future.']);
       $row[$k] = $clean[$k];
     }
@@ -7396,6 +7430,7 @@ try {
       $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed);
     }
     unset($uu);
+    shv_billing_emit_order($db, $order, 'order.created');
     db_save($DB_FILE, $db);
     /* v142/v161 — order gets the access pin (`pin`, never persisted to the database)
        that lets the order page read / pay / poll without a member account. */
@@ -7468,7 +7503,10 @@ try {
         $o = $x;
       }
       if (!$o) jout(404, ['error' => 'Order not found']);   // v82 — don't answer 200 null for unknown ids
-      if (!empty($patch['status']) || !empty($patch['paymentStatus'])) audit_log($db, 'order.updated', ['order' => $m[1], 'status' => $patch['status'] ?? null, 'payment' => $patch['paymentStatus'] ?? null]);
+      if (!empty($patch['status']) || !empty($patch['paymentStatus'])) {
+        audit_log($db, 'order.updated', ['order' => $m[1], 'status' => $patch['status'] ?? null, 'payment' => $patch['paymentStatus'] ?? null]);
+        if (($patch['paymentStatus'] ?? '') !== 'Paid') shv_billing_emit_order($db, $o, 'order.updated');
+      }
       db_save($DB_FILE, $db); jout(200, $o);
     }
   }
@@ -7534,7 +7572,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 252,
+      'rel' => 253,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8377,7 +8415,9 @@ try {
             'items' => $items, 'totalWeightG' => round($totalWeight, 3), 'factor' => $factor,
             'fineGrams' => round($totalWeight * $factor, 2), 'purity' => $purity,
             'makingCharges' => 0, 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300), 'status' => 'New', 'createdAt' => now_iso()];
-    $db['metalOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
+    $db['metalOrders'][] = $ord;
+    shv_billing_emit_lead($db, 'metal_exchange', array_merge($ord, ['phone' => $u['phone'] ?? '', 'email' => $u['email'] ?? '']));
+    db_save($DB_FILE, $db); jout(200, $ord);
   }
   if ($route === 'metalexchange/orders' && $method === 'GET') {
     $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
@@ -8426,7 +8466,9 @@ try {
             'name' => cut500($fields['name']), 'weightG' => round($w, 3), 'melting' => (int)round(max(0, $melt)),
             'advance' => (int)round(max(0, $adv)), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
             'designImg' => $file, 'status' => 'New', 'createdAt' => now_iso()];
-    $db['customOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
+    $db['customOrders'][] = $ord;
+    shv_billing_emit_lead($db, 'custom_order', array_merge($ord, ['phone' => $u['phone'] ?? '', 'email' => $u['email'] ?? '']));
+    db_save($DB_FILE, $db); jout(200, $ord);
   }
   if ($route === 'customorder' && $method === 'GET') {
     $u = require_partner_approved($db, req_user($db));
@@ -9231,6 +9273,8 @@ try {
           'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u;
     otp_consume_verified($db, $applyPhone);   // v83 — burn the verification code
+    shv_billing_emit_customer($db, $u, 'customer.created');
+    shv_billing_emit_lead($db, 'partner_application', $pr);
     $tk = issue_token($db, $u);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'id' => $pr['id'], 'token' => $tk, 'user' => pub_user($u)]);
@@ -9377,6 +9421,7 @@ try {
             'email' => mb_substr($sEmail, 0, 120), 'details' => mb_substr(trim((string)($b['details'] ?? '')), 0, 1000), 'budget' => mb_substr(trim((string)($b['budget'] ?? '')), 0, 30),
             'status' => 'new', 'history' => [['s' => 'Booked', 't' => now_iso()]], 'createdAt' => now_iso()];
     $db['serviceRequests'][] = $rec;
+    shv_billing_emit_lead($db, 'service_request', $rec);
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $rec]);
   }
   if ($route === 'services/mine' && $method === 'GET') {
@@ -9428,10 +9473,12 @@ try {
     $items = array_slice(array_map(fn($i) => ['n' => substr((string)($i['n'] ?? ''), 0, 60), 'q' => max(1, (int)($i['q'] ?? 1))], (array)($b['items'] ?? [])), 0, 12);
     if (!$items) jout(400, ['error' => 'empty cart']);
     $acPhone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);   // v84 — valid mobiles only
-    $db['carts'][] = ['id' => uid('ac'), 'items' => $items,
-                      'total' => max(0, min(1000000000, (float)($b['total'] ?? 0))),
-                      'phone' => preg_match('/^[6-9]\d{9}$/', $acPhone) ? $acPhone : '', 'at' => now_iso()];
+    $acRec = ['id' => uid('ac'), 'items' => $items,
+              'total' => max(0, min(1000000000, (float)($b['total'] ?? 0))),
+              'phone' => preg_match('/^[6-9]\d{9}$/', $acPhone) ? $acPhone : '', 'at' => now_iso()];
+    $db['carts'][] = $acRec;
     if (count($db['carts']) > 200) $db['carts'] = array_slice($db['carts'], -200);
+    if ($acRec['phone'] !== '') shv_billing_emit_lead($db, 'abandoned_cart', $acRec);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'admin/carts' && $method === 'GET') {
@@ -10031,6 +10078,7 @@ try {
       'startedAt' => now_iso(), 'createdAt' => now_iso()];
     $db['savingsPlans'][] = $plan;
     audit_log($db, 'savings.opened', ['plan' => $plan['planNo'], 'amount' => $amt]);
+    shv_billing_emit_lead($db, 'savings_plan', $plan);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'plan' => $plan, 'view' => savings_view($plan, current_rates($db))]);
   }
@@ -10393,7 +10441,11 @@ try {
     $b = body_json();
     $nlEmail = strtolower(trim((string)($b['email'] ?? '')));
     if (!filter_var($nlEmail, FILTER_VALIDATE_EMAIL) || strlen($nlEmail) > 190) jout(400, ['error' => 'Valid email required']);
-    if (!in_array($nlEmail, array_column($db['newsletter'], 'email'))) $db['newsletter'][] = ['email' => $nlEmail, 'at' => now_iso()];
+    if (!in_array($nlEmail, array_column($db['newsletter'], 'email'))) {
+      $nlRec = ['email' => $nlEmail, 'at' => now_iso()];
+      $db['newsletter'][] = $nlRec;
+      shv_billing_emit_lead($db, 'newsletter', $nlRec, true);
+    }
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'contact' && $method === 'POST') {
@@ -10405,9 +10457,11 @@ try {
     if (mb_strlen($cMsg) < 2 || mb_strlen($cMsg) > 3000) jout(400, ['error' => 'Message must be 2–3000 characters']);
     $cEmail = !empty($b['email']) && filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) ? mb_substr(strtolower(trim((string)$b['email'])), 0, 190) : '';
     $cPhone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
-    $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => mb_substr($cName, 0, 80),
+    $cmRec = ['id' => uid('cm'), 'name' => mb_substr($cName, 0, 80),
       'phone' => preg_match('/^[6-9]\d{9}$/', $cPhone) ? $cPhone : '',   // v84 — only real mobiles are stored
       'email' => $cEmail, 'message' => mb_substr($cMsg, 0, 3000), 'at' => now_iso(), 'read' => false];
+    $db['contactMsgs'][] = $cmRec;
+    shv_billing_emit_lead($db, 'contact', $cmRec);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'reviews' && $method === 'GET') {
@@ -10683,9 +10737,40 @@ try {
         jout(400, ['error' => 'Site base URL must look like https://yourshop.com (no trailing slash).']);
       $setBody['siteBaseUrl'] = $v;
     }
+    /* v253 — Billing Software two-way sync settings (write-only HMAC secret,
+       SSRF-checked HTTPS URLs, and 5 explicit boolean sync toggles). */
+    foreach (['billingAppUrl' => 'Billing software URL', 'billingWebhookUrl' => 'Billing webhook URL'] as $buk => $buLbl) {
+      if (array_key_exists($buk, $setBody)) {
+        $bv = shv_billing_validate_url((string)$setBody[$buk], $buLbl);
+        if (empty($bv['ok'])) jout(400, ['error' => (string)$bv['error']]);
+        $setBody[$buk] = $buk === 'billingAppUrl' ? rtrim((string)$bv['url'], '/') : (string)$bv['url'];
+      }
+    }
+    if (!empty($setBody['billingSyncClear'])) {
+      unset($db['settings']['billingSyncSecret'], $setBody['billingSyncSecret'], $setBody['billingSyncClear']);
+    } elseif (array_key_exists('billingSyncSecret', $setBody)) {
+      $bs = trim((string)$setBody['billingSyncSecret']);
+      if ($bs === '' || $bs === '••••') {
+        unset($setBody['billingSyncSecret']); // blank preserves the saved secret
+      } elseif (!preg_match('/^[A-Za-z0-9_\-]{16,128}$/', $bs)) {
+        jout(400, ['error' => 'Billing sync key must be 16–128 chars (letters, digits, dash, underscore) — use Generate Key for a secure one.']);
+      } else {
+        $setBody['billingSyncSecret'] = $bs;
+      }
+    }
+    unset($setBody['billingSyncClear'], $setBody['billingSyncConfigured']);
+    foreach (['billingPushCustomers', 'billingPushLeads', 'billingPushOrders', 'billingAcceptBills', 'billingAcceptStock'] as $bFlag) {
+      if (array_key_exists($bFlag, $setBody)) {
+        $fv = $setBody[$bFlag];
+        if (is_bool($fv)) continue;
+        if (in_array($fv, [1, '1', 'true', 'on', 'yes'], true)) { $setBody[$bFlag] = true; continue; }
+        if (in_array($fv, [0, '0', 'false', 'off', 'no', '', null], true)) { $setBody[$bFlag] = false; continue; }
+        jout(400, ['error' => $bFlag . ' must be true or false.']);
+      }
+    }
     foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
     audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);
-    db_save($DB_FILE, $db); jout(200, $db['settings']);
+    db_save($DB_FILE, $db); jout(200, shv_settings_for_user($db, ['role' => 'admin']));
   }
   /* ── custom pages (owner-managed) ── */
   if ($route === 'pages' && $method === 'GET') {

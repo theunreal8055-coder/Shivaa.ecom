@@ -4,15 +4,15 @@
   "updated": "2026-11-16",
   "release_branch": "arena/e8a470c6-shivaa-ecom",
   "twin_branch": "arena/09f3c79f-shivaa-ecom",
-  "next_release": 253,
+  "next_release": 254,
   "live": {
-    "release": 252,
-    "title": "Silk",
+    "release": 253,
+    "title": "Bridge",
     "since": "2026-11-16",
     "confirmed_by": null,
-    "owner_words": "Verify v250, move forward only, make the next update so the app feels more live and next-level smooth, loads faster, and does not decrease quality; do not deploy until approved.",
+    "owner_words": "Connect the separate live Hostinger PHP/HTML/JS billing software to shivaa.in with full automatic two-way sync: website leads/customers/orders/rates/stock -> billing software, and billing customer purchase PDF bills -> customer profile (#/my-bills) + SKU stock; support MySQL + JSON; configure URL/key in Admin Settings; do not deploy without approval.",
     "deployed_build": 244,
-    "note": "Forward release on verified v251 Alive. FASTER WITHOUT QUALITY LOSS: one-round-trip gzipped GET /api/boot in api.php (replaces 6-7 competing startup calls, automatic legacy fallback), warm home cap 250 -> 180 ms, synchronous frame-1 PDP open for cached pieces (full-res gallery preserved, folded reviews hydrated in place, photo #2 pre-decoded), Retina 320w/560w WebP thumbs on drawer (803 -> 53 KB, -93 %), cart, mini-cart, compare, search, orders, mega-menu and Shivaa Black banner, and zero-refetch SW fresh photo hits + cache-first ?v=252 immutable assets (HTML shells stay network-first). NEXT-LEVEL SMOOTHNESS: eliminated the 800 ms post-navigation 1,284-element getComputedStyle quiet walk by moving remaining phone rules and motion.css opacity:0 re-fades into frame-0 CSS, scoped v120 overlay MutationObserver to the 5 overlay roots, converted v245/v247 scroll hooks to true post-scroll debounces, retired idle polls/reflows in v107/aurum/motion/v194/v242, yielded idle frames between aurum/motion/boost, and changed v251Arrive to backwards + transform-only press so first-row cards spring immediately. FRAME-1 LIVE FEEL: passive .shv-tap press with 0 ms scroll cancel, wishlist heart spring, compare badge pop, live price settle, 2 px golden route glide, Save-Data-aware intent pre-warm. Desktop keeps all glass blur, hover and studio motion."
+    "note": "Forward release on verified v252 Silk (c78ef0f). Two-way HMAC-SHA256 showroom billing bridge (cms/billing-sync.php + 17 emitters in cms/api.php + lazy-loaded cms/js/admin.js #billingSyncCard + cms/css/v253.css + turnkey billing-connector/shivaa-connector.php & cms/docs/shivaa-connector.php.txt). Website -> Billing: auto-syncs customers, all 9 lead channels and online orders (with paid GST invoiceNo) via post-response DNS-pinned HTTPS webhooks (0 ms shopper impact) + signed pull/catch-up routes (rates, stock, customers, leads, orders, events/ack). Billing -> Website: auto-saves magic-byte-verified purchase PDF bills into private .shivaa-private-bills vault (0600) linked by 10-digit mobile to customer #/my-bills (including pre-signup walk-in mobiles), plus bill void and idempotent SKU stock movements (delta/setStock). Connector supports MySQL + private JSON, shivaa-hooks.php, PHP SDK and authenticated JS bridge. 0 B added to shopper JS; v252 speed & compositor budget preserved."
   },
   "rules": {
     "forward_only": "A release number is spent once it is in this ledger. Never renumber, rebuild-to-change, re-ship or revert it. The highest release number is the only truth; any tree below it is history.",
@@ -473,17 +473,32 @@
     },
     {
       "release": 252,
-      "commit": null,
+      "commit": "c78ef0f",
       "title": "Silk",
       "zip": "shivaa-update-v252.zip",
       "files": 774,
       "bytes": 45524517,
       "sha256": "6a6b57c2d0d9b585f45a399d7dc0fb7172c6d22758ba3ac03e59a317083306db",
-      "status": "live",
+      "status": "superseded",
       "deployed": null,
       "awaiting": "the owner's explicit yes — packaged 16 Nov 2026, not installed",
       "layer": "v252.css",
-      "note": "FASTER: GET /api/boot one-round-trip startup payload + safe gzip in jout() with automatic legacy fallback; warm home cap 250 -> 180 ms; synchronous frame-1 PDP open (full-res original gallery preserved, reviews hydrated in place, photo #2 pre-decoded); drawer photos 803 -> 53 KB (-93 %) via 320w/560w WebP thumbs + thumbAttrs() on cart, mini-cart, saved-for-later, compare, search, order rows, mega-menu and Shivaa Black banner; sw.js serves fresh MEDIA hits without background refetch churn and release-stamped ?v=252 assets cache-first while HTML/manifests remain network-first. SMOOTHER: replaced 1,284-node post-tap getComputedStyle walk with frame-0 CSS rules (including silencing bc-hero-aurora/black-hero/dust/pl-draw and motion.css #view.pg opacity:0 re-fades on phones), scoped v120 overlay watcher to 5 elements, true post-scroll debounce in v245/v247, retired idle polls/forced reflows in v107/aurum/motion/v194/v242, idle-yielded v117 loader, v251Arrive backwards fill + pure-transform press transition. LIVE: frame-1 passive .shv-tap press + 0 ms scroll cancel, wishlist heart spring (.shv-heart-pop), #cmpCount pop, live price settle (.shv-price-live), #shvRouteGlide 2 px gold route bar, Save-Data-aware intent pre-warm. Gates: new qa/browser/t-v252-silk.mjs (48) + t-v240..t-v251 all green (541/541, 0 red), phpbal BALANCED, CSS rule proof 8,781 rules, check-handoff 0 red. Instruments: Shivaa.v252.{report,audit,warm}()."
+      "note": "FASTER: GET /api/boot one-round-trip startup payload + safe gzip in jout() with automatic legacy fallback; warm home cap 250 -> 180 ms; synchronous frame-1 PDP open (full-res original gallery preserved, reviews hydrated in place, photo #2 pre-decoded); drawer photos 803 -> 53 KB (-93 %) via 320w/560w WebP thumbs + thumbAttrs() on cart, mini-cart, saved-for-later, compare, search, order rows, mega-menu and Shivaa Black banner; sw.js serves fresh MEDIA hits without background refetch churn and release-stamped ?v=252 assets cache-first while HTML/manifests remain network-first. SMOOTHER: replaced 1,284-node post-tap getComputedStyle walk with frame-0 CSS rules (including silencing bc-hero-aurora/black-hero/dust/pl-draw and motion.css #view.pg opacity:0 re-fades on phones), scoped v120 overlay watcher to 5 elements, true post-scroll debounce in v245/v247, retired idle polls/forced reflows in v107/aurum/motion/v194/v242, idle-yielded v117 loader, v251Arrive backwards fill + pure-transform press transition. LIVE: frame-1 passive .shv-tap press + 0 ms scroll cancel, wishlist heart spring (.shv-heart-pop), #cmpCount pop, live price settle (.shv-price-live), #shvRouteGlide 2 px gold route bar, Save-Data-aware intent pre-warm. Gates: new qa/browser/t-v252-silk.mjs (48) + t-v240..t-v251 all green (541/541, 0 red), phpbal BALANCED, CSS rule proof 8,781 rules, check-handoff 0 red. Instruments: Shivaa.v252.{report,audit,warm}().",
+      "superseded_by": 253
+    },
+    {
+      "release": 253,
+      "commit": null,
+      "title": "Bridge",
+      "zip": "shivaa-update-v253.zip",
+      "files": 777,
+      "bytes": 45562801,
+      "sha256": "8f752196d38dce6e6d16ceaa4e59f53ad2ed102f18034fd45aacdef9fcd837f6",
+      "status": "live",
+      "deployed": null,
+      "awaiting": "the owner's explicit yes — packaged 16 Nov 2026, not installed",
+      "layer": "v253.css",
+      "note": "TWO-WAY BILLING BRIDGE: connects the owner's separate, already-live Hostinger PHP/HTML/JS billing site to shivaa.in (bridge only; dark 403 until configured). WEBSITE -> BILLING: cms/billing-sync.php (SHV_RUN guarded) + cms/api.php auto-emit customer.created/customer.updated (OTP register/login, profile, addresses, Shivaa Black, B2B), lead.created across all 9 channels (contact, service_request, custom_order, metal_exchange, partner_application, savings_plan, rate_alert, abandoned_cart, newsletter) and order.created/order.paid/order.updated (with GST invoiceNo) into durable billingOutbox, delivered post-response after lock release + fastcgi/litespeed_finish_request via SSRF-safe DNS-pinned HTTPS HMAC-SHA256 webhooks (ports 443/8443, no redirects, 0 ms shopper wait), plus signed GET /api/billing/{rates,stock,customers,leads,orders,events} & POST /api/billing/events/ack. BILLING -> WEBSITE: POST /api/billing/bills (JSON base64 or multipart/form-data) verifies %PDF-/image magic bytes, stores 0600 in .shivaa-private-bills outside public_html, normalizes DD/MM/YYYY dates (and fixes bill_clean future-date bug), upserts idempotently by externalId, optionally deducts SKU stock (adjustStock/deductStock), and auto-links by 10-digit mobile to customer #/my-bills (View/Download only, including walk-in customers registering later); plus POST /api/billing/bill-void, DELETE /api/billing/bills/{externalId}, and idempotent single/batch POST /api/billing/stock-movement (delta or setStock). CONNECTOR & ADMIN: billing-connector/shivaa-connector.php (mirrored to cms/docs/shivaa-connector.php.txt for 1-click Admin download) supports MySQL + locked private JSON, seen_deliveries replay guard, shivaa-hooks.php, PHP SDK & staff JS bridge, with billing-connector/CLAUDE-PROMPT-FOR-BILLING-SITE.md and docs/BILLING-SYNC-CONTRACT.md; lazy-loaded admin.js adds #billingSyncCard (URLs, write-only masked key, 5 switches, Test, Backfill, Retry, Download, Copy setup code, activity log) + auto-billing badge in In-store Bills (0 B added to shopper JS). Gates: new qa/browser/t-v253-bridge.mjs (71/71) + t-v229-bills (102/102) + t-v252-silk (48/48) + t-v251 (46/46) + t-v250 (34/34) + t-v249 (36/36) — 337/337 green, phpbal BALANCED x3, CSS proof 8,807 rules, check-handoff 0 red."
     }
   ],
   "session_branch_2026_11_12": "arena/95be65a4-shivaa-ecom",

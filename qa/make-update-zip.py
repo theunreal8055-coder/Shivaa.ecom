@@ -125,6 +125,10 @@ ADDED = {
     # post-scroll observers and scoped overlay watcher. Minified bundles ride
     # forward from v249/v251 with fresh sha256 proofs.
     252: ['js/v252.js'],
+    # v253 "bridge" — two-way HMAC-SHA256 showroom billing sync engine
+    # (cms/billing-sync.php, include-only) + downloadable connector template
+    # (cms/docs/shivaa-connector.php.txt) + Admin control center (v253.css auto-detected).
+    253: ['billing-sync.php', 'docs/shivaa-connector.php.txt'],
 }
 
 # files under cms/ that are deliberately not shipped (mirrors the docstring)

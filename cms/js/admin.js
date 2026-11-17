@@ -97,6 +97,10 @@ async function renderAdmin(view, q) {
   if (tab === 'bills') {
     try { const br = await api('/api/admin/store-bills'); bills = br.bills || []; billsStorage = br.storage !== false; } catch (e) {}
   }
+  let billingStatus = null;
+  if (tab === 'settings') {
+    try { billingStatus = await api('/api/admin/billing/status'); } catch (e) {}
+  }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -1109,7 +1113,7 @@ function v180DbStrip() {
   /* ── v229 · IN-STORE BILLS: the owner uploads, the customer only views ── */
   if (tab === 'bills') {
     const rows = bills.map(b => `<tr>
-      <td><b>${esc(String(b.billNo || '—'))}</b><br><small style="color:var(--ink-3)">${esc(String(b.billDate || ''))}</small></td>
+      <td><b>${esc(String(b.billNo || '—'))}</b><br><small style="color:var(--ink-3)">${esc(String(b.billDate || ''))}</small>${(b.source === 'billing-sync' || b.createdBy === 'billing-sync') ? '<br><span class="bsync-tag">⚡ auto · billing</span>' : ''}</td>
       <td>${esc(String(b.customerName || '—'))}<br><small style="color:var(--ink-3)">${esc(String(b.phone || '—'))}</small></td>
       <td>${esc(String(b.store || 'Shivaa Jewels · Jaipur'))}</td>
       <td class="num">${fmt(Number(b.amount) || 0)}</td>
@@ -1162,7 +1166,100 @@ function v180DbStrip() {
 
   if (tab === 'settings') {
     const S = state.settings;
-    body.innerHTML = `    <div class="adm-card"><h3>Store settings</h3>
+    const BS = billingStatus || {};
+    const BC = BS.counts || {};
+    const bKeySet = !!(BS.configured || S.billingSyncConfigured || S.billingSyncSecret);
+    const bAppUrl = String(S.billingAppUrl || BS.appUrl || '').trim();
+    const bWhUrl = String(S.billingWebhookUrl || BS.webhookUrl || '').trim();
+    const bTwoWay = bKeySet && !!bWhUrl;
+    const bVaultOk = BS.billStorageReady !== false;
+    const bOn = k => (S[k] === undefined ? true : !!S[k]);
+    const bLogs = Array.isArray(BS.recentLog) ? BS.recentLog : [];
+    const bPending = Number(BC.pending || 0) + Number(BC.failed || 0);
+    const bSafeOpen = /^https:\/\/[A-Za-z0-9.\-]+/i.test(bAppUrl) ? bAppUrl : '';
+    const bStateLabel = bTwoWay
+      ? 'Two-way sync active'
+      : (bKeySet ? 'Inbound active · add webhook URL for auto-push' : 'Not connected yet');
+    const bStateCls = bTwoWay ? 'bsync-pill is-live' : (bKeySet ? 'bsync-pill is-partial' : 'bsync-pill');
+    const billingCardHtml = `<div class="adm-card bsync-card" id="billingSyncCard">
+      <div class="bsync-head">
+        <div>
+          <h3 style="margin:0 0 4px 0">&#128279; Billing Software &amp; Two-Way Sync</h3>
+          <p class="bsync-sub">Connect your live PHP/HTML/JS billing website — website leads, customers &amp; orders save straight into billing, and customer purchase PDFs save automatically onto their Shivaa profile (<code>#/my-bills</code>).</p>
+        </div>
+        <div class="bsync-head-acts">
+          <span class="${bStateCls}">${esc(bStateLabel)}</span>
+          <span class="bsync-pill ${bVaultOk ? 'is-live' : 'is-warn'}">${bVaultOk ? 'PDF vault ready' : 'PDF vault needs setup'}</span>
+          ${bSafeOpen ? `<a href="${esc(bSafeOpen)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">Open Billing Software &#8599;</a>` : ''}
+        </div>
+      </div>
+
+      <div class="bsync-kpis">
+        <div class="bsync-kpi"><span>Website customers</span><b>${Number(BC.customersTotal || 0)}</b><small>${bOn('billingPushCustomers') ? 'auto-push on' : 'paused'}</small></div>
+        <div class="bsync-kpi"><span>Website leads</span><b>${Number(BC.leadsTotal || 0)}</b><small>${bOn('billingPushLeads') ? 'all 9 channels on' : 'paused'}</small></div>
+        <div class="bsync-kpi"><span>Synced PDF bills</span><b>${Number(BC.syncedBills || 0)}</b><small>${Number(BC.totalBills || 0)} total in #/my-bills</small></div>
+        <div class="bsync-kpi"><span>Sync deliveries</span><b>${Number(BC.delivered || 0)}</b><small>${Number(BC.pending || 0)} pending · ${Number(BC.failed || 0)} failed</small></div>
+      </div>
+
+      <form class="form-grid" id="billingSyncForm" onsubmit="ShivaaAdmin.saveBillingSync(event)">
+        <div class="fld">
+          <label>Billing software website URL <small>(your live Hostinger billing domain)</small></label>
+          <input name="billingAppUrl" type="url" value="${esc(bAppUrl)}" placeholder="https://billing.yourdomain.com" autocomplete="off" onblur="ShivaaAdmin.billingAutoFillWebhook(this)">
+        </div>
+        <div class="fld">
+          <label>Billing webhook receiver URL <small>(receives live customers, leads &amp; orders)</small></label>
+          <input name="billingWebhookUrl" type="url" value="${esc(bWhUrl)}" placeholder="https://billing.yourdomain.com/shivaa-connector.php" autocomplete="off">
+        </div>
+        <div class="fld full">
+          <label>Shared HMAC-SHA256 sync key <small>(write-only — paste the exact same key in <code>shivaa-connector.php</code>)</small></label>
+          <div class="bsync-key-row">
+            <input name="billingSyncSecret" id="billingSyncSecretInput" type="password" autocomplete="new-password" placeholder="${bKeySet ? '•••• key saved securely — leave blank to keep current key' : 'Click Generate key (or paste 16–128 chars)'}">
+            <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.generateBillingKey()">Generate key</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="billingCopyKeyBtn" style="display:none" onclick="ShivaaAdmin.copyBillingKey()">Copy key</button>
+          </div>
+          <small id="billingKeyHint" class="bsync-hint"></small>
+        </div>
+
+        <div class="fld full bsync-switches">
+          <label><input type="checkbox" name="billingPushCustomers" ${bOn('billingPushCustomers') ? 'checked' : ''}> <span><b>Customers &rarr; Billing</b> <small>(signups, profile edits, addresses, Shivaa Black, B2B)</small></span></label>
+          <label><input type="checkbox" name="billingPushLeads" ${bOn('billingPushLeads') ? 'checked' : ''}> <span><b>Leads &rarr; Billing</b> <small>(contact, appointments, custom orders, B2B KYC, savings, alerts, abandoned carts)</small></span></label>
+          <label><input type="checkbox" name="billingPushOrders" ${bOn('billingPushOrders') ? 'checked' : ''}> <span><b>Online Orders &rarr; Billing</b> <small>(new orders, paid GST tax invoices &amp; status updates)</small></span></label>
+          <label><input type="checkbox" name="billingAcceptBills" ${bOn('billingAcceptBills') ? 'checked' : ''}> <span><b>Purchase PDFs &rarr; Customer Profile</b> <small>(auto-saves PDF to customer&rsquo;s <code>#/my-bills</code> by mobile)</small></span></label>
+          <label><input type="checkbox" name="billingAcceptStock" ${bOn('billingAcceptStock') ? 'checked' : ''}> <span><b>Stock &amp; Live Rates Sync</b> <small>(counter sale/return SKU adjustments + live 24K/22K/18K/silver rates)</small></span></label>
+        </div>
+
+        <div class="fld full bsync-actions">
+          <button type="submit" class="btn btn-primary btn-sm">Save billing sync</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.downloadBillingConnector()">&#11015; Download shivaa-connector.php</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.copyBillingClaudePrompt()">Copy setup code for billing site</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testBillingSync()" ${bTwoWay ? '' : 'title="Save both sync key and webhook URL first"'}>Test connection</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.backfillBillingSync()" ${bKeySet ? '' : 'disabled'}>Sync existing customers &amp; leads</button>
+          ${bPending > 0 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.retryBillingSync()">Retry queued (${bPending})</button>` : ''}
+          ${bKeySet ? `<button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;color:#a12626" onclick="ShivaaAdmin.disconnectBillingSync()">Disconnect</button>` : ''}
+        </div>
+        <div class="fld full"><div id="billingTestOut" class="bsync-out"></div></div>
+      </form>
+
+      <details class="bsync-setup">
+        <summary>Quick 3-step setup &amp; recent sync activity (${bLogs.length})</summary>
+        <ol class="bsync-steps">
+          <li>Paste your live billing website URL above, click <b>Generate key &rarr; Copy key</b>, then click <b>Save billing sync</b>.</li>
+          <li>Click <b>Download shivaa-connector.php</b>, upload it into your billing website&rsquo;s <code>public_html/</code> on Hostinger, and paste that exact key into <code>SHIVAA_SYNC_SECRET</code> near the top of the file.</li>
+          <li>Click <b>Test connection</b> (shows green), then click <b>Sync existing customers &amp; leads</b>. Use <b>Copy setup code for billing site</b> to hook PDF bill saving on every counter purchase in one step.</li>
+        </ol>
+        ${bLogs.length ? `<div class="adm-table-wrap" style="margin-top:10px"><table class="adm-table">
+          <thead><tr><th>When</th><th>Direction</th><th>Event</th><th>Status</th><th>Details</th></tr></thead>
+          <tbody>${bLogs.slice(0, 15).map(l => `<tr>
+            <td><small>${esc(l.at ? new Date(l.at).toLocaleString('en-IN') : '—')}</small></td>
+            <td><code>${l.dir === 'in' ? 'Billing → Shop' : 'Shop → Billing'}</code></td>
+            <td><code>${esc(String(l.event || ''))}</code></td>
+            <td><span class="pill ${l.status === 'ok' ? 'pm' : (l.status === 'failed' ? 'pr' : 'pd')}">${esc(String(l.status || ''))}</span></td>
+            <td>${esc(String(l.summary || ''))}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : `<p class="partner-note" style="margin:8px 0 0">No sync events recorded yet — activity appears here as soon as leads, customers, orders or showroom PDF bills sync.</p>`}
+      </details>
+    </div>`;
+    body.innerHTML = billingCardHtml + `    <div class="adm-card"><h3>Store settings</h3>
       <form class="form-grid" onsubmit="ShivaaAdmin.saveSettings(event)">
         <div class="fld"><label>Phone</label><input name="phone" value="${esc(S.phone || '')}"></div>
         <div class="fld"><label>WhatsApp number (with 91, no +)</label><input name="whatsapp" value="${esc(S.whatsapp || '918905005921')}" placeholder="918905005921"></div>
@@ -2250,6 +2347,148 @@ window.ShivaaAdmin.saveSettings = async e => {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), gold24Premium: +g('gold24Premium'), gold22Premium: +g('gold22Premium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
     Object.assign(state.settings, s); toast('Settings saved');
   } catch (err) { toast(err.message, 'err'); }
+};
+
+/* ── v253 · Billing Software Two-Way Sync Control Center ── */
+window.ShivaaAdmin.billingAutoFillWebhook = input => {
+  try {
+    const raw = String((input && input.value) || '').trim().replace(/\/+$/, '');
+    if (!/^https:\/\/[A-Za-z0-9.\-]+/i.test(raw)) return;
+    const form = input.closest('form');
+    const wh = form && form.querySelector('[name="billingWebhookUrl"]');
+    if (wh && !String(wh.value || '').trim()) wh.value = raw + '/shivaa-connector.php';
+  } catch (e) {}
+};
+window.ShivaaAdmin.generateBillingKey = () => {
+  const inp = $('#billingSyncSecretInput');
+  const copyBtn = $('#billingCopyKeyBtn');
+  const hint = $('#billingKeyHint');
+  if (!inp) return;
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = new Uint8Array(40);
+  (window.crypto || window.msCrypto).getRandomValues(bytes);
+  let key = 'shv_live_';
+  for (let i = 0; i < bytes.length; i++) key += alphabet[bytes[i] % alphabet.length];
+  inp.type = 'text';
+  inp.value = key;
+  if (copyBtn) copyBtn.style.display = '';
+  if (hint) hint.textContent = 'Copy this key now and paste it into SHIVAA_SYNC_SECRET in shivaa-connector.php on your billing website, then click Save billing sync. Once saved, it is never shown again.';
+};
+window.ShivaaAdmin.copyBillingKey = async () => {
+  const inp = $('#billingSyncSecretInput');
+  if (!inp || !inp.value) return;
+  try {
+    await navigator.clipboard.writeText(inp.value);
+    toast('Sync key copied to clipboard ✦');
+  } catch (e) {
+    inp.select();
+    toast('Press Ctrl+C / Cmd+C to copy the selected key');
+  }
+};
+window.ShivaaAdmin.saveBillingSync = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const fd = new FormData(f);
+  const appUrl = String(fd.get('billingAppUrl') || '').trim().replace(/\/+$/, '');
+  let whUrl = String(fd.get('billingWebhookUrl') || '').trim();
+  if (appUrl && !whUrl && /^https:\/\/[A-Za-z0-9.\-]+/i.test(appUrl)) whUrl = appUrl + '/shivaa-connector.php';
+  const payload = {
+    billingAppUrl: appUrl,
+    billingWebhookUrl: whUrl,
+    billingPushCustomers: !!f.querySelector('[name="billingPushCustomers"]')?.checked,
+    billingPushLeads: !!f.querySelector('[name="billingPushLeads"]')?.checked,
+    billingPushOrders: !!f.querySelector('[name="billingPushOrders"]')?.checked,
+    billingAcceptBills: !!f.querySelector('[name="billingAcceptBills"]')?.checked,
+    billingAcceptStock: !!f.querySelector('[name="billingAcceptStock"]')?.checked,
+  };
+  const sec = String(fd.get('billingSyncSecret') || '').trim();
+  if (sec && sec !== '••••') payload.billingSyncSecret = sec;
+  try {
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(payload) });
+    Object.assign(state.settings, s);
+    toast('Billing sync settings saved ✦');
+    renderAdmin($('#view'), new URLSearchParams('tab=settings'));
+  } catch (err) { toast(err.message || 'Could not save billing sync', 'err'); }
+};
+window.ShivaaAdmin.disconnectBillingSync = async () => {
+  if (!window.confirm('Disconnect the billing software and erase the saved sync key? Existing customer bills on shivaa.in will stay untouched.')) return;
+  try {
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ billingSyncClear: true, billingWebhookUrl: '' }) });
+    delete state.settings.billingSyncSecret;
+    Object.assign(state.settings, s);
+    toast('Billing software disconnected');
+    renderAdmin($('#view'), new URLSearchParams('tab=settings'));
+  } catch (err) { toast(err.message || 'Could not disconnect', 'err'); }
+};
+window.ShivaaAdmin.testBillingSync = async () => {
+  const out = $('#billingTestOut');
+  if (out) out.textContent = 'Sending signed test ping to your billing website…';
+  try {
+    const r = await api('/api/admin/billing/test', { method: 'POST', body: '{}' });
+    if (r && r.ok) {
+      const storage = (r.reply && r.reply.storage) ? ` · storage: ${r.reply.storage}` : '';
+      if (out) out.innerHTML = `<span style="color:#1b6e3d;font-weight:600">&#10004; Connected!</span> HTTP ${Number(r.httpCode || 200)} in ${Number(r.latencyMs || 0)} ms${esc(storage)}`;
+      toast('Billing website connected ✦');
+    } else {
+      if (out) out.innerHTML = `<span style="color:#a12626;font-weight:600">&#10006; Test failed:</span> ${esc(String((r && r.error) || 'No response'))}`;
+      toast((r && r.error) || 'Connection test failed', 'err');
+    }
+  } catch (err) {
+    if (out) out.innerHTML = `<span style="color:#a12626;font-weight:600">&#10006; Error:</span> ${esc(String(err.message || err))}`;
+    toast(err.message || 'Connection test failed', 'err');
+  }
+};
+window.ShivaaAdmin.backfillBillingSync = async () => {
+  const out = $('#billingTestOut');
+  if (out) out.textContent = 'Queueing existing website customers, leads & paid orders…';
+  try {
+    const r = await api('/api/admin/billing/backfill', { method: 'POST', body: JSON.stringify({ customers: true, leads: true, orders: true }) });
+    const q = (r && r.queued) || {};
+    toast(`Queued ${q.customers || 0} customers, ${q.leads || 0} leads, ${q.orders || 0} orders ✦`);
+    renderAdmin($('#view'), new URLSearchParams('tab=settings'));
+  } catch (err) { toast(err.message || 'Backfill failed', 'err'); }
+};
+window.ShivaaAdmin.retryBillingSync = async () => {
+  try {
+    const r = await api('/api/admin/billing/retry', { method: 'POST', body: '{}' });
+    toast(`Delivered ${Number((r && r.sent) || 0)} · failed ${Number((r && r.failed) || 0)}`);
+    renderAdmin($('#view'), new URLSearchParams('tab=settings'));
+  } catch (err) { toast(err.message || 'Retry failed', 'err'); }
+};
+window.ShivaaAdmin.downloadBillingConnector = async () => {
+  try {
+    const res = await fetch('/api/admin/billing/connector', { headers: { Authorization: 'Bearer ' + token() } });
+    if (!res.ok) throw new Error('Could not download connector (HTTP ' + res.status + ')');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'shivaa-connector.php';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast('Downloaded shivaa-connector.php ✦');
+  } catch (err) { toast(err.message || 'Download failed', 'err'); }
+};
+window.ShivaaAdmin.copyBillingClaudePrompt = async () => {
+  const shopOrigin = String(state.settings.siteBaseUrl || window.location.origin).replace(/\/+$/, '');
+  const snippet = [
+    'Wire my PHP/HTML/JS jewellery billing website to shivaa-connector.php (already uploaded in public_html/shivaa-connector.php, connected to ' + shopOrigin + '):',
+    '',
+    '1. INCOMING CUSTOMERS, LEADS & ONLINE ORDERS FROM SHIVAA.IN:',
+    'Create public_html/shivaa-hooks.php implementing:',
+    '  - on_shivaa_customer(array $c, string $event): upsert into my billing customers table/JSON using $c["phone"] (10-digit mobile), $c["name"], $c["email"], $c["address"], $c["city"], $c["state"], $c["pincode"], $c["dob"], $c["anniversary"], $c["gstin"], $c["blackMember"].',
+    '  - on_shivaa_lead(array $l, string $event): save into my leads/customers table using $l["leadId"], $l["channel"], $l["name"], $l["phone"], $l["email"], $l["city"], $l["gstin"], $l["summary"], $l["message"], $l["amount"], $l["createdAt"].',
+    '  - on_shivaa_order(array $o, string $event): save online order using $o["id"], $o["invoiceNo"], $o["customerName"], $o["phone"], $o["status"], $o["paymentStatus"], $o["total"], $o["items"].',
+    '',
+    '2. AUTO-PUSH EVERY CUSTOMER PURCHASE BILL PDF TO THEIR SHIVAA.IN PROFILE (#/my-bills):',
+    '  - If the PDF is generated in PHP: define("SHIVAA_CONNECTOR_LIB", true); require_once __DIR__ . "/shivaa-connector.php"; then call shivaa_push_bill_pdf(["billNo"=>$billNo, "externalId"=>$billId, "customerName"=>$name, "phone"=>$phone, "billDate"=>$yyyyMmDd, "amount"=>$grandTotal, "items"=>$lineItems, "pdfBytes"=>$pdfBytes, "filename"=>$billNo.".pdf", "adjustStock"=>true]);',
+    '  - If the PDF is generated in browser JS (jsPDF/html2pdf): build a FormData with file (PDF Blob), billNo, externalId, customerName, phone, billDate, amount, items (JSON of [{sku,name,purity,weightG,qty,amount}]), adjustStock=1, and POST to "/shivaa-connector.php?action=push_bill" with credentials:"same-origin".',
+    '  - When a bill is cancelled/deleted: call shivaa_void_bill($billId, "Cancelled") or POST "/shivaa-connector.php?action=void_bill".',
+    '  - Never put SHIVAA_SYNC_SECRET in HTML or JavaScript; keep it server-side inside shivaa-connector.php only.',
+  ].join('\n');
+  try {
+    await navigator.clipboard.writeText(snippet);
+    toast('Billing integration prompt copied — paste directly into Claude ✦');
+  } catch (e) { toast('Clipboard blocked — see billing-connector/CLAUDE-PROMPT-FOR-BILLING-SITE.md', 'err'); }
 };
 /* ── v182 · auto-catalogue intake & review queue (Phase 4) ── */
 window.ShivaaAdmin._intake = window.ShivaaAdmin._intake || { urls: [], batchId: '' };

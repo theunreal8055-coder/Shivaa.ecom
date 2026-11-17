@@ -2,6 +2,23 @@
 
 ---
 
+**v253 — BRIDGE** (2026-11-16). Built forward on verified v252 “Silk” to connect Shivaa Jewels' separate,
+live Hostinger PHP/HTML/JS billing software with `shivaa.in` through a secure, HMAC-SHA256-signed two-way
+bridge (awaiting owner approval before deployment). Every lead (contact enquiries, private appointments,
+custom orders, metal exchange, jeweller KYC applications, Swarna Nidhi enrolments, rate alerts, abandoned
+carts and newsletter signups), customer profile and online order on `shivaa.in` automatically syncs to the
+billing software in the background after the customer's page finishes (0 ms shopper delay, zero passwords
+or secrets sent), and the billing software reads live 24K/22K/18K gold & silver rates and SKU stock. In
+reverse, every showroom purchase billed on the billing software automatically saves its verified PDF bill
+into Shivaa's private vault and links it by 10-digit mobile to the customer's `#/my-bills` profile (View &
+Download only, even if the customer registers later), plus syncs counter SKU stock movements and bill
+cancellations. Managed from **Admin → Settings → Billing Software Sync** with a one-click downloadable
+`shivaa-connector.php` (works with both MySQL and JSON). **777 files** in `shivaa-update-v253.zip`
+(cumulative v237–v253); 0 B added to shopper JS; verified 337/337 across `t-v253-bridge`, `t-v229-bills`
+and `t-v249` → `t-v252`, and 0 red on `qa/check-handoff.py`.
+
+---
+
 **v252 — SILK** (2026-11-16). Built forward on verified v251 “Alive” (after v250 “Still”) for faster
 loading, next-level smoothness and richer live touch response with **zero quality loss** (awaiting owner
 approval before deployment). Cold startup consolidates 6–7 separate API calls into one gzipped

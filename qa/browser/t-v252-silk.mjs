@@ -186,7 +186,7 @@ console.log('\nB + D · instant boot, frame-1 tactile spring, instant PDP & live
   ok('phone cold boot hydrated through one-round-trip api/boot',
     a0.bootMode === 'api/boot', JSON.stringify({ bootMode: a0.bootMode, bootMs: a0.bootMs }));
   ok('report line matches the release diagnostic format',
-    /^silk 252 · phone · boot api\/boot \(\d+ ms\) · instant pdp \d+/.test(w.Shivaa.v252.report()),
+    /^silk \d+ · phone · boot api\/boot \(\d+ ms\) · instant pdp \d+/.test(w.Shivaa.v252.report()),
     w.Shivaa.v252.report());
   console.log('       ' + w.Shivaa.v252.report());
 

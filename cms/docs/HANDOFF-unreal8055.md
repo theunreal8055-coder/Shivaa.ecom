@@ -2,6 +2,45 @@
 
 ---
 
+**v253 — BRIDGE** (2026-11-16). Forward release on top of verified v252 “Silk”. Owner request: connect the
+owner's separate, already-live Hostinger PHP + HTML + JavaScript billing website to `shivaa.in` with
+**automatic two-way sync** — bridge/connector only (bill creation stays on the billing website), supporting
+both MySQL and private JSON storage, configurable directly in **Admin → Settings**, with **0 B added to
+shopper JS** and v252 performance untouched (packaged for review; not deployed until explicit owner approval).
+
+1 · **Website → Billing (automatic, zero shopper latency).** `cms/billing-sync.php` (include-only, `SHV_RUN`
+guarded) + 17 wired emitters in `cms/api.php` capture every customer (`customer.created` on mobile OTP
+register/first-login, `customer.updated` on profile edit, address save/update, Shivaa Black claim, B2B apply),
+every lead across all 9 channels (`contact`, `service_request`, `custom_order`, `metal_exchange`,
+`partner_application`, `savings_plan`, `rate_alert`, `abandoned_cart`, `newsletter`), and every online order
+(`order.created`, `order.paid` with GST `invoiceNo` via `order_issue_invoice()`, `order.updated`) with zero
+passwords, OTPs or tokens. Events enqueue into durable `billingOutbox` and push via HMAC-SHA256-signed HTTPS
+webhooks **after** DB lock release + `fastcgi_finish_request()`/`litespeed_finish_request()` (DNS-pinned
+public IP, ports 443/8443 only, no redirects, 0 ms shopper wait), plus signed pull/catch-up routes
+`GET /api/billing/{rates,stock,customers,leads,orders,events}` and `POST /api/billing/events/ack`.
+2 · **Billing → Website (automatic purchase PDF bills + counter stock).** `POST /api/billing/bills` accepts
+HMAC-signed JSON (base64 PDF/image) or `multipart/form-data`, validates real `%PDF-`/image magic bytes,
+stores files `0600` in the private `.shivaa-private-bills` vault outside `public_html`, normalizes Indian
+`DD/MM/YYYY` dates (also fixing `cms/api.php`'s future-date check), deduplicates/upserts by `externalId`,
+optionally deducts SKU stock (`adjustStock`/`deductStock`), and auto-links by 10-digit Indian mobile to the
+customer's `#/my-bills` profile (View & Download only; private notes never exposed) — including pre-signup
+walk-in customers who register later. `POST /api/billing/bill-void` & `DELETE /api/billing/bills/{externalId}`
+purge cancelled bills; `POST /api/billing/stock-movement` applies idempotent single/batch `delta` or `setStock`.
+3 · **Turnkey Hostinger connector + Owner Control Center.** `billing-connector/shivaa-connector.php`
+(mirrored to `cms/docs/shivaa-connector.php.txt` for one-click download in Admin) drops into the billing
+site's `public_html/`, auto-stores incoming customers/leads/orders in MySQL (`shivaa_synced_*`) or locked
+private JSON (`.shivaa-billing-sync`), deduplicates deliveries, fires optional `shivaa-hooks.php` callbacks,
+and exposes both a PHP SDK (`shivaa_push_bill_pdf()`, `shivaa_push_stock()`, `shivaa_get_rates()`, …) and an
+authenticated JS bridge, paired with `billing-connector/CLAUDE-PROMPT-FOR-BILLING-SITE.md` and
+`docs/BILLING-SYNC-CONTRACT.md`. Lazy-loaded `cms/js/admin.js` + `cms/css/v253.css` add `#billingSyncCard`
+in Admin → Settings (URLs, write-only `••••` key generator, 5 toggles, Test Connection, Backfill, Retry,
+Download Connector, Copy Setup Code, live activity log) and `⚡ auto · billing` badges in In-store Bills.
+**777 files**, verified `t-v253-bridge` (71/71), `t-v229-bills` (102/102), `t-v252-silk` (48/48),
+`t-v251-alive` (46/46), `t-v250-still` (34/34), `t-v249-steady` (36/36) — **337/337 green**, `phpbal.py`
+BALANCED on all 3 PHP files, proof-minified CSS (8,807 rules) + JS sha256s verified, `check-handoff.py` 0 red.
+
+---
+
 **v252 — SILK** (2026-11-16). Forward release on top of verified v251 “Alive” (v250 “Still” superseded).
 Owner goal: make the app noticeably **more live**, bring **smoothness to the next level**, and **load
 faster without decreasing quality** (packaged for review; not deployed until explicit owner approval).

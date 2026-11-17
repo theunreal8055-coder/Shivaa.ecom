@@ -1,31 +1,25 @@
 # NEXT CHAT HEAD — read this first
 
-> **CURRENT STATE — v252 “Silk” PACKAGED, AWAITING THE OWNER'S YES (16 Nov 2026).**
-> The only zip to install: **`shivaa-update-v252.zip`** — **774 files · 45,524,517 B ·
-> `6a6b57c2d0d9b585f45a399d7dc0fb7172c6d22758ba3ac03e59a317083306db`**.
-> It contains v237–v251, so **one upload brings the shop fully up to date.**
-> **Next release number: v253.** Session branch: `arena/a20b3005-shivaa-ecom` (fast-forwarded from `arena/95be65a4-shivaa-ecom`).
-> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/a20b3005-shivaa-ecom/shivaa-update-v252.zip`
+> **CURRENT STATE — v253 “Bridge” PACKAGED, AWAITING THE OWNER'S YES (16 Nov 2026).**
+> The only zip to install: **`shivaa-update-v253.zip`** — **777 files · 45,562,801 B ·
+> `8f752196d38dce6e6d16ceaa4e59f53ad2ed102f18034fd45aacdef9fcd837f6`**.
+> It contains v237–v252 (including v250 “Still”, v251 “Alive” and v252 “Silk”), so **one upload brings the shop fully up to date.**
+> **Next release number: v254.** Branch: `arena/a20b3005-shivaa-ecom`.
+> Raw link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/a20b3005-shivaa-ecom/shivaa-update-v253.zip`
 
-> **v252 in one paragraph.** Forward release on verified v251 “Alive” (v250 “Still” superseded) for faster loading,
-> next-level smoothness and frame-1 live touch response with **zero quality loss**. **FASTER:** `api.php` adds
-> one-round-trip `GET /api/boot` (replacing 6–7 separate startup requests in one PHP worker + safe `gzencode`
-> compression for JSON ≥ 1 KB, with transparent client fallback), warm home cap tightens 250 → 180 ms, cached
-> product pages open **synchronously on frame 1 (~65 ms)** with 100 % full-resolution gallery photographs kept
-> intact (folded reviews hydrate in place; photo #2 pre-decodes), drawer photos drop **803 → 53 KB (−93 %)** via
-> Retina 320w/560w WebP thumbs alongside `thumbAttrs()` on cart, mini-cart, compare, search, orders, mega-menu
-> and the Shivaa Black banner, and `sw.js` serves fresh cached photos with 0 background refetch churn plus
-> cache-first `?v=252` immutable assets while keeping HTML/manifests strictly network-first. **SMOOTHER:**
-> eliminated the 800 ms post-navigation 1,284-node `getComputedStyle` walk (`v250.js`) by moving remaining phone
-> rules (`bc-hero-aurora`, `black-hero`, `dust`, `pl-draw`, `#view * { will-change: auto }`, and `motion.css`'s
-> `#view.pg` `opacity:0` route re-fades) into frame-0 CSS (`css/v252.css`); scoped `v120.js` overlay observer to
-> the 5 overlay roots; converted `v245.js`/`v247.js` scroll hooks to true post-scroll debounces; retired idle
-> polls and forced reflows in `v107.js`, `aurum.js`, `motion.js`, `v194.js`, `v242.js`; idle-yielded `v117.js`;
-> switched `v251Arrive` to `backwards` and dropped mobile `box-shadow` press transition so first-row cards spring
-> immediately. **LIVE:** passive frame-1 `.shv-tap` press (0 ms scroll cancel), wishlist heart spring
-> (`.shv-heart-pop`), `#cmpCount` badge pop, live price settle (`.shv-price-live`), 2 px `#shvRouteGlide` bar,
-> and Save-Data-aware intent pre-warm; desktop keeps all blur and studio motion. Proof-minified CSS (8,781 rules)
-> + JS sha256s verified. New instrument: `Shivaa.v252.report()`.
+> **v253 in one paragraph.** Connects the owner's separate, already-live Hostinger PHP + HTML + JavaScript
+> billing website to `shivaa.in` with secure HMAC-SHA256 two-way sync (`cms/billing-sync.php` + 17 emitters in
+> `cms/api.php` + `cms/js/admin.js` `#billingSyncCard` + `cms/css/v253.css` + turnkey `billing-connector/shivaa-connector.php`
+> & `billing-connector/CLAUDE-PROMPT-FOR-BILLING-SITE.md` & `docs/BILLING-SYNC-CONTRACT.md`). Every website
+> customer, every lead across all 9 channels and every online order (including paid GST `invoiceNo`) auto-syncs
+> to the billing software post-response (0 ms shopper delay, DNS-pinned HTTPS, no redirects) plus signed
+> `GET /api/billing/{rates,stock,customers,leads,orders,events}`; in reverse, every showroom purchase PDF bill
+> auto-saves (`0600`, magic-byte verified) into `.shivaa-private-bills` and links by 10-digit mobile to the
+> customer's `#/my-bills` profile (View & Download only, even if they register later), plus bill void and
+> idempotent SKU stock sync. Works with both MySQL and private JSON; managed from **Admin → Settings**; adds
+> **0 B to shopper JS** and keeps every v252 “Silk” performance metric intact. Gates: `t-v253-bridge` (71),
+> `t-v229-bills` (102), `t-v252-silk` (48), `t-v251-alive` (46), `t-v250-still` (34), `t-v249-steady` (36) —
+> **337/337 green**, `phpbal.py` BALANCED ×3, `css/shivaa.min.css` 8,807 rules verified 1:1, `check-handoff.py` 0 red.
 
 > **BRANCH WARNING.** Stay on the active Arena session branch (`arena/a20b3005-shivaa-ecom`). The `release_branch`
 > field inside `docs/release-ledger.json` remains `arena/e8a470c6-shivaa-ecom` for the ledger gate — do **not**
