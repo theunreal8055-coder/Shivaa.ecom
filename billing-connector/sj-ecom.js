@@ -18,7 +18,7 @@
 
   const ENDPOINT = 'shivaa-connector.php';
   const SYNC_MS = 60000;
-  const MAX_PDF_BYTES = 7200000; // stays comfortably under 10 MB base64/upload cap
+  const MAX_PDF_BYTES = 5500000; // stays comfortably under 8 MB PDF & Hostinger post_max_size caps
   const COL = 'ecomBills';
   const ORD_COL = 'ecomOrders';
   const LS_CFG = 'sj-ecom-cfg';
@@ -261,7 +261,7 @@
     try {
       const blob = await buildInvoicePdfBlob(inv);
       const s = getSettings();
-      const storeName = [s.firm || 'Shivaa Jewels', s.city || 'Jaipur'].filter(Boolean).join(' · ');
+      const storeName = s.city ? ((s.firm || 'Shivaa Jewels') + ' · ' + s.city) : (s.firm || 'Shivaa Jewels');
       const billNo = String(inv.no || inv.id).trim();
       const custName = String(inv.partyName || (party && party.name) || 'Customer').trim();
       const email = String(inv.partyEmail || (party && party.email) || '').trim();
@@ -805,10 +805,46 @@
     return [...byId.values()].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   }
 
+  function unsyncedSaleBills() {
+    return allRows('invoices').filter(v => {
+      if (!v || v.deleted || v.type !== 'sale') return false;
+      if (v.quality === 'kacha' && !cfg().autoKacha) return false;
+      const p = partyFor(v);
+      if (!normPhone(v.partyPhone || (p && p.phone))) return false;
+      const rec = billRec(v.id);
+      return !(rec && rec.syncedAt && !rec.voidedAt);
+    });
+  }
+
+  async function pushAllUnsyncedBills(btn) {
+    if (!canWrite()) { notify('Sirf Owner / Manager / Staff bill bhej sakte hain', 'err'); return; }
+    const list = unsyncedSaleBills();
+    if (!list.length) { notify('✓ Saare Pakka sale bills pehle se shivaa.in par bheje ja chuke hain'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 0/' + list.length + ' bhej rahe…'; }
+    let okN = 0, failN = 0;
+    try {
+      for (let i = 0; i < list.length; i++) {
+        if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + list.length + ' (' + (list[i].no || '') + ')…';
+        const r = await pushInvoicePdf(list[i], { auto: true, adjustStock: false });
+        if (r && r.ok) okN++; else failN++;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+      paintCard();
+    }
+    notify(
+      failN
+        ? ('⚠ ' + okN + ' bill bheje, ' + failN + ' ruke — shivaa.in Admin settings check kijiye')
+        : ('✓ ' + okN + ' ke ' + okN + ' bill PDF shivaa.in My Bills par chale gaye!'),
+      failN ? 'err' : undefined
+    );
+  }
+
   function cardHtml() {
     const c = cfg();
     const ordersList = mergedOrders();
     const sentCount = allRows(COL).filter(x => x && x.syncedAt && !x.voidedAt).length;
+    const pendingBills = canWrite() ? unsyncedSaleBills().length : 0;
     const statusCls = isPractice() ? 'warn' : STATE.pingErr ? 'err' : STATE.lastSyncAt ? '' : 'warn';
     const statusTxt = isPractice()
       ? 'Practice mode (sync paused)'
@@ -893,6 +929,7 @@
       '<div class="sje-top">' +
       '<div class="sje-title"><h3>🌐 Shivaa.in Website Sync</h3><span class="sje-dot ' + statusCls + '">' + escH(statusTxt) + '</span></div>' +
       '<div class="sje-acts">' +
+      (pendingBills > 0 ? '<button type="button" class="btn gold" data-act="sje-push-all">📤 Purane ' + pendingBills + ' Bill bhejo</button>' : '') +
       '<button type="button" class="btn" data-act="sje-sync"' + (STATE.syncing ? ' disabled' : '') + '>' + (STATE.syncing ? '⏳ Syncing…' : '🔄 Sync Now') + '</button>' +
       '</div></div>' +
       '<div class="sje-kpis">' +
@@ -940,6 +977,7 @@
     if (btn.disabled) return;
 
     if (act === 'sje-sync') { await syncAll({ manual: true }); return; }
+    if (act === 'sje-push-all') { await pushAllUnsyncedBills(btn); return; }
     if (act === 'sje-tab') { STATE.tab = btn.dataset.tab || 'overview'; paintCard(); return; }
     if (act === 'sje-rate-jaipur') { await applyWebsiteRates('jaipur'); return; }
     if (act === 'sje-rate-spot') { await applyWebsiteRates('spot'); return; }
